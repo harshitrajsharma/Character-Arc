@@ -1,0 +1,4 @@
+interface:
+  display_name: "ProgressApp Design System"
+  short_description: "Build playful, trustworthy ProgressApp interfaces"
+  default_prompt: "Use $progressapp-design-system to design and implement this ProgressApp interface."

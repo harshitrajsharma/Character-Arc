@@ -1,0 +1,906 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum WorkspaceKind {
+  SYSTEM   @map("system")
+  PERSONAL @map("personal")
+  SHARED   @map("shared")
+
+  @@map("workspace_kind")
+}
+
+enum WorkspaceRole {
+  OWNER  @map("owner")
+  EDITOR @map("editor")
+  VIEWER @map("viewer")
+
+  @@map("workspace_role")
+}
+
+enum BlockKind {
+  ENTITY    @map("entity")
+  CONTAINER @map("container")
+  CONTENT   @map("content")
+
+  @@map("block_kind")
+}
+
+enum BlockStatus {
+  DRAFT    @map("draft")
+  ACTIVE   @map("active")
+  ARCHIVED @map("archived")
+
+  @@map("block_status")
+}
+
+enum BlockVisibility {
+  PRIVATE   @map("private")
+  WORKSPACE @map("workspace")
+  PUBLIC    @map("public")
+
+  @@map("block_visibility")
+}
+
+enum UserBlockStatus {
+  NOT_STARTED @map("not_started")
+  ACTIVE      @map("active")
+  PAUSED      @map("paused")
+  COMPLETED   @map("completed")
+  ARCHIVED    @map("archived")
+
+  @@map("user_block_status")
+}
+
+enum RelationCardinality {
+  ONE_TO_ONE   @map("one_to_one")
+  ONE_TO_MANY  @map("one_to_many")
+  MANY_TO_MANY @map("many_to_many")
+
+  @@map("relation_cardinality")
+}
+
+enum FileStatus {
+  UPLOADING @map("uploading")
+  READY     @map("ready")
+  FAILED    @map("failed")
+  DELETED   @map("deleted")
+
+  @@map("file_status")
+}
+
+enum ContentStatus {
+  DRAFT     @map("draft")
+  IN_REVIEW @map("in_review")
+  PUBLISHED @map("published")
+  ARCHIVED  @map("archived")
+
+  @@map("content_status")
+}
+
+enum QuestionKind {
+  SINGLE_CHOICE   @map("single_choice")
+  MULTIPLE_CHOICE @map("multiple_choice")
+  TRUE_FALSE      @map("true_false")
+  NUMERIC         @map("numeric")
+  SHORT_ANSWER    @map("short_answer")
+
+  @@map("question_kind")
+}
+
+enum AssessmentStatus {
+  DRAFT     @map("draft")
+  IN_REVIEW @map("in_review")
+  PUBLISHED @map("published")
+  ARCHIVED  @map("archived")
+
+  @@map("assessment_status")
+}
+
+enum AttemptStatus {
+  IN_PROGRESS @map("in_progress")
+  SUBMITTED   @map("submitted")
+  EVALUATED   @map("evaluated")
+  ABANDONED   @map("abandoned")
+
+  @@map("attempt_status")
+}
+
+enum EvidenceSourceType {
+  ASSESSMENT_ATTEMPT @map("assessment_attempt")
+  STUDY_ACTIVITY     @map("study_activity")
+  PROJECT            @map("project")
+  CREDENTIAL         @map("credential")
+  MANUAL             @map("manual")
+  AGENT              @map("agent")
+  IMPORT             @map("import")
+
+  @@map("evidence_source_type")
+}
+
+enum ToolReleaseStatus {
+  DRAFT      @map("draft")
+  PUBLISHED  @map("published")
+  DEPRECATED @map("deprecated")
+
+  @@map("tool_release_status")
+}
+
+enum ToolInstallationStatus {
+  ACTIVE   @map("active")
+  DISABLED @map("disabled")
+  REMOVED  @map("removed")
+
+  @@map("tool_installation_status")
+}
+
+enum ToolGrantEffect {
+  ALLOW @map("allow")
+  DENY  @map("deny")
+
+  @@map("tool_grant_effect")
+}
+
+enum ToolRunStatus {
+  QUEUED    @map("queued")
+  RUNNING   @map("running")
+  SUCCEEDED @map("succeeded")
+  FAILED    @map("failed")
+  CANCELLED @map("cancelled")
+
+  @@map("tool_run_status")
+}
+
+/// Application profile. Its ID is constrained to the matching Supabase auth.users ID in SQL.
+model Profile {
+  id                    String    @id @db.Uuid
+  displayName           String?   @map("display_name")
+  avatarUrl             String?   @map("avatar_url")
+  timezone              String    @default("UTC")
+  locale                String    @default("en")
+  onboardingCompletedAt DateTime? @map("onboarding_completed_at") @db.Timestamptz(3)
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  createdWorkspaces Workspace[]        @relation("WorkspaceCreator")
+  memberships       WorkspaceMember[]
+  createdBlocks     Block[]            @relation("BlockCreator")
+  createdTags       Tag[]              @relation("TagCreator")
+  blockStates       UserBlockState[]
+  uploadedFiles     FileObject[]       @relation("FileUploader")
+  authoredQuestions Question[]         @relation("QuestionAuthor")
+  attempts          Attempt[]
+  progressEvidence  ProgressEvidence[]
+  topicProgress     TopicProgress[]
+  skills            UserSkill[]
+  toolInstallations ToolInstallation[] @relation("ToolInstaller")
+  toolRuns          ToolRun[]          @relation("ToolRunActor")
+
+  @@map("profiles")
+}
+
+/// Non-null tenancy and authorization boundary for all user and system content.
+model Workspace {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  createdById String?       @map("created_by_id") @db.Uuid
+  kind        WorkspaceKind
+  name        String
+  slug        String        @unique
+  description String?
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  archivedAt  DateTime?     @map("archived_at") @db.Timestamptz(3)
+
+  createdBy           Profile?                 @relation("WorkspaceCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  members             WorkspaceMember[]
+  blocks              Block[]
+  blockRelations      BlockRelation[]
+  tags                Tag[]
+  blockTags           BlockTag[]
+  blockStates         UserBlockState[]
+  files               FileObject[]
+  examBlocks          ExamBlock[]
+  subjectBlocks       SubjectBlock[]
+  examSubjectConfigs  ExamSubjectConfig[]
+  assessments         Assessment[]
+  questions           Question[]
+  questionOptions     QuestionOption[]
+  questionSolutions   QuestionSolution[]
+  solutionOptions     QuestionSolutionOption[]
+  questionTargets     QuestionTarget[]
+  assessmentQuestions AssessmentQuestion[]
+  attempts            Attempt[]
+  attemptResponses    AttemptResponse[]
+  responseOptions     AttemptResponseOption[]
+  progressEvidence    ProgressEvidence[]
+  topicProgress       TopicProgress[]
+  userSkills          UserSkill[]
+  toolInstallations   ToolInstallation[]
+  toolGrants          ToolGrant[]
+  toolRuns            ToolRun[]
+
+  @@index([createdById])
+  @@index([kind, archivedAt])
+  @@map("workspaces")
+}
+
+model WorkspaceMember {
+  workspaceId String        @map("workspace_id") @db.Uuid
+  userId      String        @map("user_id") @db.Uuid
+  role        WorkspaceRole @default(VIEWER)
+  joinedAt    DateTime      @default(now()) @map("joined_at") @db.Timestamptz(3)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      Profile   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([workspaceId, userId])
+  @@index([userId, role])
+  @@map("workspace_members")
+}
+
+/// Developer-controlled registry. Keys should be namespaced when introduced by tools.
+model BlockType {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  toolDefinitionId String?   @map("tool_definition_id") @db.Uuid
+  key              String    @unique
+  name             String
+  description      String?
+  kind             BlockKind @default(ENTITY)
+  icon             String?
+  schemaVersion    Int       @default(1) @map("schema_version")
+  isSystem         Boolean   @default(true) @map("is_system")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  toolDefinition  ToolDefinition?     @relation(fields: [toolDefinitionId], references: [id], onDelete: Restrict)
+  blocks          Block[]
+  sourceRelations BlockRelationType[] @relation("RelationSourceType")
+  targetRelations BlockRelationType[] @relation("RelationTargetType")
+
+  @@index([toolDefinitionId])
+  @@index([kind, isSystem])
+  @@map("block_types")
+}
+
+/// Shared identity for durable, openable knowledge and UI entities.
+model Block {
+  id                       String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId              String          @map("workspace_id") @db.Uuid
+  blockTypeId              String          @map("block_type_id") @db.Uuid
+  parentBlockId            String?         @map("parent_block_id") @db.Uuid
+  createdById              String?         @map("created_by_id") @db.Uuid
+  coverFileId              String?         @map("cover_file_id") @db.Uuid
+  originToolInstallationId String?         @map("origin_tool_installation_id") @db.Uuid
+  originToolRunId          String?         @map("origin_tool_run_id") @db.Uuid
+  title                    String
+  slug                     String
+  summary                  String?
+  body                     String?
+  status                   BlockStatus     @default(ACTIVE)
+  visibility               BlockVisibility @default(PRIVATE)
+  allowAgentAccess         Boolean         @default(false) @map("allow_agent_access")
+  position                 Int             @default(0)
+  icon                     String?
+  properties               Json            @default("{}")
+  schemaVersion            Int             @default(1) @map("schema_version")
+  revision                 BigInt          @default(1)
+  createdAt                DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt                DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  archivedAt               DateTime?       @map("archived_at") @db.Timestamptz(3)
+
+  workspace              Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  blockType              BlockType          @relation(fields: [blockTypeId], references: [id], onDelete: Restrict)
+  parent                 Block?             @relation("BlockHierarchy", fields: [parentBlockId], references: [id], onDelete: SetNull)
+  children               Block[]            @relation("BlockHierarchy")
+  createdBy              Profile?           @relation("BlockCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  coverFile              FileObject?        @relation("BlockCover", fields: [coverFileId], references: [id], onDelete: SetNull)
+  originToolInstallation ToolInstallation?  @relation(fields: [originToolInstallationId], references: [id], onDelete: SetNull)
+  originToolRun          ToolRun?           @relation(fields: [originToolRunId], references: [id], onDelete: SetNull)
+  outgoingRelations      BlockRelation[]    @relation("BlockRelationFrom")
+  incomingRelations      BlockRelation[]    @relation("BlockRelationTo")
+  tags                   BlockTag[]
+  userStates             UserBlockState[]
+  examDetails            ExamBlock?         @relation("ExamBlockIdentity")
+  subjectDetails         SubjectBlock?      @relation("SubjectBlockIdentity")
+  assessmentDetails      Assessment?        @relation("AssessmentIdentity")
+  assessmentsForExam     Assessment[]       @relation("AssessmentExam")
+  questionTargets        QuestionTarget[]
+  progressEvidence       ProgressEvidence[]
+  topicProgress          TopicProgress[]
+  userSkills             UserSkill[]
+
+  @@unique([workspaceId, slug])
+  @@index([workspaceId, parentBlockId, position])
+  @@index([workspaceId, blockTypeId, status, updatedAt])
+  @@index([createdById])
+  @@index([coverFileId])
+  @@index([originToolInstallationId])
+  @@index([originToolRunId])
+  @@map("blocks")
+}
+
+/// Registry that constrains the meaning and valid endpoints of graph edges.
+model BlockRelationType {
+  id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key               String              @unique
+  name              String
+  inverseKey        String?             @map("inverse_key")
+  sourceBlockTypeId String?             @map("source_block_type_id") @db.Uuid
+  targetBlockTypeId String?             @map("target_block_type_id") @db.Uuid
+  cardinality       RelationCardinality @default(MANY_TO_MANY)
+  description       String?
+  isSystem          Boolean             @default(true) @map("is_system")
+  createdAt         DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  sourceBlockType BlockType?      @relation("RelationSourceType", fields: [sourceBlockTypeId], references: [id], onDelete: Restrict)
+  targetBlockType BlockType?      @relation("RelationTargetType", fields: [targetBlockTypeId], references: [id], onDelete: Restrict)
+  relations       BlockRelation[]
+
+  @@index([sourceBlockTypeId, targetBlockTypeId])
+  @@map("block_relation_types")
+}
+
+model BlockRelation {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId    String   @map("workspace_id") @db.Uuid
+  relationTypeId String   @map("relation_type_id") @db.Uuid
+  fromBlockId    String   @map("from_block_id") @db.Uuid
+  toBlockId      String   @map("to_block_id") @db.Uuid
+  position       Int      @default(0)
+  properties     Json     @default("{}")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  workspace    Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  relationType BlockRelationType  @relation(fields: [relationTypeId], references: [id], onDelete: Restrict)
+  fromBlock    Block              @relation("BlockRelationFrom", fields: [fromBlockId], references: [id], onDelete: Cascade)
+  toBlock      Block              @relation("BlockRelationTo", fields: [toBlockId], references: [id], onDelete: Cascade)
+  examSubject  ExamSubjectConfig?
+
+  @@unique([workspaceId, relationTypeId, fromBlockId, toBlockId])
+  @@index([workspaceId, fromBlockId, relationTypeId, position])
+  @@index([workspaceId, toBlockId, relationTypeId])
+  @@map("block_relations")
+}
+
+model Tag {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId String   @map("workspace_id") @db.Uuid
+  createdById String?  @map("created_by_id") @db.Uuid
+  name        String
+  slug        String
+  color       String?
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  workspace Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy Profile?   @relation("TagCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  blocks    BlockTag[]
+
+  @@unique([workspaceId, slug])
+  @@index([workspaceId, name])
+  @@index([createdById])
+  @@map("tags")
+}
+
+model BlockTag {
+  workspaceId String   @map("workspace_id") @db.Uuid
+  blockId     String   @map("block_id") @db.Uuid
+  tagId       String   @map("tag_id") @db.Uuid
+  assignedAt  DateTime @default(now()) @map("assigned_at") @db.Timestamptz(3)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  block     Block     @relation(fields: [blockId], references: [id], onDelete: Cascade)
+  tag       Tag       @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([blockId, tagId])
+  @@index([workspaceId, tagId])
+  @@map("block_tags")
+}
+
+/// Fast current-state projection. Evidence remains the source of truth for calculated progress.
+model UserBlockState {
+  workspaceId     String          @map("workspace_id") @db.Uuid
+  userId          String          @map("user_id") @db.Uuid
+  blockId         String          @map("block_id") @db.Uuid
+  status          UserBlockStatus @default(NOT_STARTED)
+  progressPercent Decimal?        @map("progress_percent") @db.Decimal(5, 2)
+  confidence      Decimal?        @db.Decimal(5, 2)
+  priority        Int             @default(0)
+  pinned          Boolean         @default(false)
+  properties      Json            @default("{}")
+  lastActivityAt  DateTime?       @map("last_activity_at") @db.Timestamptz(3)
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      Profile   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  block     Block     @relation(fields: [blockId], references: [id], onDelete: Cascade)
+
+  @@id([userId, blockId])
+  @@index([workspaceId, userId, status, lastActivityAt])
+  @@index([blockId])
+  @@map("user_block_states")
+}
+
+model FileObject {
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId  String     @map("workspace_id") @db.Uuid
+  uploadedById String?    @map("uploaded_by_id") @db.Uuid
+  bucket       String
+  storagePath  String     @map("storage_path")
+  originalName String?    @map("original_name")
+  mimeType     String?    @map("mime_type")
+  sizeBytes    BigInt?    @map("size_bytes")
+  sha256       String?
+  status       FileStatus @default(UPLOADING)
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  deletedAt    DateTime?  @map("deleted_at") @db.Timestamptz(3)
+
+  workspace        Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  uploadedBy       Profile?   @relation("FileUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+  coveredBlocks    Block[]    @relation("BlockCover")
+  sourcedQuestions Question[] @relation("QuestionSourceFile")
+
+  @@unique([bucket, storagePath])
+  @@index([workspaceId, status, createdAt])
+  @@index([uploadedById])
+  @@index([sha256])
+  @@map("file_objects")
+}
+
+model ExamBlock {
+  blockId              String    @id @map("block_id") @db.Uuid
+  workspaceId          String    @map("workspace_id") @db.Uuid
+  examCode             String?   @map("exam_code")
+  conductingBody       String?   @map("conducting_body")
+  durationMinutes      Int?      @map("duration_minutes")
+  totalMarks           Decimal?  @map("total_marks") @db.Decimal(8, 2)
+  blueprintVersion     Int       @default(1) @map("blueprint_version")
+  negativeMarkingRules Json      @default("{}") @map("negative_marking_rules")
+  officialUrl          String?   @map("official_url")
+  verifiedAt           DateTime? @map("verified_at") @db.Timestamptz(3)
+
+  block     Block     @relation("ExamBlockIdentity", fields: [blockId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, examCode])
+  @@map("exam_blocks")
+}
+
+model SubjectBlock {
+  blockId       String  @id @map("block_id") @db.Uuid
+  workspaceId   String  @map("workspace_id") @db.Uuid
+  canonicalCode String? @map("canonical_code")
+  discipline    String?
+
+  block     Block     @relation("SubjectBlockIdentity", fields: [blockId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, canonicalCode])
+  @@map("subject_blocks")
+}
+
+/// Exam-specific metadata for an `exam --includes--> subject` relation.
+model ExamSubjectConfig {
+  relationId      String    @id @map("relation_id") @db.Uuid
+  workspaceId     String    @map("workspace_id") @db.Uuid
+  section         String?
+  weightage       Decimal?  @db.Decimal(5, 2)
+  expectedMarks   Decimal?  @map("expected_marks") @db.Decimal(8, 2)
+  isRequired      Boolean   @default(true) @map("is_required")
+  syllabusVersion String?   @map("syllabus_version")
+  sourceUrl       String?   @map("source_url")
+  validFrom       DateTime? @map("valid_from") @db.Date
+  validUntil      DateTime? @map("valid_until") @db.Date
+
+  relation  BlockRelation @relation(fields: [relationId], references: [id], onDelete: Cascade)
+  workspace Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, section])
+  @@map("exam_subject_configs")
+}
+
+model Assessment {
+  blockId         String           @id @map("block_id") @db.Uuid
+  workspaceId     String           @map("workspace_id") @db.Uuid
+  examBlockId     String?          @map("exam_block_id") @db.Uuid
+  status          AssessmentStatus @default(DRAFT)
+  durationMinutes Int?             @map("duration_minutes")
+  totalMarks      Decimal?         @map("total_marks") @db.Decimal(8, 2)
+  instructions    String?
+  blueprint       Json             @default("{}")
+  publishedAt     DateTime?        @map("published_at") @db.Timestamptz(3)
+
+  block     Block                @relation("AssessmentIdentity", fields: [blockId], references: [id], onDelete: Cascade)
+  workspace Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  examBlock Block?               @relation("AssessmentExam", fields: [examBlockId], references: [id], onDelete: SetNull)
+  questions AssessmentQuestion[]
+  attempts  Attempt[]
+
+  @@index([workspaceId, status, publishedAt])
+  @@index([examBlockId])
+  @@map("assessments")
+}
+
+model Question {
+  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId  String        @map("workspace_id") @db.Uuid
+  authoredById String?       @map("authored_by_id") @db.Uuid
+  sourceFileId String?       @map("source_file_id") @db.Uuid
+  kind         QuestionKind
+  status       ContentStatus @default(DRAFT)
+  stem         String
+  difficulty   Int?
+  metadata     Json          @default("{}")
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  publishedAt  DateTime?     @map("published_at") @db.Timestamptz(3)
+
+  workspace   Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  authoredBy  Profile?             @relation("QuestionAuthor", fields: [authoredById], references: [id], onDelete: SetNull)
+  sourceFile  FileObject?          @relation("QuestionSourceFile", fields: [sourceFileId], references: [id], onDelete: SetNull)
+  options     QuestionOption[]
+  solution    QuestionSolution?
+  targets     QuestionTarget[]
+  assessments AssessmentQuestion[]
+  responses   AttemptResponse[]
+
+  @@index([workspaceId, status, kind, createdAt])
+  @@index([authoredById])
+  @@index([sourceFileId])
+  @@map("questions")
+}
+
+model QuestionOption {
+  id          String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId String @map("workspace_id") @db.Uuid
+  questionId  String @map("question_id") @db.Uuid
+  key         String
+  content     String
+  position    Int    @default(0)
+  metadata    Json   @default("{}")
+
+  workspace         Workspace                @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  question          Question                 @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  selectedResponses AttemptResponseOption[]
+  solutionOptions   QuestionSolutionOption[]
+
+  @@unique([questionId, key])
+  @@unique([questionId, position])
+  @@index([workspaceId, questionId])
+  @@map("question_options")
+}
+
+/// Server-only answer key. RLS is enabled without authenticated client policies.
+model QuestionSolution {
+  questionId    String   @id @map("question_id") @db.Uuid
+  workspaceId   String   @map("workspace_id") @db.Uuid
+  explanation   String?
+  numericAnswer Decimal? @map("numeric_answer") @db.Decimal(18, 6)
+  textAnswer    String?  @map("text_answer")
+  gradingConfig Json     @default("{}") @map("grading_config")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  workspace      Workspace                @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  question       Question                 @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  correctOptions QuestionSolutionOption[]
+
+  @@index([workspaceId, questionId])
+  @@map("question_solutions")
+}
+
+model QuestionSolutionOption {
+  workspaceId      String @map("workspace_id") @db.Uuid
+  questionId       String @map("question_id") @db.Uuid
+  questionOptionId String @map("question_option_id") @db.Uuid
+
+  workspace      Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  solution       QuestionSolution @relation(fields: [questionId], references: [questionId], onDelete: Cascade)
+  questionOption QuestionOption   @relation(fields: [questionOptionId], references: [id], onDelete: Restrict)
+
+  @@id([questionId, questionOptionId])
+  @@index([workspaceId, questionId])
+  @@index([questionOptionId])
+  @@map("question_solution_options")
+}
+
+model QuestionTarget {
+  workspaceId String  @map("workspace_id") @db.Uuid
+  questionId  String  @map("question_id") @db.Uuid
+  blockId     String  @map("block_id") @db.Uuid
+  weight      Decimal @default(1) @db.Decimal(5, 2)
+  isPrimary   Boolean @default(false) @map("is_primary")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  question  Question  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  block     Block     @relation(fields: [blockId], references: [id], onDelete: Restrict)
+
+  @@id([questionId, blockId])
+  @@index([workspaceId, blockId, isPrimary])
+  @@map("question_targets")
+}
+
+model AssessmentQuestion {
+  id            String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId   String  @map("workspace_id") @db.Uuid
+  assessmentId  String  @map("assessment_id") @db.Uuid
+  questionId    String  @map("question_id") @db.Uuid
+  section       String?
+  position      Int
+  marks         Decimal @default(1) @db.Decimal(8, 2)
+  negativeMarks Decimal @default(0) @map("negative_marks") @db.Decimal(8, 2)
+  isRequired    Boolean @default(true) @map("is_required")
+
+  workspace  Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  assessment Assessment @relation(fields: [assessmentId], references: [blockId], onDelete: Cascade)
+  question   Question   @relation(fields: [questionId], references: [id], onDelete: Restrict)
+
+  @@unique([assessmentId, questionId])
+  @@unique([assessmentId, position])
+  @@index([workspaceId, assessmentId, section, position])
+  @@index([questionId])
+  @@map("assessment_questions")
+}
+
+model Attempt {
+  id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId      String        @map("workspace_id") @db.Uuid
+  assessmentId     String        @map("assessment_id") @db.Uuid
+  userId           String        @map("user_id") @db.Uuid
+  status           AttemptStatus @default(IN_PROGRESS)
+  score            Decimal?      @db.Decimal(10, 2)
+  maxScore         Decimal?      @map("max_score") @db.Decimal(10, 2)
+  correctCount     Int?          @map("correct_count")
+  incorrectCount   Int?          @map("incorrect_count")
+  unansweredCount  Int?          @map("unanswered_count")
+  timeSpentSeconds Int?          @map("time_spent_seconds")
+  metadata         Json          @default("{}")
+  startedAt        DateTime      @default(now()) @map("started_at") @db.Timestamptz(3)
+  submittedAt      DateTime?     @map("submitted_at") @db.Timestamptz(3)
+  evaluatedAt      DateTime?     @map("evaluated_at") @db.Timestamptz(3)
+
+  workspace        Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  assessment       Assessment         @relation(fields: [assessmentId], references: [blockId], onDelete: Restrict)
+  user             Profile            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  responses        AttemptResponse[]
+  progressEvidence ProgressEvidence[]
+
+  @@index([workspaceId, userId, status, startedAt])
+  @@index([assessmentId, submittedAt])
+  @@map("attempts")
+}
+
+model AttemptResponse {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId      String    @map("workspace_id") @db.Uuid
+  attemptId        String    @map("attempt_id") @db.Uuid
+  questionId       String    @map("question_id") @db.Uuid
+  answerText       String?   @map("answer_text")
+  isCorrect        Boolean?  @map("is_correct")
+  awardedMarks     Decimal?  @map("awarded_marks") @db.Decimal(8, 2)
+  timeSpentSeconds Int?      @map("time_spent_seconds")
+  metadata         Json      @default("{}")
+  answeredAt       DateTime? @map("answered_at") @db.Timestamptz(3)
+
+  workspace       Workspace               @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  attempt         Attempt                 @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question        Question                @relation(fields: [questionId], references: [id], onDelete: Restrict)
+  selectedOptions AttemptResponseOption[]
+
+  @@unique([attemptId, questionId])
+  @@index([workspaceId, attemptId])
+  @@index([questionId])
+  @@map("attempt_responses")
+}
+
+model AttemptResponseOption {
+  workspaceId      String @map("workspace_id") @db.Uuid
+  responseId       String @map("response_id") @db.Uuid
+  questionOptionId String @map("question_option_id") @db.Uuid
+
+  workspace      Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  response       AttemptResponse @relation(fields: [responseId], references: [id], onDelete: Cascade)
+  questionOption QuestionOption  @relation(fields: [questionOptionId], references: [id], onDelete: Restrict)
+
+  @@id([responseId, questionOptionId])
+  @@index([workspaceId, responseId])
+  @@index([questionOptionId])
+  @@map("attempt_response_options")
+}
+
+/// Immutable explanation of why a user's progress or skill projection changed.
+model ProgressEvidence {
+  id           String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId  String             @map("workspace_id") @db.Uuid
+  userId       String             @map("user_id") @db.Uuid
+  blockId      String             @map("block_id") @db.Uuid
+  attemptId    String?            @map("attempt_id") @db.Uuid
+  sourceType   EvidenceSourceType @map("source_type")
+  sourceId     String?            @map("source_id")
+  evidenceKey  String             @map("evidence_key")
+  numericValue Decimal?           @map("numeric_value") @db.Decimal(10, 4)
+  maxValue     Decimal?           @map("max_value") @db.Decimal(10, 4)
+  confidence   Decimal?           @db.Decimal(5, 2)
+  properties   Json               @default("{}")
+  occurredAt   DateTime           @map("occurred_at") @db.Timestamptz(3)
+  createdAt    DateTime           @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      Profile   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  block     Block     @relation(fields: [blockId], references: [id], onDelete: Restrict)
+  attempt   Attempt?  @relation(fields: [attemptId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, userId, blockId, occurredAt])
+  @@index([attemptId])
+  @@index([sourceType, sourceId])
+  @@map("progress_evidence")
+}
+
+/// Rebuildable topic-level projection derived from ProgressEvidence.
+model TopicProgress {
+  workspaceId     String    @map("workspace_id") @db.Uuid
+  userId          String    @map("user_id") @db.Uuid
+  blockId         String    @map("block_id") @db.Uuid
+  proficiency     Decimal   @default(0) @db.Decimal(5, 2)
+  confidence      Decimal   @default(0) @db.Decimal(5, 2)
+  evidenceCount   Int       @default(0) @map("evidence_count")
+  lastPracticedAt DateTime? @map("last_practiced_at") @db.Timestamptz(3)
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      Profile   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  block     Block     @relation(fields: [blockId], references: [id], onDelete: Cascade)
+
+  @@id([userId, blockId])
+  @@index([workspaceId, userId, proficiency, lastPracticedAt])
+  @@map("topic_progress")
+}
+
+/// Rebuildable skill projection. The block must have a registered skill block type.
+model UserSkill {
+  workspaceId    String    @map("workspace_id") @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  skillBlockId   String    @map("skill_block_id") @db.Uuid
+  rating         Decimal   @default(0) @db.Decimal(5, 2)
+  confidence     Decimal   @default(0) @db.Decimal(5, 2)
+  evidenceCount  Int       @default(0) @map("evidence_count")
+  lastAssessedAt DateTime? @map("last_assessed_at") @db.Timestamptz(3)
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  workspace  Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user       Profile   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skillBlock Block     @relation(fields: [skillBlockId], references: [id], onDelete: Cascade)
+
+  @@id([userId, skillBlockId])
+  @@index([workspaceId, userId, rating, lastAssessedAt])
+  @@map("user_skills")
+}
+
+/// Stable tool identity. Version-specific contracts live in ToolRelease.
+model ToolDefinition {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key         String   @unique
+  name        String
+  description String
+  icon        String?
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  blockTypes    BlockType[]
+  releases      ToolRelease[]
+  installations ToolInstallation[]
+
+  @@index([enabled, name])
+  @@map("tool_definitions")
+}
+
+model ToolRelease {
+  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  toolDefinitionId String            @map("tool_definition_id") @db.Uuid
+  version          String
+  status           ToolReleaseStatus @default(DRAFT)
+  schemaVersion    Int               @default(1) @map("schema_version")
+  manifest         Json              @default("{}")
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  publishedAt      DateTime?         @map("published_at") @db.Timestamptz(3)
+
+  toolDefinition ToolDefinition     @relation(fields: [toolDefinitionId], references: [id], onDelete: Cascade)
+  installations  ToolInstallation[]
+  runs           ToolRun[]
+
+  @@unique([toolDefinitionId, version])
+  @@index([toolDefinitionId, status, publishedAt])
+  @@map("tool_releases")
+}
+
+model ToolInstallation {
+  id               String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId      String                 @map("workspace_id") @db.Uuid
+  installedById    String?                @map("installed_by_id") @db.Uuid
+  toolDefinitionId String                 @map("tool_definition_id") @db.Uuid
+  toolReleaseId    String                 @map("tool_release_id") @db.Uuid
+  status           ToolInstallationStatus @default(ACTIVE)
+  config           Json                   @default("{}")
+  installedAt      DateTime               @default(now()) @map("installed_at") @db.Timestamptz(3)
+  updatedAt        DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  disabledAt       DateTime?              @map("disabled_at") @db.Timestamptz(3)
+
+  workspace        Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  installedBy      Profile?       @relation("ToolInstaller", fields: [installedById], references: [id], onDelete: SetNull)
+  toolDefinition   ToolDefinition @relation(fields: [toolDefinitionId], references: [id], onDelete: Restrict)
+  toolRelease      ToolRelease    @relation(fields: [toolReleaseId], references: [id], onDelete: Restrict)
+  grants           ToolGrant[]
+  originatedBlocks Block[]
+  runs             ToolRun[]
+
+  @@unique([workspaceId, toolDefinitionId])
+  @@index([workspaceId, status])
+  @@index([installedById])
+  @@index([toolReleaseId])
+  @@map("tool_installations")
+}
+
+model ToolGrant {
+  id             String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId    String          @map("workspace_id") @db.Uuid
+  installationId String          @map("installation_id") @db.Uuid
+  permissionKey  String          @map("permission_key")
+  effect         ToolGrantEffect @default(DENY)
+  constraints    Json            @default("{}")
+  createdAt      DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  workspace    Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  installation ToolInstallation @relation(fields: [installationId], references: [id], onDelete: Cascade)
+
+  @@unique([installationId, permissionKey])
+  @@index([workspaceId, effect])
+  @@index([installationId, effect])
+  @@map("tool_grants")
+}
+
+/// Auditable execution of one action against one installed tool release.
+model ToolRun {
+  id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId      String        @map("workspace_id") @db.Uuid
+  installationId   String?       @map("installation_id") @db.Uuid
+  toolReleaseId    String        @map("tool_release_id") @db.Uuid
+  actorId          String?       @map("actor_id") @db.Uuid
+  actionKey        String        @map("action_key")
+  handlerVersion   String        @map("handler_version")
+  invocationSource String        @default("web") @map("invocation_source")
+  status           ToolRunStatus @default(QUEUED)
+  idempotencyKey   String        @map("idempotency_key")
+  input            Json          @default("{}")
+  inputHash        String        @map("input_hash")
+  manifestHash     String        @map("manifest_hash")
+  output           Json?
+  errorCode        String?       @map("error_code")
+  errorMessage     String?       @map("error_message")
+  startedAt        DateTime?     @map("started_at") @db.Timestamptz(3)
+  completedAt      DateTime?     @map("completed_at") @db.Timestamptz(3)
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  workspace    Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  installation ToolInstallation? @relation(fields: [installationId], references: [id], onDelete: SetNull)
+  toolRelease  ToolRelease       @relation(fields: [toolReleaseId], references: [id], onDelete: Restrict)
+  actor        Profile?          @relation("ToolRunActor", fields: [actorId], references: [id], onDelete: SetNull)
+  outputBlocks Block[]
+
+  @@unique([installationId, idempotencyKey])
+  @@index([workspaceId, status, createdAt])
+  @@index([actorId, createdAt])
+  @@index([toolReleaseId, actionKey, createdAt])
+  @@map("tool_runs")
+}

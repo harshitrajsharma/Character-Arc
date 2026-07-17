@@ -1,0 +1,34 @@
+import Link from "next/link"
+import { CheckCircle2Icon } from "lucide-react"
+
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { buttonVariants } from "@/components/ui/button"
+
+type ArcFormSuccessProps = {
+  message: string
+  rootBlockId?: string
+}
+
+export function ArcFormSuccess({ message, rootBlockId }: ArcFormSuccessProps) {
+  return (
+    <div className="mx-auto w-full max-w-6xl px-4 py-16 sm:px-6 lg:px-8">
+      <Alert className="mx-auto max-w-xl border-brand-neon-line bg-brand-neon-soft">
+        <CheckCircle2Icon aria-hidden="true" />
+        <AlertTitle>Your arc is live</AlertTitle>
+        <AlertDescription>{message}</AlertDescription>
+      </Alert>
+      <div className="mt-6 flex justify-center">
+        <Link
+          href={
+            rootBlockId
+              ? `/tools/goals-paths/${rootBlockId}`
+              : "/tools/goals-paths"
+          }
+          className={buttonVariants({ variant: "secondary" })}
+        >
+          {rootBlockId ? "Open your Arc" : "View your arcs"}
+        </Link>
+      </div>
+    </div>
+  )
+}
