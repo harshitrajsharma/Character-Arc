@@ -112,7 +112,7 @@ export default async function DashboardPage({
   const name = firstName(profile?.display_name, claims.email)
 
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 pt-24 pb-8">
+    <main className="mx-auto w-full max-w-6xl px-4 md:px-6 xl:px-10 pt-24 pb-8">
       <header className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
         <div className="max-w-2xl">
           <p className="mb-2 text-sm font-medium text-muted-foreground">

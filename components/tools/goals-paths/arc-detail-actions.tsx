@@ -45,7 +45,7 @@ export function ArcDetailActions(props: ArcDetailActionsProps) {
             render={
               <Button
                 type="button"
-                variant="ghost"
+                variant="secondary"
                 size="icon-sm"
                 className="size-11 sm:size-8"
                 aria-label="More Arc actions"
@@ -56,8 +56,8 @@ export function ArcDetailActions(props: ArcDetailActionsProps) {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
             <DropdownMenuItem
-              variant="destructive"
               onClick={() => setDeleteOpen(true)}
+              className="text-destructive focus:text-destructive [&_svg]:text-destructive"
             >
               <Trash2Icon aria-hidden="true" />
               Delete Arc

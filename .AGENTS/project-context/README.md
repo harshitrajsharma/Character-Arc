@@ -8,7 +8,7 @@ changing colors.
 
 ## Working Name
 
-ProgressApp 2.0 is a platform of AI-operable tools that help people make progress and retain the outcomes.
+Character Arc is a platform of AI-operable tools that help people make progress and retain the outcomes.
 
 ## One-Line Pitch
 
@@ -16,7 +16,7 @@ Install the tools you need, use them yourself or through any AI agent, and see y
 
 Power-user version:
 
-Bring your own AI. ProgressApp 2.0 gives ChatGPT, Claude, Antigravity, and local agents strict tools, durable context, and a visual outcome layer while the most private context can remain in a local LLM-wiki.
+Bring your own AI. Character Arc gives ChatGPT, Claude, Antigravity, and local agents strict tools, durable context, and a visual outcome layer while the most private context can remain in a local LLM-wiki.
 
 ## Core Problem
 
@@ -28,9 +28,9 @@ Power users can maintain a local LLM-wiki in Markdown and use it as a long-term 
 
 The app should become the structured memory and outcome layer between humans and AI assistants.
 
-ProgressApp 2.0 is not primarily an AI chatbot, a notes application, or a collection of API integrations. It is a platform of strict, installable tools that turn AI-generated content and human activity into durable, measurable outcomes.
+Character Arc is not primarily an AI chatbot, a notes application, or a collection of API integrations. It is a platform of strict, installable tools that turn AI-generated content and human activity into durable, measurable outcomes.
 
-Users should not need to pay for AI in every app. They should be able to use the AI assistant they already trust, while ProgressApp 2.0 provides centralized structured context, safe sync, and tools that the assistant can call.
+Users should not need to pay for AI in every app. They should be able to use the AI assistant they already trust, while Character Arc provides centralized structured context, safe sync, and tools that the assistant can call.
 
 The app itself should not feel strict or rigid. The app should feel flexible, useful, and human-friendly. The strictness should live inside the tools.
 
@@ -57,7 +57,7 @@ The product should be designed for everyone even though the hackathon demo focus
 
 ## User-Facing Promise
 
-Chat with AI about your life. ProgressApp 2.0 turns messy thoughts into goals, plans, tasks, reflections, and memory you can actually use.
+Chat with AI about your life. Character Arc turns messy thoughts into goals, plans, tasks, reflections, and memory you can actually use.
 
 ## Important Framing
 
@@ -79,10 +79,10 @@ Those are important implementation and power-user features, but they should not 
 
 ## Product Mental Model
 
-ProgressApp 2.0 has three things that users can understand independently:
+Character Arc has three things that users can understand independently:
 
 1. Tools
-   - Add structured capabilities to ProgressApp 2.0.
+   - Add structured capabilities to Character Arc.
    - Examples: Exam Prep, Quiz, Flashcards, Career Compass, Skill Graph, Daily Planning.
    - Each installed tool gets its own working pages, data model, actions, analytics, and agent interface.
 
@@ -93,22 +93,22 @@ ProgressApp 2.0 has three things that users can understand independently:
 
 3. AI agents
    - Create, read, and update content through a tool's strict actions.
-   - The agent can be ProgressApp AI on a paid plan or an external agent such as ChatGPT, Claude, Antigravity, or another MCP/API client.
-   - The agent supplies intelligence and generated content. ProgressApp 2.0 supplies structure, permissions, memory, analytics, and presentation.
+   - The agent can be Character Arc AI on a paid plan or an external agent such as ChatGPT, Claude, Antigravity, or another MCP/API client.
+   - The agent supplies intelligence and generated content. Character Arc supplies structure, permissions, memory, analytics, and presentation.
 
 The user should never need to understand every capability. A central Tools page shows available and installed tools, similar to how AI applications present connectors. Users install only what is relevant to them, and uninstalled tools stay out of their daily experience.
 
 ### Relationship Between the Three Systems
 
-- ProgressApp 2.0 is the structured action, outcome, analytics, and view layer.
+- Character Arc is the structured action, outcome, analytics, and view layer.
 - The LLM-wiki is the optional local memory and private-context layer.
-- ChatGPT, Claude, Antigravity, ProgressApp AI, and other agentic applications are the reasoning and content-generation layer.
+- ChatGPT, Claude, Antigravity, Character Arc AI, and other agentic applications are the reasoning and content-generation layer.
 
-ProgressApp 2.0 remains useful without an LLM-wiki and without an external AI connection. Normal users can use installed tools directly in the web app. Power users can combine all three systems for deeper context and automation.
+Character Arc remains useful without an LLM-wiki and without an external AI connection. Normal users can use installed tools directly in the web app. Power users can combine all three systems for deeper context and automation.
 
 ## Core Architecture
 
-ProgressApp 2.0 has four layers:
+Character Arc has four layers:
 
 1. Cloud app for normal users
    - Browser-friendly dashboard.
@@ -122,10 +122,10 @@ ProgressApp 2.0 has four layers:
    - CLI.
    - Tool endpoints for ChatGPT, Claude, local agents, and future integrations.
    - Lets users bring their own AI instead of paying for another bundled AI assistant everywhere.
-   - Tools are not just wrappers around external APIs. A ProgressApp tool owns structured context and progress state for a domain in the user's life.
+   - Tools are not just wrappers around external APIs. A Character Arc tool owns structured context and progress state for a domain in the user's life.
 
 3. Agentic application layer
-   - ProgressApp AI for paid users and the hackathon demonstration.
+   - Character Arc AI for paid users and the hackathon demonstration.
    - External AI applications such as ChatGPT, Claude, Antigravity, and other MCP-capable agents.
    - Agents use explicit tool actions instead of writing arbitrary data directly to the database.
    - Users can bring their existing AI subscription instead of paying for intelligence in every application.
@@ -135,13 +135,13 @@ ProgressApp 2.0 has four layers:
    - Stores highly personal context that may never be synced.
    - Agents can infer structured data from selected Markdown sections.
    - User controls what is synced to the centralized app.
-   - A ProgressApp CLI creates, validates, indexes, upgrades, and selectively syncs the wiki so users do not need to design it manually.
+   - A Character Arc CLI creates, validates, indexes, upgrades, and selectively syncs the wiki so users do not need to design it manually.
 
 ## Local Wiki Setup and CLI
 
-Normal users cannot be expected to understand Markdown schemas, YAML frontmatter, agent instruction files, folder conventions, cross-links, or sync policies. ProgressApp 2.0 must provide a CLI that creates and maintains a usable LLM-wiki for them.
+Normal users cannot be expected to understand Markdown schemas, YAML frontmatter, agent instruction files, folder conventions, cross-links, or sync policies. Character Arc must provide a CLI that creates and maintains a usable LLM-wiki for them.
 
-The CLI is one optional bridge to local ownership, not a prerequisite for using ProgressApp. A normal user can use the cloud app without a local wiki. A user who wants local files should be able to obtain a working wiki without designing the system or manually entering terminal commands.
+The CLI is one optional bridge to local ownership, not a prerequisite for using Character Arc. A normal user can use the cloud app without a local wiki. A user who wants local files should be able to obtain a working wiki without designing the system or manually entering terminal commands.
 
 ### Setup paths
 
@@ -149,14 +149,14 @@ The app should present three setup paths, ordered from simplest to most advanced
 
 1. Download my wiki
    - The user selects the areas they care about, such as Exam Prep, Goals, Skills, or Career.
-   - ProgressApp generates an OKF-conformant starter folder as a ZIP.
+   - Character Arc generates an OKF-conformant starter folder as a ZIP.
    - The user extracts it and can open it immediately in Obsidian or any file editor.
    - The bundle includes plain-language guidance and agent rules, but no account secrets or long-lived access tokens.
 
 2. Set up with my AI agent
    - The app generates a copyable prompt tailored to the user's operating system, selected tools, and desired folder location.
    - The user runs the prompt in an agentic application that has local file and terminal access.
-   - The agent installs or invokes the verified ProgressApp CLI, initializes the bundle, validates it, and reports the created files.
+   - The agent installs or invokes the verified Character Arc CLI, initializes the bundle, validates it, and reports the created files.
    - The agent must ask before replacing existing files, connecting an account, or syncing any data.
 
 3. Use the CLI
@@ -175,7 +175,7 @@ The generated wiki should conform to Google Cloud's Open Knowledge Format (OKF).
 - Concepts use normal Markdown links to form a navigable graph.
 - Files remain readable by humans and consumable by different agents without a proprietary SDK.
 
-ProgressApp adds a versioned personal-wiki profile on top of OKF. This profile defines the recommended folders, concept types, body templates, privacy metadata, agent rules, and mappings to installed ProgressApp tools. The app must not imply that these ProgressApp-specific personal-life conventions are required by the OKF specification.
+Character Arc adds a versioned personal-wiki profile on top of OKF. This profile defines the recommended folders, concept types, body templates, privacy metadata, agent rules, and mappings to installed Character Arc tools. The app must not imply that these Character Arc-specific personal-life conventions are required by the OKF specification.
 
 The concrete Goals and Paths mapping is defined in
 [`arc-markdown-okf-contract.md`](arc-markdown-okf-contract.md). It is the source
@@ -207,7 +207,7 @@ progress-wiki/
 |   `-- index.md
 |-- private/
 |   `-- index.md
-`-- .progressapp/
+`-- .Character Arc/
     |-- manifest.json
     |-- permissions.json
     `-- sync-state.json
@@ -220,10 +220,10 @@ Only relevant folders should be created during guided setup. Installing the Exam
 The CLI should:
 
 - Ask a small set of plain-language onboarding questions.
-- Create an OKF-conformant bundle and ProgressApp profile.
+- Create an OKF-conformant bundle and Character Arc profile.
 - Generate index files, logs, cross-links, templates, and agent instructions.
-- Add or remove local template packs when ProgressApp tools are installed or removed.
-- Validate OKF conformance and ProgressApp-specific schemas.
+- Add or remove local template packs when Character Arc tools are installed or removed.
+- Validate OKF conformance and Character Arc-specific schemas.
 - Detect broken links, malformed frontmatter, duplicate identities, and unsupported profile versions.
 - Preview exactly which fields and concepts will sync before uploading anything.
 - Keep local-only paths excluded by default.
@@ -233,46 +233,46 @@ The CLI should:
 
 Suggested command surface:
 
-- `progressapp init` - guided creation of a local wiki.
-- `progressapp add <type>` - create a concept from a safe template.
-- `progressapp install-tool <tool>` - add local schemas and instructions for an installed tool.
-- `progressapp validate` - validate OKF and ProgressApp profile rules.
-- `progressapp index` - rebuild indexes and check cross-links.
-- `progressapp status` - show local changes, sync state, and privacy classification.
-- `progressapp sync --preview` - show what would leave the device.
-- `progressapp sync` - sync only approved structured outcomes.
-- `progressapp connect <agent>` - configure or explain agent access.
-- `progressapp doctor` - diagnose setup and compatibility problems.
+- `Character Arc init` - guided creation of a local wiki.
+- `Character Arc add <type>` - create a concept from a safe template.
+- `Character Arc install-tool <tool>` - add local schemas and instructions for an installed tool.
+- `Character Arc validate` - validate OKF and Character Arc profile rules.
+- `Character Arc index` - rebuild indexes and check cross-links.
+- `Character Arc status` - show local changes, sync state, and privacy classification.
+- `Character Arc sync --preview` - show what would leave the device.
+- `Character Arc sync` - sync only approved structured outcomes.
+- `Character Arc connect <agent>` - configure or explain agent access.
+- `Character Arc doctor` - diagnose setup and compatibility problems.
 
 ### Normal-user experience
 
 The default action in the web app should be `Download my wiki`. `Set up with AI` and `CLI setup` can appear as alternative options. Users should not have to understand the terms CLI, YAML, schema, or OKF to complete the default flow.
 
-The downloadable folder should work locally before the user connects it to a ProgressApp account. If the user later enables synchronization, the CLI should use a browser or device-authorization flow rather than placing credentials inside the downloaded archive or AI prompt.
+The downloadable folder should work locally before the user connects it to a Character Arc account. If the user later enables synchronization, the CLI should use a browser or device-authorization flow rather than placing credentials inside the downloaded archive or AI prompt.
 
 The generated AI setup prompt should be transparent and inspectable. It should state:
 
 - Which directory will be created or modified.
-- Which ProgressApp tool templates will be installed.
+- Which Character Arc tool templates will be installed.
 - Which commands the agent is expected to run.
 - That existing files must not be overwritten without approval.
 - That private content must remain local by default.
-- That `progressapp validate` must pass before setup is considered complete.
-- That `progressapp sync --preview` must be shown before the first sync.
+- That `Character Arc validate` must pass before setup is considered complete.
+- That `Character Arc sync --preview` must be shown before the first sync.
 
 A production version can add a desktop companion for automatic updates, filesystem watching, and sync. This should improve convenience without turning the local Markdown bundle into a proprietary format.
 
 ### Local tools versus cloud tools
 
-The CLI includes deterministic local utilities for creating, validating, linking, searching, migrating, and syncing files. These are maintenance tools, distinct from installable ProgressApp domain tools such as Exam Prep and Career Compass.
+The CLI includes deterministic local utilities for creating, validating, linking, searching, migrating, and syncing files. These are maintenance tools, distinct from installable Character Arc domain tools such as Exam Prep and Career Compass.
 
 An AI agent may propose or update knowledge through declared actions, but deterministic rules such as validation, privacy filtering, schema migration, and sync selection must be enforced by code rather than left to model judgment.
 
 ## Tool Philosophy
 
-ProgressApp 2.0 is a set of domain tools plus a shared context/outcome store.
+Character Arc is a set of domain tools plus a shared context/outcome store.
 
-A tool is not merely code that calls another service. In ProgressApp 2.0, a tool is a structured system for managing one part of a user's life. It can expose MCP/API/CLI actions, but it also owns the context model, progress model, state transitions, and UI outcomes for that domain.
+A tool is not merely code that calls another service. In Character Arc, a tool is a structured system for managing one part of a user's life. It can expose MCP/API/CLI actions, but it also owns the context model, progress model, state transitions, and UI outcomes for that domain.
 
 Examples:
 
@@ -283,9 +283,9 @@ Examples:
 
 The tool should be strict so agents have reliable rails. The app should be approachable so normal users can understand the outcomes without needing to understand the tool internals.
 
-### Definition of a ProgressApp Tool
+### Definition of a Character Arc Tool
 
-Every ProgressApp tool must include:
+Every Character Arc tool must include:
 
 1. Purpose and description
    - A concise explanation of the real-world outcome the tool helps produce.
@@ -341,7 +341,7 @@ It should support:
 - Showing sync status, last sync, errors, and disconnect controls.
 - Letting installed tools use connector data only after explicit authorization.
 
-A calendar connector can provide events to Daily Planning or Exam Prep. It is not itself the planning system. A Todoist connector can import or publish tasks, while ProgressApp tools retain their structured outcomes and analytics.
+A calendar connector can provide events to Daily Planning or Exam Prep. It is not itself the planning system. A Todoist connector can import or publish tasks, while Character Arc tools retain their structured outcomes and analytics.
 
 Future direction:
 
@@ -353,7 +353,7 @@ Future direction:
 
 Reference pattern:
 
-`C:\Users\sharm\Desktop\Projects\Progressapp` is a small example of the pattern. It is a single exam-preparation progress tool with a structured model for subjects, chapters, topics, learning, revision, practice, tests, exam metadata, dashboard progress, analytics, and MCP tool access. ProgressApp 2.0 should generalize this pattern into many life tools while keeping each tool's domain state strict and inspectable.
+`C:\Users\sharm\Desktop\Projects\Character Arc` is a small example of the pattern. It is a single exam-preparation progress tool with a structured model for subjects, chapters, topics, learning, revision, practice, tests, exam metadata, dashboard progress, analytics, and MCP tool access. Character Arc should generalize this pattern into many life tools while keeping each tool's domain state strict and inspectable.
 
 ## Privacy Model
 
@@ -372,10 +372,10 @@ The demo and product should make this control obvious.
 The hackathon version should prove one magical loop through the Exam Prep tool:
 
 1. A student selects an exam and provides or imports its syllabus and pattern.
-2. ProgressApp 2.0 stores the exam, subjects, chapters, topics, question pattern, and preparation state in a strict model.
-3. An AI agent uses ProgressApp tool actions to generate a quiz, flashcard set, or exam-pattern mock test.
+2. Character Arc stores the exam, subjects, chapters, topics, question pattern, and preparation state in a strict model.
+3. An AI agent uses Character Arc tool actions to generate a quiz, flashcard set, or exam-pattern mock test.
 4. The student attempts the content in a purpose-built frontend.
-5. ProgressApp 2.0 stores the attempt, evaluates performance, updates topic mastery, and identifies weak areas.
+5. Character Arc stores the attempt, evaluates performance, updates topic mastery, and identifies weak areas.
 6. The dashboard and Skill Graph reflect the outcome and recommend the next action.
 7. The same context and outcomes are available to an authorized external AI agent through MCP/API.
 
@@ -397,7 +397,7 @@ Career Compass is strategically important but should be a polished preview or li
 
 ## Flagship Tool: Exam Prep
 
-Exam Prep generalizes the working ideas in Progressapp into a complete ProgressApp tool for competitive-exam preparation.
+Exam Prep generalizes the working ideas in Character Arc into a complete Character Arc tool for competitive-exam preparation.
 
 ### Structured context
 
@@ -450,7 +450,7 @@ The tool should compute outcomes from evidence rather than relying only on self-
 - Repeated error patterns.
 - Predicted score as an explicitly labeled estimate with confidence and supporting evidence.
 
-The Progressapp model for subject, chapter, topic, learning, revision, practice, tests, dashboard progress, and MCP actions is the starting reference. ProgressApp 2.0 should add richer attempt evidence, generated-content provenance, exam-blueprint enforcement, and tool installation/permission behavior.
+The Character Arc model for subject, chapter, topic, learning, revision, practice, tests, dashboard progress, and MCP actions is the starting reference. Character Arc should add richer attempt evidence, generated-content provenance, exam-blueprint enforcement, and tool installation/permission behavior.
 
 ## Learning Modes
 
@@ -458,7 +458,7 @@ The Progressapp model for subject, chapter, topic, learning, revision, practice,
 
 Quiz is a focused mode inside the Exam Prep tool and may later be installable independently.
 
-The user or agent chooses a topic, difficulty, question count, duration, and optional exam pattern. The agent generates structured MCQ or supported question types. ProgressApp 2.0 validates the output, presents the quiz, saves the attempt, explains answers, and updates analytics.
+The user or agent chooses a topic, difficulty, question count, duration, and optional exam pattern. The agent generates structured MCQ or supported question types. Character Arc validates the output, presents the quiz, saves the attempt, explains answers, and updates analytics.
 
 Suggested actions:
 
@@ -487,7 +487,7 @@ Suggested actions:
 
 Mock Tests are the strongest hackathon demonstration because they combine strict context, AI generation, a complete frontend, and analytical outcomes.
 
-The tool uses a stored exam blueprint to enforce section counts, marks, duration, question types, difficulty distribution, and negative marking. The agent fills that structure with content. ProgressApp 2.0 validates the generated test before it can be attempted, then stores responses and updates preparation evidence after submission.
+The tool uses a stored exam blueprint to enforce section counts, marks, duration, question types, difficulty distribution, and negative marking. The agent fills that structure with content. Character Arc validates the generated test before it can be attempted, then stores responses and updates preparation evidence after submission.
 
 Suggested actions:
 
@@ -607,7 +607,7 @@ Skill data can come from:
 
 Important product boundary:
 
-ProgressApp 2.0 should not primarily become a free-form notes app. Notes can exist in a local LLM-wiki, Obsidian, Notion, or another notes system. ProgressApp 2.0 should provide the strict tools, structured database, progress model, and beautiful view layer that agents and normal users can rely on.
+Character Arc should not primarily become a free-form notes app. Notes can exist in a local LLM-wiki, Obsidian, Notion, or another notes system. Character Arc should provide the strict tools, structured database, progress model, and beautiful view layer that agents and normal users can rely on.
 
 The app may support lightweight structured pages for subjects or skills, but the core value is not raw note-taking. The core value is extracting and maintaining state:
 
@@ -639,11 +639,11 @@ The user is preparing for GATE 2027 and has installed the Exam Prep tool.
 Flow:
 
 1. The user imports or selects the GATE syllabus and exam pattern.
-2. ProgressApp 2.0 creates the structured subject, chapter, topic, and test blueprint.
-3. The user asks ChatGPT or ProgressApp AI: "Create a 15-question quiz from Operating Systems based on my weak topics."
+2. Character Arc creates the structured subject, chapter, topic, and test blueprint.
+3. The user asks ChatGPT or Character Arc AI: "Create a 15-question quiz from Operating Systems based on my weak topics."
 4. The agent reads permitted Exam Prep context and calls `create_quiz` with structured questions and answers.
-5. The user completes the quiz in ProgressApp 2.0.
-6. ProgressApp 2.0 records accuracy, time, and error types, then updates topic mastery and the Skill Graph.
+5. The user completes the quiz in Character Arc.
+6. Character Arc records accuracy, time, and error types, then updates topic mastery and the Skill Graph.
 7. The dashboard shows the changed readiness score, weak areas, and a recommended next action.
 8. The agent can now answer "What should I study next?" using evidence from the saved attempt.
 
@@ -696,31 +696,31 @@ Prioritize:
 ## Product Risks
 
 - The scope can become too large if connectors, local sync, MCP, CLI, API, dashboards, and AI generation are all treated as equally important.
-- Calling connectors and ProgressApp capabilities both "tools" will confuse users and weaken the architecture. Keep Connectors and Tools as separate product concepts.
+- Calling connectors and Character Arc capabilities both "tools" will confuse users and weaken the architecture. Keep Connectors and Tools as separate product concepts.
 - AI-generated assessment content can be incorrect or poorly calibrated. Preserve provenance, validate structure, allow review, and avoid claiming unofficial questions are authentic past questions.
 - A universal product can feel generic. Win the hackathon with a specific exam-preparation workflow while showing that the same tool contract expands to other areas of life.
 - Normal users may not understand LLM-wiki terminology.
 - Power-user infrastructure can overwhelm the emotional pitch.
 - Privacy must be handled carefully because the app deals with life context.
 - A CLI alone does not make the local-wiki workflow accessible to every normal user. Treat it as the first automated setup path and plan a graphical companion for production.
-- ProgressApp's personal-wiki profile can accidentally be presented as part of OKF itself. Keep standards conformance and product-specific schemas clearly separated and versioned.
+- Character Arc's personal-wiki profile can accidentally be presented as part of OKF itself. Keep standards conformance and product-specific schemas clearly separated and versioned.
 
 ## Current Strategic Recommendation
 
-For the hackathon, position ProgressApp 2.0 as a universal platform but build one deep vertical: competitive-exam preparation.
+For the hackathon, position Character Arc as a universal platform but build one deep vertical: competitive-exam preparation.
 
 The winning demonstration is not "we have many AI features." It is:
 
 1. A strict Exam Prep tool knows the user's syllabus, exam pattern, and preparation state.
 2. Any authorized AI agent can generate valid content inside that structure.
 3. The user completes the generated experience in a polished frontend.
-4. ProgressApp 2.0 stores evidence, updates progress and skills, and recommends what comes next.
+4. Character Arc stores evidence, updates progress and skills, and recommends what comes next.
 5. The result remains available across sessions and across AI applications.
 
 Build now:
 
 - Tools catalog and installation model.
-- Exam Prep workspace based on the Progressapp domain model.
+- Exam Prep workspace based on the Character Arc domain model.
 - Quiz or Mock Test generation, attempt, and analysis as the complete flagship loop.
 - Evidence-based progress and Skill Graph outcomes.
 - One real or convincingly demonstrated agent integration through MCP/API.
@@ -737,8 +737,8 @@ Show as previews or future direction:
 
 Lead with:
 
-"ProgressApp 2.0 gives any AI agent the structured tools and memory to help you make real progress, then shows the outcomes in one place."
+"Character Arc gives any AI agent the structured tools and memory to help you make real progress, then shows the outcomes in one place."
 
 Student demo version:
 
-"Your AI can create a study plan or mock test. ProgressApp 2.0 remembers the syllabus, measures the attempt, finds your weak areas, and knows what you should do next."
+"Your AI can create a study plan or mock test. Character Arc remembers the syllabus, measures the attempt, finds your weak areas, and knows what you should do next."

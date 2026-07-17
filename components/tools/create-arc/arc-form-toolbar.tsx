@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils"
 
 export function ArcFormToolbar() {
   return (
-    <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 pt-20 pb-5 sm:px-6 lg:px-8">
+    <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 pt-20 pb-5 sm:px-6 lg:px-8 xl:px-10">
       <Link
         href="/tools/goals-paths"
         className={cn(

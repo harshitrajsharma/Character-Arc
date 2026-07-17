@@ -41,7 +41,7 @@ export default async function ArcDetailPage({ params }: ArcDetailPageProps) {
   }))
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 pt-24 pb-12 sm:px-6">
+    <main className="mx-auto w-full max-w-6xl px-4 pt-24 pb-12 md:px-6 xl:px-10">
       <ArcDetailHeader
         title={arc.title}
         summary={arc.summary}

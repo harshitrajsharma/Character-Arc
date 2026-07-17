@@ -33,7 +33,7 @@ export function ArcMobileCheckIn({
   const progress = Math.min(100, Math.max(0, progressPercent))
 
   return (
-    <section className="mt-5 border-y border-border py-4 lg:hidden">
+    <section className="mt-5 py-4 lg:hidden">
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0">
           <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">

@@ -18,11 +18,11 @@ Observed principles:
 - Product typography is a system/Inter-style sans. A characterful display face is loaded selectively for marketing, not globally.
 - The tint system derives readable light and dark surfaces, text, borders, and controls from one chosen color.
 - Discover pages use compact category tiles, one colored icon, modest borders, muted counts, and clear section rhythm.
-- The marketing homepage uses dramatic artwork and gradient headline color. Treat that as campaign expression, not a template for ProgressApp's operational UI.
+- The marketing homepage uses dramatic artwork and gradient headline color. Treat that as campaign expression, not a template for Character Arc's operational UI.
 
-## ProgressApp Character
+## Character Arc Character
 
-ProgressApp should feel like a friendly control room for a person's growth: capable, optimistic, evidence-led, and understandable without technical knowledge.
+Character Arc should feel like a friendly control room for a person's growth: capable, optimistic, evidence-led, and understandable without technical knowledge.
 
 | Axis | Target |
 | --- | --- |

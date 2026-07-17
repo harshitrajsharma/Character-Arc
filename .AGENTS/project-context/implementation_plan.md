@@ -1,6 +1,6 @@
 # Implementation Plan - Database & Schema Design
 
-This plan outlines the polymorphic page model and extension table structure for ProgressApp 2.0, providing a relational database design for PostgreSQL using Prisma and Supabase.
+This plan outlines the polymorphic page model and extension table structure for Character Arc, providing a relational database design for PostgreSQL using Prisma and Supabase.
 
 ---
 

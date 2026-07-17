@@ -1,7 +1,7 @@
 "use client"
 
 import { useActionState, useRef } from "react"
-import { CheckIcon, CirclePauseIcon, PlayIcon, SendIcon } from "lucide-react"
+import { CheckIcon, SendIcon } from "lucide-react"
 
 import {
   checkInArcAction,
@@ -15,14 +15,31 @@ import {
   FieldDescription,
   FieldGroup,
   FieldLabel,
-  FieldLegend,
-  FieldSet,
+  FieldTitle,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Spinner } from "@/components/ui/spinner"
 import { Textarea } from "@/components/ui/textarea"
+import { createIdempotencyKey } from "@/lib/forms/idempotency-key"
 
 const INITIAL_STATE: ArcMutationActionState = { status: "idle", message: "" }
+
+const ACTIONABLE_STATUSES = new Set(["active", "paused", "completed", "archived"])
+
+const STATUS_OPTIONS = [
+  { value: "active", label: "Active" },
+  { value: "paused", label: "Paused" },
+  { value: "completed", label: "Completed" },
+  { value: "archived", label: "Archived" },
+] as const
 
 type ArcCheckInFormProps = {
   arcId: string
@@ -52,18 +69,90 @@ export function ArcCheckInForm({
 
   function refreshCheckInKey() {
     if (checkInIdempotencyRef.current) {
-      checkInIdempotencyRef.current.value = crypto.randomUUID()
+      checkInIdempotencyRef.current.value = createIdempotencyKey()
     }
   }
 
   function refreshStatusKey() {
     if (statusIdempotencyRef.current) {
-      statusIdempotencyRef.current.value = crypto.randomUUID()
+      statusIdempotencyRef.current.value = createIdempotencyKey()
     }
   }
 
+  const statusDefaultValue = ACTIONABLE_STATUSES.has(currentStatus ?? "")
+    ? currentStatus!
+    : "active"
+
   return (
     <div className="flex flex-col gap-6">
+      <form action={statusFormAction} onSubmit={refreshStatusKey}>
+        <input type="hidden" name="arcId" value={arcId} />
+        <input type="hidden" name="workspaceId" value={workspaceId} />
+        <input type="hidden" name="installationId" value={installationId} />
+        <input
+          ref={statusIdempotencyRef}
+          type="hidden"
+          name="idempotencyKey"
+          defaultValue={createIdempotencyKey()}
+        />
+
+        <FieldGroup className="gap-3">
+          <Field>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <FieldTitle>Arc status</FieldTitle>
+                <FieldDescription className="mt-1">
+                  Set the route state before recording progress.
+                </FieldDescription>
+              </div>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Select
+                name="status"
+                defaultValue={statusDefaultValue}
+                disabled={statusPending}
+                required
+              >
+                <SelectTrigger className="h-11 w-full sm:h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent align="start">
+                  <SelectGroup>
+                    {STATUS_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+              <Button
+                type="submit"
+                variant="secondary"
+                disabled={statusPending}
+                className="h-11 shrink-0 sm:h-9"
+              >
+                {statusPending ? <Spinner data-icon="inline-start" /> : null}
+                Update status
+              </Button>
+            </div>
+          </Field>
+        </FieldGroup>
+
+        {statusState.status !== "idle" ? (
+          <p
+            className={
+              statusState.status === "error"
+                ? "mt-3 text-xs text-destructive"
+                : "mt-3 text-xs text-muted-foreground"
+            }
+            aria-live="polite"
+          >
+            {statusState.message}
+          </p>
+        ) : null}
+      </form>
+
       <form action={checkInFormAction} onSubmit={refreshCheckInKey}>
         <input type="hidden" name="arcId" value={arcId} />
         <input type="hidden" name="workspaceId" value={workspaceId} />
@@ -72,7 +161,7 @@ export function ArcCheckInForm({
           ref={checkInIdempotencyRef}
           type="hidden"
           name="idempotencyKey"
-          defaultValue={crypto.randomUUID()}
+          defaultValue={createIdempotencyKey()}
         />
 
         <FieldGroup className="gap-5">
@@ -136,85 +225,6 @@ export function ArcCheckInForm({
             ) : null}
             <AlertDescription>{checkInState.message}</AlertDescription>
           </Alert>
-        ) : null}
-      </form>
-
-      <form
-        action={statusFormAction}
-        className="border-t border-border pt-5"
-        onSubmit={refreshStatusKey}
-      >
-        <input type="hidden" name="arcId" value={arcId} />
-        <input type="hidden" name="workspaceId" value={workspaceId} />
-        <input type="hidden" name="installationId" value={installationId} />
-        <input
-          ref={statusIdempotencyRef}
-          type="hidden"
-          name="idempotencyKey"
-          defaultValue={crypto.randomUUID()}
-        />
-
-        <FieldSet disabled={statusPending}>
-          <FieldLegend variant="label">Arc status</FieldLegend>
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            Pause a route without losing it, or close the loop when the outcome
-            is reached.
-          </p>
-          <div className="mt-3 grid grid-cols-3 gap-2">
-            <Button
-              type="submit"
-              name="status"
-              value="active"
-              size="sm"
-              className="h-11 sm:h-8"
-              variant={currentStatus === "active" ? "secondary" : "outline"}
-              aria-pressed={currentStatus === "active"}
-            >
-              <PlayIcon data-icon="inline-start" aria-hidden="true" />
-              Active
-            </Button>
-            <Button
-              type="submit"
-              name="status"
-              value="paused"
-              size="sm"
-              className="h-11 sm:h-8"
-              variant={currentStatus === "paused" ? "secondary" : "outline"}
-              aria-pressed={currentStatus === "paused"}
-            >
-              <CirclePauseIcon data-icon="inline-start" aria-hidden="true" />
-              Paused
-            </Button>
-            <Button
-              type="submit"
-              name="status"
-              value="completed"
-              size="sm"
-              className="h-11 sm:h-8"
-              variant={currentStatus === "completed" ? "secondary" : "outline"}
-              aria-pressed={currentStatus === "completed"}
-            >
-              <CheckIcon data-icon="inline-start" aria-hidden="true" />
-              Done
-            </Button>
-          </div>
-        </FieldSet>
-
-        {statusPending ? (
-          <p className="mt-3 inline-flex items-center gap-2 text-xs text-muted-foreground">
-            <Spinner /> Updating status...
-          </p>
-        ) : statusState.status !== "idle" ? (
-          <p
-            className={
-              statusState.status === "error"
-                ? "mt-3 text-xs text-destructive"
-                : "mt-3 text-xs text-muted-foreground"
-            }
-            aria-live="polite"
-          >
-            {statusState.message}
-          </p>
         ) : null}
       </form>
     </div>

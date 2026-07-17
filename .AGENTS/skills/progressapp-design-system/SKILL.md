@@ -1,9 +1,9 @@
 ---
-name: progressapp-design-system
-description: Design and implement ProgressApp product interfaces with its playful, trustworthy, Luma-inspired visual system. Use for any ProgressApp frontend task involving Next.js pages, React components, shadcn/ui styling, Tailwind tokens, dashboards, authentication, tools, quizzes, exam preparation, progress views, responsive behavior, interaction states, or visual QA.
+name: Character Arc-design-system
+description: Design and implement Character Arc product interfaces with its playful, trustworthy, Luma-inspired visual system. Use for any Character Arc frontend task involving Next.js pages, React components, shadcn/ui styling, Tailwind tokens, dashboards, authentication, tools, quizzes, exam preparation, progress views, responsive behavior, interaction states, or visual QA.
 ---
 
-# ProgressApp Design System
+# Character Arc Design System
 
 Build interfaces that make serious progress work feel inviting. Borrow Luma's clarity, compact controls, contextual color, and warmth without copying its brand, layouts, logo, or signature marketing treatments.
 
@@ -55,4 +55,4 @@ Build interfaces that make serious progress work feel inviting. Borrow Luma's cl
 
 ## Completion Standard
 
-Do not stop after making the happy path attractive. The feature is complete only when it works, communicates its states, fits at all target viewports, and visibly belongs to ProgressApp.
+Do not stop after making the happy path attractive. The feature is complete only when it works, communicates its states, fits at all target viewports, and visibly belongs to Character Arc.

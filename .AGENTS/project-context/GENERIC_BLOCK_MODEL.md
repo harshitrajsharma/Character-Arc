@@ -1,8 +1,8 @@
-# ProgressApp 2.0: Workspace and Block Model
+# Character Arc: Workspace and Block Model
 
 ## Core Decision
 
-ProgressApp uses a hybrid relational model:
+Character Arc uses a hybrid relational model:
 
 - `Workspace` is the non-null tenancy and authorization boundary.
 - `Block` is the shared identity for durable, openable knowledge entities.

@@ -69,7 +69,7 @@ export default async function GoalsPathsPage() {
   })).filter((group) => group.arcs.length > 0)
 
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 pt-24 pb-8 sm:pb-10">
+    <main className="mx-auto w-full max-w-6xl px-4 md:px-6 xl:px-10 pt-24 pb-8 sm:pb-10">
       <header className="flex flex-col gap-5 border-b border-border pb-7 sm:flex-row sm:items-end sm:justify-between">
         <div className="max-w-2xl">
           <p className="mb-2 text-sm font-medium text-muted-foreground">

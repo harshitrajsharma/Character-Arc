@@ -12,7 +12,7 @@ function SkeletonBlock({ className }: { className?: string }) {
 export function GoalsPathsOverviewSkeleton() {
   return (
     <main
-      className="mx-auto w-full max-w-5xl px-4 pt-24 pb-8 sm:pb-10"
+      className="mx-auto w-full max-w-6xl px-4 lg:px-6 xl:px-10 pt-24 pb-8 sm:pb-10"
       aria-busy="true"
       aria-label="Loading Goals and Paths"
     >

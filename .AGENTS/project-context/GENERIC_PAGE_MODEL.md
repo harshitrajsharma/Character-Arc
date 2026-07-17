@@ -2,7 +2,7 @@
 
 > This draft is retained for design history only. The implemented architecture is documented in [GENERIC_BLOCK_MODEL.md](./GENERIC_BLOCK_MODEL.md) and uses non-null workspaces plus blocks.
 
-# ProgressApp 2.0: Generic Page Model
+# Character Arc: Generic Page Model
 
 ## Core Decision
 
@@ -12,7 +12,7 @@ Use a hybrid model:
 - Typed extension tables store fields and rules that belong to a specific page type.
 - Typed operational tables store high-volume or transactional records such as attempts, responses, scoring, sync state, permissions, and audit events.
 
-This gives ProgressApp a reusable platform without reducing the entire product to unvalidated JSON.
+This gives Character Arc a reusable platform without reducing the entire product to unvalidated JSON.
 
 ## What Should Be a Page
 
@@ -201,7 +201,7 @@ The application service must validate that an extension matches the page's regis
 
 ## Canonical Pages and Personal State
 
-ProgressApp needs to distinguish shared definitions from personal outcomes.
+Character Arc needs to distinguish shared definitions from personal outcomes.
 
 Examples of system pages:
 
@@ -234,7 +234,7 @@ Evidence and domain projections remain the source of truth for calculated progre
 
 ## Page Content
 
-ProgressApp is not primarily a Notion replacement. The first version should give pages a summary, structured properties, relations, and purpose-built tool views.
+Character Arc is not primarily a Notion replacement. The first version should give pages a summary, structured properties, relations, and purpose-built tool views.
 
 A `page_blocks` system can be added later for lightweight rich content:
 

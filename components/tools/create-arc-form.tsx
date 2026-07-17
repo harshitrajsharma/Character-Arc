@@ -77,7 +77,7 @@ export function CreateArcForm({
 
       <ArcFormToolbar />
 
-      <div className="mx-auto grid w-full max-w-6xl items-start gap-10 px-4 pb-12 sm:px-6 lg:grid-cols-[22rem_minmax(0,1fr)] lg:gap-14 lg:px-8 lg:pb-16 xl:grid-cols-[24rem_minmax(0,1fr)] xl:gap-16">
+      <div className="mx-auto grid w-full max-w-6xl items-start gap-10 px-4 pb-12 sm:px-6 lg:grid-cols-[22rem_minmax(0,1fr)] lg:gap-14 lg:px-8 xl:px-10 lg:pb-16 xl:grid-cols-[24rem_minmax(0,1fr)] xl:gap-16">
         <aside className="flex min-w-0 flex-col gap-5 lg:sticky lg:top-20">
           <ArcCoverPreview
             theme={theme}

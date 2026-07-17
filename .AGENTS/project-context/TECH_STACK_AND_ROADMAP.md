@@ -1,4 +1,4 @@
-# ProgressApp 2.0: Tech Stack and Build Roadmap
+# Character Arc: Tech Stack and Build Roadmap
 
 ## Decision Summary
 
@@ -32,7 +32,7 @@ Use JSONB only for flexible configuration, generation metadata, provider payload
 ### Application backend
 
 - Next.js Route Handlers for REST, MCP, webhooks, auth callbacks, file downloads, and connector callbacks.
-- Server Actions for mutations that are used only by the ProgressApp web UI.
+- Server Actions for mutations that are used only by the Character Arc web UI.
 - A server-only data access layer for session verification, ownership checks, and safe DTOs.
 - Domain services containing the actual business logic shared by Server Actions, Route Handlers, MCP tools, background jobs, and CLI-backed sync operations.
 - Zod schemas at every external boundary.
@@ -66,8 +66,8 @@ Pages and Server Components should call the data access or domain layer directly
 
 - Vercel AI SDK for provider abstraction, structured output, tool calling, streaming, and model switching.
 - Zod schemas for generated quizzes, flashcards, syllabus structures, and mock tests.
-- ProgressApp AI uses application-funded model access only for paid plans and the hackathon demo.
-- External AI applications use ProgressApp through MCP or REST and pay their own model costs.
+- Character Arc AI uses application-funded model access only for paid plans and the hackathon demo.
+- External AI applications use Character Arc through MCP or REST and pay their own model costs.
 - AI output is always validated and recorded with provider, model, prompt version, source type, timestamps, and review status.
 
 ### MCP and public API
@@ -269,7 +269,7 @@ Done when a user can sign in, install Exam Prep, refresh, and see the installati
 
 1. Implement Exam, Subject, Chapter, Topic, and Skill as Page types with typed extensions.
 2. Implement generic page relations and the typed `exam_subject_config` relation extension.
-3. Port and refine the useful Progressapp progress concepts.
+3. Port and refine the useful Character Arc progress concepts.
 4. Add exam blueprint fields for duration, sections, marks, question types, and negative marking.
 5. Seed one excellent GATE Computer Science catalog in which subjects can be reused by multiple exams.
 6. Build the exam overview and syllabus explorer.
@@ -329,7 +329,7 @@ Done when an external AI agent can read permitted context, create a quiz draft, 
 
 ### Phase 7: Local LLM-wiki
 
-1. Build the shared OKF and ProgressApp-profile library.
+1. Build the shared OKF and Character Arc-profile library.
 2. Generate a personalized wiki ZIP from installed tools.
 3. Add validation, indexes, links, privacy metadata, and safe starter templates.
 4. Add the copyable AI-agent setup prompt.
@@ -363,7 +363,7 @@ Done when a user can compare a small number of verified paths and convert one in
 1. Add goals, planning, habits, health, finance, and other domain tools one at a time.
 2. Define the internal tool manifest and installation contract.
 3. Add versioned migrations for tool schemas and wiki templates.
-4. Build billing for ProgressApp AI and premium tools.
+4. Build billing for Character Arc AI and premium tools.
 5. Replace hackathon tokens with production OAuth authorization.
 6. Add rate limits, quotas, security review, backups, deletion workflows, and incident monitoring.
 7. Only then design the public user-created tool marketplace.

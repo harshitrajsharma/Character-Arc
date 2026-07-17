@@ -8,7 +8,7 @@ export function CharacterArcLogo({ className }: CharacterArcLogoProps) {
   return (
     <span
       className={cn(
-        "inline-flex items-baseline text-xs text-muted-foreground sm:text-sm",
+        "inline-flex items-baseline text-muted-foreground text-sm",
         className
       )}
       aria-label="Character Arc"
