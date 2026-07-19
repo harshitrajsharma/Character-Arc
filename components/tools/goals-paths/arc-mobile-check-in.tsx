@@ -17,6 +17,7 @@ type ArcMobileCheckInProps = {
   arcId: string
   workspaceId: string
   installationId: string
+  workspaceSlug: string
   currentStatus: string
   progressPercent: number
   checkInCount: number
@@ -26,6 +27,7 @@ export function ArcMobileCheckIn({
   arcId,
   workspaceId,
   installationId,
+  workspaceSlug,
   currentStatus,
   progressPercent,
   checkInCount,
@@ -81,6 +83,7 @@ export function ArcMobileCheckIn({
               arcId={arcId}
               workspaceId={workspaceId}
               installationId={installationId}
+              workspaceSlug={workspaceSlug}
               currentStatus={currentStatus}
               progressPercent={progress}
             />

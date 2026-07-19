@@ -3,8 +3,7 @@ import "server-only"
 import { z } from "zod"
 
 import { requireVerifiedClaims } from "@/lib/auth/session"
-import { createServerSupabaseClient } from "@/lib/supabase/server"
-import { getToolCatalog } from "@/lib/tools/catalog"
+import { prisma } from "@/lib/prisma"
 
 const arcPropertiesSchema = z
   .object({
@@ -28,7 +27,7 @@ const arcRowsSchema = z.array(
     allow_agent_access: z.boolean(),
     properties: arcPropertiesSchema,
     schema_version: z.number().int(),
-    revision: z.union([z.string(), z.number()]),
+    revision: z.any(),
     created_at: z.string(),
     updated_at: z.string(),
   })
@@ -44,7 +43,7 @@ const stateRowsSchema = z.array(
       "completed",
       "archived",
     ]),
-    progress_percent: z.union([z.string(), z.number()]).nullable(),
+    progress_percent: z.any(),
     last_activity_at: z.string().nullable(),
   })
 )
@@ -125,62 +124,71 @@ function normalizeArc(
   }
 }
 
-async function resolveArcContext() {
-  const [catalog, claims] = await Promise.all([
-    getToolCatalog(),
-    requireVerifiedClaims("/tools/goals-paths"),
-  ])
-  const item = catalog.items.find(
-    (candidate) => candidate.key === "core.goals-paths"
-  )
+import { getWorkspaceIdentity, requireActiveToolInstallation } from "@/lib/workspaces/workspace-access"
 
-  return { catalog, claims, item }
+async function resolveArcContext(workspaceSlug: string) {
+  const [workspace, claims, installation] = await Promise.all([
+    getWorkspaceIdentity(workspaceSlug),
+    requireVerifiedClaims(`/workspace/${encodeURIComponent(workspaceSlug)}`),
+    requireActiveToolInstallation(workspaceSlug, "core.goals-paths"),
+  ])
+
+  const item = {
+    key: "core.goals-paths",
+    installationStatus: "active" as const,
+    installationId: installation.id,
+    installable: false,
+  }
+
+  return { workspace, claims, item }
 }
 
-export async function getGoalsPathsOverview() {
-  const { catalog, claims, item } = await resolveArcContext()
+export async function getGoalsPathsOverview(workspaceSlug: string) {
+  const { workspace, claims, item } = await resolveArcContext(workspaceSlug)
 
-  if (!catalog.workspace) {
+  if (!workspace) {
     return {
       workspace: null,
       item,
       arcs: [] as ArcListItem[],
-      issue: (catalog.issue ?? "workspace_unavailable") as GoalsPathsIssue,
+      issue: "workspace_unavailable" as GoalsPathsIssue,
     }
   }
 
-  const supabase = await createServerSupabaseClient()
-  const blockTypeResult = await supabase
-    .from("block_types")
-    .select("id")
-    .eq("key", "goals-paths.arc")
-    .maybeSingle()
+  const blockType = await prisma.blockType.findUnique({
+    where: { key: "goals-paths.arc" },
+    select: { id: true }
+  })
 
-  if (blockTypeResult.error || !blockTypeResult.data?.id) {
+  if (!blockType) {
     return {
-      workspace: catalog.workspace,
+      workspace: workspace,
       item,
       arcs: [] as ArcListItem[],
       issue: "catalog_unavailable" as const,
     }
   }
 
-  const arcsResult = await supabase
-    .from("blocks")
-    .select(
-      "id, title, summary, body, status, visibility, allow_agent_access, properties, schema_version, revision, created_at, updated_at"
-    )
-    .eq("workspace_id", catalog.workspace.id)
-    .eq("block_type_id", blockTypeResult.data.id)
-    .eq("status", "active")
-    .is("archived_at", null)
-    .order("updated_at", { ascending: false })
-    .limit(50)
+  const arcsData = await prisma.block.findMany({
+    where: {
+      workspaceId: workspace.id,
+      originToolInstallationId: item.installationId,
+      blockTypeId: blockType.id,
+      status: "ACTIVE",
+      archivedAt: null,
+    },
+    select: {
+      id: true, title: true, summary: true, body: true, status: true, visibility: true, allowAgentAccess: true, properties: true, schemaVersion: true, revision: true, createdAt: true, updatedAt: true
+    },
+    orderBy: { updatedAt: 'desc' },
+    take: 50
+  })
 
-  const arcRows = arcRowsSchema.safeParse(arcsResult.data)
-  if (arcsResult.error || !arcRows.success) {
+  const mappedArcs = arcsData.map(e => ({ ...e, allow_agent_access: e.allowAgentAccess, schema_version: e.schemaVersion, created_at: e.createdAt.toISOString(), updated_at: e.updatedAt.toISOString(), status: e.status.toLowerCase(), visibility: e.visibility.toLowerCase(), revision: e.revision.toString() }))
+  const arcRows = arcRowsSchema.safeParse(mappedArcs)
+  if (!arcRows.success) {
     return {
-      workspace: catalog.workspace,
+      workspace: workspace,
       item,
       arcs: [] as ArcListItem[],
       issue: "data_unavailable" as const,
@@ -188,19 +196,22 @@ export async function getGoalsPathsOverview() {
   }
 
   const blockIds = arcRows.data.map((arc) => arc.id)
-  const statesResult = blockIds.length
-    ? await supabase
-        .from("user_block_states")
-        .select("block_id, status, progress_percent, last_activity_at")
-        .eq("workspace_id", catalog.workspace.id)
-        .eq("user_id", claims.sub)
-        .in("block_id", blockIds)
-    : { data: [], error: null }
-  const states = stateRowsSchema.safeParse(statesResult.data)
+  const statesData = blockIds.length
+    ? await prisma.userBlockState.findMany({
+        where: {
+          workspaceId: workspace.id,
+          userId: claims.sub,
+          blockId: { in: blockIds }
+        },
+        select: { blockId: true, status: true, progressPercent: true, lastActivityAt: true }
+      })
+    : []
+  const mappedStates = statesData.map(s => ({ ...s, block_id: s.blockId, status: s.status.toLowerCase(), progress_percent: s.progressPercent?.toString() || null, last_activity_at: s.lastActivityAt?.toISOString() || null }))
+  const states = stateRowsSchema.safeParse(mappedStates)
 
-  if (statesResult.error || !states.success) {
+  if (!states.success) {
     return {
-      workspace: catalog.workspace,
+      workspace: workspace,
       item,
       arcs: [] as ArcListItem[],
       issue: "data_unavailable" as const,
@@ -214,12 +225,12 @@ export async function getGoalsPathsOverview() {
     .map((arc) => normalizeArc(arc, stateByBlockId.get(arc.id)))
     .filter((arc) => arc.lifecycleStatus !== "archived")
 
-  return { workspace: catalog.workspace, item, arcs, issue: null }
+  return { workspace, item, arcs, issue: null }
 }
 
-export async function getArcDetail(arcId: string): Promise<{
+export async function getArcDetail(workspaceSlug: string, arcId: string): Promise<{
   workspace: { id: string; name: string } | null
-  item: Awaited<ReturnType<typeof getToolCatalog>>["items"][number] | undefined
+  item: { installationStatus: "active" | "none", installationId: string | null } | undefined
   arc: ArcDetail | null
   issue: GoalsPathsIssue | "not_found" | null
 }> {
@@ -228,85 +239,79 @@ export async function getArcDetail(arcId: string): Promise<{
     return { workspace: null, item: undefined, arc: null, issue: "not_found" }
   }
 
-  const { catalog, claims, item } = await resolveArcContext()
-  if (!catalog.workspace) {
+  const { workspace, claims, item } = await resolveArcContext(workspaceSlug)
+  if (!workspace) {
     return {
       workspace: null,
       item,
       arc: null,
-      issue: (catalog.issue ?? "workspace_unavailable") as GoalsPathsIssue,
+      issue: "workspace_unavailable" as GoalsPathsIssue,
     }
   }
 
-  const supabase = await createServerSupabaseClient()
-  const blockTypeResult = await supabase
-    .from("block_types")
-    .select("id")
-    .eq("key", "goals-paths.arc")
-    .maybeSingle()
+  const blockType = await prisma.blockType.findUnique({
+    where: { key: "goals-paths.arc" },
+    select: { id: true }
+  })
 
-  if (blockTypeResult.error || !blockTypeResult.data?.id) {
+  if (!blockType) {
     return {
-      workspace: catalog.workspace,
+      workspace,
       item,
       arc: null,
       issue: "data_unavailable",
     }
   }
 
-  const [arcResult, stateResult, evidenceResult] = await Promise.all([
-    supabase
-      .from("blocks")
-      .select(
-        "id, title, summary, body, status, visibility, allow_agent_access, properties, schema_version, revision, created_at, updated_at"
-      )
-      .eq("id", parsedArcId.data)
-      .eq("workspace_id", catalog.workspace.id)
-      .eq("block_type_id", blockTypeResult.data.id)
-      .is("archived_at", null)
-      .maybeSingle(),
-    supabase
-      .from("user_block_states")
-      .select("block_id, status, progress_percent, last_activity_at")
-      .eq("workspace_id", catalog.workspace.id)
-      .eq("user_id", claims.sub)
-      .eq("block_id", parsedArcId.data)
-      .maybeSingle(),
-    supabase
-      .from("progress_evidence")
-      .select(
-        "id, evidence_key, numeric_value, max_value, properties, occurred_at"
-      )
-      .eq("workspace_id", catalog.workspace.id)
-      .eq("user_id", claims.sub)
-      .eq("block_id", parsedArcId.data)
-      .eq("evidence_key", "arc.check-in")
-      .order("occurred_at", { ascending: false })
-      .limit(12),
+  const [arcData, stateData, evidenceData] = await Promise.all([
+    prisma.block.findFirst({
+      where: {
+        id: parsedArcId.data,
+        workspaceId: workspace.id,
+        originToolInstallationId: item.installationId,
+        blockTypeId: blockType.id,
+        archivedAt: null,
+      },
+      select: { id: true, title: true, summary: true, body: true, status: true, visibility: true, allowAgentAccess: true, properties: true, schemaVersion: true, revision: true, createdAt: true, updatedAt: true }
+    }),
+    prisma.userBlockState.findUnique({
+      where: {
+        userId_blockId: {
+          userId: claims.sub,
+          blockId: parsedArcId.data
+        },
+        workspaceId: workspace.id
+      },
+      select: { blockId: true, status: true, progressPercent: true, lastActivityAt: true }
+    }),
+    prisma.progressEvidence.findMany({
+      where: {
+        workspaceId: workspace.id,
+        userId: claims.sub,
+        blockId: parsedArcId.data,
+        evidenceKey: "arc.check-in"
+      },
+      select: { id: true, evidenceKey: true, numericValue: true, maxValue: true, properties: true, occurredAt: true },
+      orderBy: { occurredAt: "desc" },
+      take: 12
+    })
   ])
 
-  if (!arcResult.data && !arcResult.error) {
-    return { workspace: catalog.workspace, item, arc: null, issue: "not_found" }
+  if (!arcData) {
+    return { workspace, item, arc: null, issue: "not_found" }
   }
 
-  const arcRows = arcRowsSchema.safeParse(
-    arcResult.data ? [arcResult.data] : null
-  )
-  const states = stateRowsSchema.safeParse(
-    stateResult.data ? [stateResult.data] : []
-  )
-  const evidence = evidenceRowsSchema.safeParse(evidenceResult.data)
+  const mappedArc = { ...arcData, allow_agent_access: arcData.allowAgentAccess, schema_version: arcData.schemaVersion, created_at: arcData.createdAt.toISOString(), updated_at: arcData.updatedAt.toISOString(), status: arcData.status.toLowerCase(), visibility: arcData.visibility.toLowerCase(), revision: arcData.revision.toString() }
+  const mappedState = stateData ? { ...stateData, block_id: stateData.blockId, status: stateData.status.toLowerCase(), progress_percent: stateData.progressPercent?.toString() || null, last_activity_at: stateData.lastActivityAt?.toISOString() || null } : null
+  const mappedEvidence = evidenceData.map(e => ({ ...e, evidence_key: e.evidenceKey, numeric_value: e.numericValue?.toString() || null, max_value: e.maxValue?.toString() || null, occurred_at: e.occurredAt.toISOString() }))
+  
+  const arcRows = arcRowsSchema.safeParse([mappedArc])
+  const states = stateRowsSchema.safeParse(mappedState ? [mappedState] : [])
+  const evidence = evidenceRowsSchema.safeParse(mappedEvidence)
 
-  if (
-    arcResult.error ||
-    stateResult.error ||
-    evidenceResult.error ||
-    !arcRows.success ||
-    !states.success ||
-    !evidence.success
-  ) {
+  if (!arcRows.success || !states.success || !evidence.success) {
     return {
-      workspace: catalog.workspace,
+      workspace,
       item,
       arc: null,
       issue: "data_unavailable",
@@ -316,7 +321,7 @@ export async function getArcDetail(arcId: string): Promise<{
   const row = arcRows.data[0]
   const listItem = normalizeArc(row, states.data[0])
   return {
-    workspace: catalog.workspace,
+    workspace,
     item,
     issue: null,
     arc: {

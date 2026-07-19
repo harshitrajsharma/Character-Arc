@@ -1,17 +1,18 @@
 "use client"
 
-import { useActionState, useState } from "react"
+import { useActionState, useEffect, useState } from "react"
 import Link from "next/link"
 import { CheckIcon, XIcon } from "lucide-react"
 
 import {
   updateArcAction,
   type UpdateArcActionState,
-} from "@/app/(app)/tools/goals-paths/actions"
+} from "@/lib/tools/goals-paths/actions"
+import { workspaceRoutes } from "@/lib/routes/workspace-tools"
 import { ArcDirectionEditor } from "@/components/tools/create-arc/arc-direction-editor"
 import type { ArcDraft } from "@/components/tools/create-arc/arc-form-types"
 import { ArcOptionalContext } from "@/components/tools/create-arc/arc-optional-context"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+import { toast } from "sonner"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
 import { cn } from "@/lib/utils"
@@ -23,6 +24,7 @@ type ArcEditFormProps = {
   revision: number
   workspaceId: string
   installationId: string
+  workspaceSlug: string
   idempotencyKey: string
   initialDraft: ArcDraft
 }
@@ -32,18 +34,26 @@ export function ArcEditForm({
   revision,
   workspaceId,
   installationId,
+  workspaceSlug,
   idempotencyKey,
   initialDraft,
 }: ArcEditFormProps) {
   const [state, formAction, pending] = useActionState(
-    updateArcAction,
+    updateArcAction.bind(null, workspaceSlug),
     INITIAL_STATE
   )
   const [draft, setDraft] = useState(initialDraft)
+
+  useEffect(() => {
+    if (state.status === "error") {
+      toast.error("Error", { description: state.message })
+    }
+  }, [state])
+
   const [optionalOpen, setOptionalOpen] = useState(
     Boolean(initialDraft.why || initialDraft.targetDate || initialDraft.constraints)
   )
-  const detailHref = `/tools/goals-paths/${arcId}`
+  const detailHref = workspaceRoutes.goalsPaths.arc(workspaceSlug, arcId)
 
   function updateDraft<Key extends keyof ArcDraft>(
     key: Key,
@@ -93,12 +103,6 @@ export function ArcEditForm({
           onOpenChange={setOptionalOpen}
           onChange={updateDraft}
         />
-
-        {state.status === "error" ? (
-          <Alert variant="destructive" className="mt-6" aria-live="polite">
-            <AlertDescription>{state.message}</AlertDescription>
-          </Alert>
-        ) : null}
       </main>
 
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/85 px-4 py-3 backdrop-blur-xl supports-[backdrop-filter]:bg-background/70">

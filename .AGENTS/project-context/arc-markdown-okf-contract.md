@@ -130,8 +130,7 @@ subset.
 - Goals and Paths release `2.0.0` owns Arc schema version `2`.
 - The handler is `goals-paths.arc.create.v2`.
 - Existing v1 blocks remain readable by tolerant projections.
-- Active installations are upgraded to the immutable v2 release by the v2
-  migration; v1 release rows and the v1 RPC remain available for history.
+- Active installations are upgraded to the immutable v2 release by running the `lib/tools/sync-registry.ts` seed script; v1 release rows and the v1 logic remain available for history.
 - A future body structure or required field needs a new tool release and block
   schema version. Do not mutate the published v2 snapshot.
 
@@ -144,7 +143,7 @@ subset.
 | `lib/wiki/arc.ts` | Arc body and OKF document projection |
 | `components/editor/markdown-field-editor.tsx` | compact field and centered editor dialog |
 | `components/editor/markdown-block-editor.tsx` | Markdown-compatible BlockNote configuration |
-| `supabase/migrations/20260716194420_goals_paths_markdown_v2.sql` | immutable release, install upgrade, and atomic v2 execution RPC |
+| `lib/tools/registry.ts` & `lib/tools/sync-registry.ts` | immutable release, install upgrade, and atomic v2 execution logic |
 
 ## Sync Boundary
 

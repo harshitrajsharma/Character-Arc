@@ -88,6 +88,10 @@ function authErrorMessage(message: string) {
     return "An account with this email already exists."
   }
 
+  if (normalized.includes("rate limit") || normalized.includes("too many requests")) {
+    return "You've requested too many signups/emails. Please try again later or use a different email."
+  }
+
   return "Authentication could not be completed. Please try again."
 }
 
@@ -153,6 +157,7 @@ export async function signUpWithPassword(
   })
 
   if (error) {
+    console.error("Supabase Auth Error:", error)
     return { status: "error", message: authErrorMessage(error.message) }
   }
 

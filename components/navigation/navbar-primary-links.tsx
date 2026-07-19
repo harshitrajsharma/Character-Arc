@@ -26,7 +26,6 @@ export function NavbarPrimaryLinks({
             href={item.href}
             aria-current={isActive ? "page" : undefined}
             aria-label={item.label}
-            title={item.description}
             onClick={() => onSelect(item.key)}
             className={cn(
               "group relative flex min-h-9 items-center justify-center gap-1.5 rounded-md px-2.5 text-sm font-medium text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/30 lg:px-3",

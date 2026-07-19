@@ -3,7 +3,9 @@ import { DM_Sans, Geist_Mono, Inter } from "next/font/google"
 
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
+import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { QueryProvider } from "@/components/query-provider"
 import { cn } from "@/lib/utils"
 
 const dmSansHeading = DM_Sans({
@@ -43,9 +45,14 @@ export default function RootLayout({
       )}
     >
       <body>
-        <TooltipProvider delay={300}>
-          <ThemeProvider>{children}</ThemeProvider>
-        </TooltipProvider>
+        <QueryProvider>
+          <TooltipProvider delay={300}>
+            <ThemeProvider>
+              {children}
+              <Toaster position="top-center" />
+            </ThemeProvider>
+          </TooltipProvider>
+        </QueryProvider>
       </body>
     </html>
   )

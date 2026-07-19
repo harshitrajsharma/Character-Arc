@@ -178,7 +178,7 @@ export function NavbarSearch({ onSelect }: NavbarSearchProps) {
             })}
           </div>
         ) : (
-          <Empty className="p-6">
+          <Empty variant="compact">
             <EmptyHeader>
               <EmptyTitle>No matching destination</EmptyTitle>
               <EmptyDescription>

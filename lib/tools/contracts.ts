@@ -175,6 +175,12 @@ export const toolManifestSchema = z
 
 export type ToolManifest = z.infer<typeof toolManifestSchema>
 
+export type ToolExecutionPrincipal = {
+  actorId: string
+  workspaceId: string
+  invocationSource: "web" | "agent_api" | "mcp"
+}
+
 export type ToolExecutionContext = {
   userId: string
   workspaceId: string

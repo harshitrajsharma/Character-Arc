@@ -27,6 +27,7 @@ export type ActionInputValidationIssueCode =
   | "minimum"
   | "maximum"
   | "max_items"
+  | "unique_items"
 
 export type ActionInputValidationIssue = {
   code: ActionInputValidationIssueCode
@@ -47,11 +48,13 @@ const SUPPORTED_TYPES = new Set([
   "number",
   "integer",
   "array",
+  "boolean",
   "null",
 ])
 
 const SUPPORTED_KEYWORDS: Record<string, ReadonlySet<string>> = {
   object: new Set(["type", "properties", "required", "additionalProperties"]),
+  boolean: new Set(["type"]),
   string: new Set([
     "type",
     "minLength",
@@ -62,7 +65,7 @@ const SUPPORTED_KEYWORDS: Record<string, ReadonlySet<string>> = {
   ]),
   number: new Set(["type", "minimum", "maximum"]),
   integer: new Set(["type", "minimum", "maximum"]),
-  array: new Set(["type", "maxItems", "items"]),
+  array: new Set(["type", "maxItems", "uniqueItems", "items"]),
   null: new Set(["type"]),
 }
 
@@ -175,7 +178,7 @@ function inspectSchema(
     return
   }
 
-  const allowedKeywords = new Set<string>(["type"])
+  const allowedKeywords = new Set<string>(["type", "description"])
   for (const type of types) {
     for (const keyword of SUPPORTED_KEYWORDS[type]) {
       allowedKeywords.add(keyword)
@@ -191,6 +194,15 @@ function inspectSchema(
         message: `Unsupported schema keyword "${keyword}".`,
       })
     }
+  }
+
+  if (value.description !== undefined && typeof value.description !== "string") {
+    addSchemaIssue(
+      issues,
+      "invalid_schema",
+      [...schemaPath, "description"],
+      "Schema descriptions must be strings."
+    )
   }
 
   const nonNullType = types.find((type) => type !== "null") ?? "null"
@@ -410,6 +422,15 @@ function inspectArraySchema(
 ): void {
   inspectNonNegativeIntegerKeyword(schema, "maxItems", schemaPath, issues)
 
+  if (schema.uniqueItems !== undefined && typeof schema.uniqueItems !== "boolean") {
+    addSchemaIssue(
+      issues,
+      "invalid_schema",
+      [...schemaPath, "uniqueItems"],
+      "uniqueItems must be a boolean."
+    )
+  }
+
   if (schema.items === undefined) {
     addSchemaIssue(
       issues,
@@ -491,6 +512,11 @@ function validateValue(
       break
     case "array":
       validateArray(schema, value, path, schemaPath, issues)
+      break
+    case "boolean":
+      if (typeof value !== "boolean") {
+        addTypeIssue(issues, path, schemaPath, "boolean")
+      }
       break
     case "null":
       addTypeIssue(issues, path, schemaPath, "null")
@@ -654,6 +680,23 @@ function validateArray(
     })
   }
 
+  if (schema.uniqueItems === true) {
+    const seenItems = new Set<string>()
+    value.forEach((item, index) => {
+      const itemKey = canonicalJson(item)
+      if (seenItems.has(itemKey)) {
+        issues.push({
+          code: "unique_items",
+          path: [...path, index],
+          schemaPath: [...schemaPath, "uniqueItems"],
+          message: "Array items must be unique.",
+        })
+      } else {
+        seenItems.add(itemKey)
+      }
+    })
+  }
+
   const itemSchema = schema.items as JsonSchema
   value.forEach((item, index) => {
     validateValue(
@@ -711,6 +754,21 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
   const prototype = Object.getPrototypeOf(value)
   return prototype === Object.prototype || prototype === null
+}
+
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map(canonicalJson).join(",")}]`
+  }
+
+  if (isRecord(value)) {
+    return `{${Object.entries(value)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, child]) => `${JSON.stringify(key)}:${canonicalJson(child)}`)
+      .join(",")}}`
+  }
+
+  return JSON.stringify(value)
 }
 
 function isDate(value: string): boolean {

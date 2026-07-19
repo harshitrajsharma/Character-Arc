@@ -44,7 +44,7 @@ export default async function ToolsPage({ searchParams }: ToolsPageProps) {
   })
 
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 pt-24 pb-8 sm:pb-10">
+    <main className="mx-auto w-full max-w-6xl px-4 md:px-6 xl:px-10 pt-24 pb-8 sm:pb-10">
       <header className="flex flex-col gap-5 border-b pb-7 sm:flex-row sm:items-end sm:justify-between">
         <div className="max-w-2xl">
           <p className="mb-2 text-sm font-medium text-muted-foreground">
@@ -145,10 +145,11 @@ export default async function ToolsPage({ searchParams }: ToolsPageProps) {
                 key={item.key}
                 item={item}
                 workspaceId={catalog.workspace!.id}
+                workspaceSlug={catalog.workspace!.slug}
               />
             ))
           ) : catalog.issue ? null : (
-            <Empty className="border-y py-16">
+            <Empty>
               <EmptyHeader>
                 <EmptyMedia variant="icon">
                   <WrenchIcon aria-hidden="true" />

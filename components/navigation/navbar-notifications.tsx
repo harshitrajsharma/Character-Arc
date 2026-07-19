@@ -47,7 +47,7 @@ export function NavbarNotifications() {
             Updates from your tools and agents.
           </PopoverDescription>
         </PopoverHeader>
-        <Empty className="min-h-44 p-6">
+        <Empty variant="compact" className="min-h-44">
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <BellIcon aria-hidden="true" />

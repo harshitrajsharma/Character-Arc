@@ -1,0 +1,525 @@
+{
+  "manifestVersion": 1,
+  "tool": {
+    "key": "core.goals-paths",
+    "name": "Goals and Paths",
+    "description": "Turn a current reality into possible paths, milestones, and clear next actions.",
+    "icon": "route",
+    "category": "plan"
+  },
+  "release": {
+    "version": "1.0.0",
+    "schemaVersion": 2
+  },
+  "routes": {
+    "home": "/tools/goals-paths",
+    "create": "/tools/goals-paths/new"
+  },
+  "defaultGrants": [
+    {
+      "permissionKey": "blocks.read.owned",
+      "effect": "allow",
+      "constraints": {
+        "origin": "installation",
+        "blockTypeKeys": [
+          "goals-paths.arc",
+          "goals-paths.path-option",
+          "goals-paths.milestone",
+          "goals-paths.action"
+        ]
+      }
+    },
+    {
+      "permissionKey": "blocks.write.owned",
+      "effect": "allow",
+      "constraints": {
+        "origin": "installation",
+        "blockTypeKeys": [
+          "goals-paths.arc",
+          "goals-paths.path-option",
+          "goals-paths.milestone",
+          "goals-paths.action"
+        ]
+      }
+    },
+    {
+      "permissionKey": "ai.generate",
+      "effect": "deny",
+      "constraints": {
+        "requiresEntitlement": "in_app_ai"
+      }
+    }
+  ],
+  "blockTypes": [
+    {
+      "key": "goals-paths.arc",
+      "name": "Arc",
+      "description": "A meaningful outcome the user is actively pursuing.",
+      "kind": "container",
+      "schemaVersion": 2,
+      "propertiesSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "objective",
+          "currentReality",
+          "contentFormat",
+          "okf"
+        ],
+        "properties": {
+          "objective": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000,
+            "contentMediaType": "text/markdown"
+          },
+          "why": {
+            "type": "string",
+            "minLength": 0,
+            "maxLength": 4000,
+            "contentMediaType": "text/markdown"
+          },
+          "currentReality": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 8000,
+            "contentMediaType": "text/markdown"
+          },
+          "targetDate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "constraints": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            }
+          },
+          "contentFormat": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "okf": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "type",
+              "profile",
+              "profileVersion"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80
+              },
+              "profile": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              },
+              "profileVersion": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "key": "goals-paths.path-option",
+      "name": "Path option",
+      "description": "One possible route from the current reality to the arc.",
+      "kind": "entity",
+      "schemaVersion": 1,
+      "propertiesSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rationale"
+        ],
+        "properties": {
+          "rationale": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "tradeoffs": {
+            "type": "array",
+            "maxItems": 12,
+            "items": {
+              "type": "string",
+              "maxLength": 500
+            }
+          },
+          "confidence": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 100
+          }
+        }
+      }
+    },
+    {
+      "key": "goals-paths.milestone",
+      "name": "Milestone",
+      "description": "A verifiable checkpoint on a selected path.",
+      "kind": "entity",
+      "schemaVersion": 1,
+      "propertiesSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "successCriteria"
+        ],
+        "properties": {
+          "successCriteria": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          },
+          "targetDate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          }
+        }
+      }
+    },
+    {
+      "key": "goals-paths.action",
+      "name": "Action",
+      "description": "A concrete next move that advances a milestone.",
+      "kind": "entity",
+      "schemaVersion": 1,
+      "propertiesSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "definitionOfDone"
+        ],
+        "properties": {
+          "definitionOfDone": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          },
+          "dueDate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "estimateMinutes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          }
+        }
+      }
+    }
+  ],
+  "relationTypes": [
+    {
+      "key": "goals-paths.arc-has-path-option",
+      "name": "Arc has path option",
+      "description": "Connects an arc to a possible route.",
+      "sourceBlockTypeKey": "goals-paths.arc",
+      "targetBlockTypeKey": "goals-paths.path-option",
+      "cardinality": "one_to_many"
+    },
+    {
+      "key": "goals-paths.arc-has-milestone",
+      "name": "Arc has milestone",
+      "description": "Connects an arc to a verifiable checkpoint.",
+      "sourceBlockTypeKey": "goals-paths.arc",
+      "targetBlockTypeKey": "goals-paths.milestone",
+      "cardinality": "one_to_many"
+    },
+    {
+      "key": "goals-paths.milestone-has-action",
+      "name": "Milestone has action",
+      "description": "Connects a milestone to a concrete next move.",
+      "sourceBlockTypeKey": "goals-paths.milestone",
+      "targetBlockTypeKey": "goals-paths.action",
+      "cardinality": "one_to_many"
+    }
+  ],
+  "actions": [
+    {
+      "key": "arc.create",
+      "name": "Create arc",
+      "description": "Creates an arc directly from user-approved information.",
+      "execution": "deterministic",
+      "requiredPermissions": [
+        "blocks.write.owned"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "title",
+          "objective",
+          "currentReality"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "objective": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000,
+            "contentMediaType": "text/markdown"
+          },
+          "why": {
+            "type": "string",
+            "minLength": 0,
+            "maxLength": 4000,
+            "contentMediaType": "text/markdown"
+          },
+          "currentReality": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 8000,
+            "contentMediaType": "text/markdown"
+          },
+          "targetDate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "constraints": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            }
+          }
+        }
+      },
+      "output": {
+        "rootBlockTypeKey": "goals-paths.arc",
+        "createsBlockTypeKeys": [
+          "goals-paths.arc"
+        ],
+        "writesBlockTypeKeys": []
+      }
+    },
+    {
+      "key": "arc.check-in",
+      "name": "Record Arc check-in",
+      "description": "Records progress and optional evidence for an Arc.",
+      "execution": "deterministic",
+      "requiredPermissions": [
+        "blocks.write.owned"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "arcId",
+          "progressPercent"
+        ],
+        "properties": {
+          "arcId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "progressPercent": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 2000
+          }
+        }
+      },
+      "output": {
+        "rootBlockTypeKey": "goals-paths.arc",
+        "createsBlockTypeKeys": [],
+        "writesBlockTypeKeys": [
+          "goals-paths.arc"
+        ]
+      }
+    },
+    {
+      "key": "arc.set-status",
+      "name": "Change Arc status",
+      "description": "Changes the personal lifecycle state of an Arc.",
+      "execution": "deterministic",
+      "requiredPermissions": [
+        "blocks.write.owned"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "arcId",
+          "status"
+        ],
+        "properties": {
+          "arcId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "paused",
+              "completed",
+              "archived"
+            ]
+          }
+        }
+      },
+      "output": {
+        "rootBlockTypeKey": "goals-paths.arc",
+        "createsBlockTypeKeys": [],
+        "writesBlockTypeKeys": [
+          "goals-paths.arc"
+        ]
+      }
+    },
+    {
+      "key": "arc.update",
+      "name": "Update Arc",
+      "description": "Replaces the editable narrative and metadata of an Arc.",
+      "execution": "deterministic",
+      "requiredPermissions": [
+        "blocks.write.owned"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "arcId",
+          "expectedRevision",
+          "title",
+          "objective",
+          "currentReality",
+          "why",
+          "targetDate",
+          "constraints"
+        ],
+        "properties": {
+          "arcId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "expectedRevision": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "objective": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000,
+            "contentMediaType": "text/markdown"
+          },
+          "why": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 4000,
+            "contentMediaType": "text/markdown"
+          },
+          "currentReality": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 8000,
+            "contentMediaType": "text/markdown"
+          },
+          "targetDate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "constraints": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            }
+          }
+        }
+      },
+      "output": {
+        "rootBlockTypeKey": "goals-paths.arc",
+        "createsBlockTypeKeys": [],
+        "writesBlockTypeKeys": [
+          "goals-paths.arc"
+        ]
+      }
+    },
+    {
+      "key": "arc.delete",
+      "name": "Delete Arc",
+      "description": "Archives an Arc while retaining its evidence and audit history.",
+      "execution": "deterministic",
+      "requiredPermissions": [
+        "blocks.write.owned"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "arcId",
+          "expectedRevision"
+        ],
+        "properties": {
+          "arcId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "expectedRevision": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "output": {
+        "rootBlockTypeKey": "goals-paths.arc",
+        "createsBlockTypeKeys": [],
+        "writesBlockTypeKeys": [
+          "goals-paths.arc"
+        ]
+      }
+    }
+  ]
+}

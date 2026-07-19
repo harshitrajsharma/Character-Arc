@@ -6,7 +6,7 @@ import { ArchiveXIcon } from "lucide-react"
 import {
   deleteArcAction,
   type ArcMutationActionState,
-} from "@/app/(app)/tools/goals-paths/actions"
+} from "@/lib/tools/goals-paths/actions"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,6 +31,7 @@ type ArcDeleteDialogProps = {
   checkInCount: number
   workspaceId: string
   installationId: string
+  workspaceSlug: string
   idempotencyKey: string
 }
 
@@ -43,10 +44,11 @@ export function ArcDeleteDialog({
   checkInCount,
   workspaceId,
   installationId,
+  workspaceSlug,
   idempotencyKey,
 }: ArcDeleteDialogProps) {
   const [state, formAction, pending] = useActionState(
-    deleteArcAction,
+    deleteArcAction.bind(null, workspaceSlug),
     INITIAL_STATE
   )
 

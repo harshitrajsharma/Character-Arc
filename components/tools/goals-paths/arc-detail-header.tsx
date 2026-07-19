@@ -14,6 +14,7 @@ import {
 import { buttonVariants } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { parseIsoLocalDate } from "@/lib/dates/local-date"
+import { workspaceRoutes } from "@/lib/routes/workspace-tools"
 
 const DATE_FORMATTER = new Intl.DateTimeFormat("en", {
   day: "numeric",
@@ -93,6 +94,7 @@ export type ArcDetailHeaderProps = {
   isPrivate?: boolean
   allowAgentAccess?: boolean
   actions?: ReactNode
+  workspaceSlug: string
 }
 
 export function ArcDetailHeader({
@@ -104,6 +106,7 @@ export function ArcDetailHeader({
   isPrivate = true,
   allowAgentAccess = false,
   actions,
+  workspaceSlug,
 }: ArcDetailHeaderProps) {
   const currentStatus = status ?? "not_started"
   const target = parseIsoLocalDate(targetDate)
@@ -112,7 +115,7 @@ export function ArcDetailHeader({
     <>
       <div className="flex items-center justify-between gap-3">
         <Link
-          href="/tools/goals-paths"
+          href={workspaceRoutes.goalsPaths.home(workspaceSlug)}
           className={buttonVariants({ variant: "ghost", size: "sm" })}
         >
           <ArrowLeftIcon data-icon="inline-start" aria-hidden="true" />

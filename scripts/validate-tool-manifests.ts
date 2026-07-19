@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises"
 import { isDeepStrictEqual } from "node:util"
 
 import { parseToolManifest } from "@/lib/tools/contracts"
+import { examPrepManifest } from "@/lib/tools/definitions/exam-prep/manifest"
 import { goalsPathsManifest } from "@/lib/tools/definitions/goals-paths/manifest"
 
 const releases = [
@@ -9,6 +10,11 @@ const releases = [
     manifest: goalsPathsManifest,
     migrationPath:
       "supabase/migrations/20260717103415_publish_goals_paths_3_1_arc_management.sql",
+  },
+  {
+    manifest: examPrepManifest,
+    migrationPath:
+      "supabase/migrations/20260717170000_exam_prep_mutations_v2.sql",
   },
 ]
 

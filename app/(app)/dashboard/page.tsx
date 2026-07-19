@@ -23,7 +23,7 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty"
 import { requireVerifiedClaims } from "@/lib/auth/session"
-import { createServerSupabaseClient } from "@/lib/supabase/server"
+import { prisma } from "@/lib/prisma"
 import { cn } from "@/lib/utils"
 
 export const metadata: Metadata = { title: "Dashboard" }
@@ -75,41 +75,27 @@ export default async function DashboardPage({
 }: DashboardPageProps) {
   const params = await searchParams
   const claims = await requireVerifiedClaims()
-  const supabase = await createServerSupabaseClient()
 
-  const [profileResult, membershipResult] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("display_name, avatar_url, timezone, locale")
-      .eq("id", claims.sub)
-      .maybeSingle(),
-    supabase
-      .from("workspace_members")
-      .select("workspace_id, role")
-      .eq("user_id", claims.sub)
-      .limit(1)
-      .maybeSingle(),
+  const [profile, membership] = await Promise.all([
+    prisma.profile.findUnique({
+      where: { id: claims.sub },
+      select: { displayName: true, avatarUrl: true, timezone: true, locale: true }
+    }),
+    prisma.workspaceMember.findFirst({
+      where: { userId: claims.sub },
+      select: { workspaceId: true, role: true }
+    })
   ])
 
-  const membership = membershipResult.data
-  const workspaceResult = membership
-    ? await supabase
-        .from("workspaces")
-        .select("id, name, slug, kind, created_at")
-        .eq("id", membership.workspace_id)
-        .maybeSingle()
-    : { data: null, error: null }
+  const workspace = membership
+    ? await prisma.workspace.findUnique({
+        where: { id: membership.workspaceId },
+        select: { id: true, name: true, slug: true, kind: true, createdAt: true }
+      })
+    : null
 
-  const profile = profileResult.data
-  const workspace = workspaceResult.data
-  const setupFailed =
-    Boolean(profileResult.error) ||
-    Boolean(membershipResult.error) ||
-    Boolean(workspaceResult.error) ||
-    !profile ||
-    !membership ||
-    !workspace
-  const name = firstName(profile?.display_name, claims.email)
+  const setupFailed = !profile || !membership || !workspace
+  const name = firstName(profile?.displayName, claims.email)
 
   return (
     <main className="mx-auto w-full max-w-6xl px-4 md:px-6 xl:px-10 pt-24 pb-8">
@@ -150,9 +136,9 @@ export default async function DashboardPage({
 
       <section
         aria-labelledby="current-arc-title"
-        className="mt-10 border-y py-14 sm:py-16"
+        className="mt-10"
       >
-        <Empty className="mx-auto max-w-xl p-0">
+        <Empty className="mx-auto max-w-xl">
           <EmptyHeader>
             <EmptyMedia variant="icon">
               <TargetIcon aria-hidden="true" />

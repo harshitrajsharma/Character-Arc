@@ -3,37 +3,38 @@ import "server-only"
 import { z } from "zod"
 
 import { requireVerifiedClaims } from "@/lib/auth/session"
-import { createServerSupabaseClient } from "@/lib/supabase/server"
+import { prisma } from "@/lib/prisma"
 import type { ToolManifest } from "@/lib/tools/contracts"
 import { listFirstPartyToolManifests } from "@/lib/tools/registry"
 
 const workspaceSchema = z.object({
-  id: z.uuid(),
+  id: z.string().uuid(),
   name: z.string(),
+  slug: z.string(),
 })
 
 const toolDefinitionsSchema = z.array(
   z.object({
-    id: z.uuid(),
+    id: z.string().uuid(),
     key: z.string(),
   })
 )
 
 const toolReleasesSchema = z.array(
   z.object({
-    id: z.uuid(),
-    tool_definition_id: z.uuid(),
+    id: z.string().uuid(),
+    toolDefinitionId: z.string().uuid(),
     version: z.string(),
   })
 )
 
 const toolInstallationsSchema = z.array(
   z.object({
-    id: z.uuid(),
-    tool_definition_id: z.uuid(),
-    tool_release_id: z.uuid(),
-    status: z.enum(["active", "disabled", "removed"]),
-    installed_at: z.iso.datetime({ offset: true }),
+    id: z.string().uuid(),
+    toolDefinitionId: z.string().uuid(),
+    toolReleaseId: z.string().uuid(),
+    status: z.enum(["ACTIVE", "DISABLED", "REMOVED"]),
+    installedAt: z.date(),
   })
 )
 
@@ -56,7 +57,7 @@ export type ToolCatalogItem = {
 }
 
 export type ToolCatalog = {
-  workspace: { id: string; name: string } | null
+  workspace: { id: string; name: string; slug: string } | null
   items: ToolCatalogItem[]
   issue: ToolCatalogIssue | null
 }
@@ -81,20 +82,20 @@ function unavailableItems(manifests: ToolManifest[]): ToolCatalogItem[] {
 export async function getToolCatalog(): Promise<ToolCatalog> {
   const claims = await requireVerifiedClaims("/tools")
   const manifests = listFirstPartyToolManifests()
-  const supabase = await createServerSupabaseClient()
-  const workspaceResult = await supabase
-    .from("workspaces")
-    .select("id, name")
-    .eq("created_by_id", claims.sub)
-    .eq("kind", "personal")
-    .is("archived_at", null)
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle()
+  
+  const workspaceData = await prisma.workspace.findFirst({
+    where: {
+      createdById: claims.sub,
+      kind: "PERSONAL",
+      archivedAt: null,
+    },
+    select: { id: true, name: true, slug: true },
+    orderBy: { createdAt: "asc" }
+  })
 
-  const workspace = workspaceSchema.safeParse(workspaceResult.data)
+  const workspace = workspaceSchema.safeParse(workspaceData)
 
-  if (workspaceResult.error || !workspace.success) {
+  if (!workspaceData || !workspace.success) {
     return {
       workspace: null,
       items: unavailableItems(manifests),
@@ -103,33 +104,35 @@ export async function getToolCatalog(): Promise<ToolCatalog> {
   }
 
   const toolKeys = manifests.map((manifest) => manifest.tool.key)
-  const [definitionsResult, releasesResult, installationsResult] =
+  const [definitionsData, releasesData, installationsData] =
     await Promise.all([
-      supabase.from("tool_definitions").select("id, key").in("key", toolKeys),
-      supabase
-        .from("tool_releases")
-        .select("id, tool_definition_id, version")
-        .eq("status", "published"),
-      supabase
-        .from("tool_installations")
-        .select("id, tool_definition_id, tool_release_id, status, installed_at")
-        .eq("workspace_id", workspace.data.id),
+      prisma.toolDefinition.findMany({
+        where: { key: { in: toolKeys } },
+        select: { id: true, key: true }
+      }),
+      prisma.toolRelease.findMany({
+        where: { status: "PUBLISHED" },
+        select: { id: true, toolDefinitionId: true, version: true }
+      }),
+      prisma.toolInstallation.findMany({
+        where: { workspaceId: workspace.data.id },
+        select: { id: true, toolDefinitionId: true, toolReleaseId: true, status: true, installedAt: true }
+      }),
     ])
 
-  const definitions = toolDefinitionsSchema.safeParse(definitionsResult.data)
-  const releases = toolReleasesSchema.safeParse(releasesResult.data)
-  const installations = toolInstallationsSchema.safeParse(
-    installationsResult.data
-  )
+  const definitions = toolDefinitionsSchema.safeParse(definitionsData)
+  const releases = toolReleasesSchema.safeParse(releasesData)
+  const installations = toolInstallationsSchema.safeParse(installationsData)
+
   const catalogFailed =
-    Boolean(definitionsResult.error) ||
-    Boolean(releasesResult.error) ||
-    Boolean(installationsResult.error) ||
     !definitions.success ||
     !releases.success ||
     !installations.success
 
   if (catalogFailed) {
+    if (!definitions.success) console.error("Definitions parse error:", definitions.error)
+    if (!releases.success) console.error("Releases parse error:", releases.error)
+    if (!installations.success) console.error("Installations parse error:", installations.error)
     return {
       workspace: workspace.data,
       items: unavailableItems(manifests),
@@ -142,12 +145,12 @@ export async function getToolCatalog(): Promise<ToolCatalog> {
   )
   const releaseKeys = new Set(
     releases.data.map(
-      (release) => `${release.tool_definition_id}:${release.version}`
+      (release) => `${release.toolDefinitionId}:${release.version}`
     )
   )
   const installationByDefinition = new Map(
     installations.data.map((installation) => [
-      installation.tool_definition_id,
+      installation.toolDefinitionId,
       installation,
     ])
   )
@@ -161,6 +164,8 @@ export async function getToolCatalog(): Promise<ToolCatalog> {
       ? installationByDefinition.get(definition.id)
       : undefined
 
+    const installationStatus = (installation?.status.toLowerCase() as ToolCatalogItem["installationStatus"]) ?? "not_installed"
+
     return {
       key: manifest.tool.key,
       name: manifest.tool.name,
@@ -170,10 +175,10 @@ export async function getToolCatalog(): Promise<ToolCatalog> {
       homeRoute: manifest.routes.home,
       actionNames: manifest.actions.map((action) => action.name),
       blockTypeNames: manifest.blockTypes.map((blockType) => blockType.name),
-      installationStatus: installation?.status ?? "not_installed",
+      installationStatus,
       installationId: installation?.id ?? null,
-      installedAt: installation?.installed_at ?? null,
-      installable: releaseAvailable && installation?.status !== "active",
+      installedAt: installation?.installedAt ? installation.installedAt.toISOString() : null,
+      installable: releaseAvailable && installationStatus !== "active",
     }
   })
 
