@@ -44,10 +44,10 @@ Pages and Server Components should call the data access or domain layer directly
 - PostgreSQL as the system of record.
 - Stable Prisma ORM, not an early-access Prisma release.
 - Supabase Postgres for local and hosted databases.
-- Supabase SQL migrations as the single migration history because the project also needs RLS, Auth-related functions, Storage policies, and PostgreSQL extensions.
-- Prisma for server-only typed queries and transactions through the appropriate Supavisor connection.
-- Keep the Prisma schema synchronized with applied Supabase migrations and regenerate the client after schema changes.
-- Do not maintain a separate Prisma Migrate history for the same database.
+- Prisma is the absolute source of truth for the schema.
+- We use a central TypeScript Tool Registry (`lib/tools/registry.ts`) and a dynamic synchronization script (`lib/tools/sync-registry.ts`) via Prisma seed to automatically populate the database.
+- Next.js Server Actions with `prisma.$transaction` for all business logic.
+- We NO LONGER use custom PostgreSQL triggers or RPCs for logic or tool definitions.
 - Use UUID or CUID-style application-generated identifiers rather than user-visible sequential IDs.
 
 ### Authentication and authorization
@@ -257,7 +257,7 @@ Done when a clean checkout can install, build, and connect to an empty database.
 
 1. Configure Supabase Auth, Postgres, Storage, and local development.
 2. Install stable Prisma and connect it to Supabase Postgres for server-only access.
-3. Apply the initial Supabase migration for profiles, workspaces, block types, blocks, block relations, tool installations, and RLS policies.
+3. Push the Prisma schema and populate the database using the dynamic sync script (`lib/tools/sync-registry.ts`).
 4. Integrate Supabase SSR authentication.
 5. Build the authenticated application shell with sidebar navigation.
 6. Create the Tools catalog, tool installation state, and permissions summary.
@@ -405,8 +405,8 @@ The first coding sequence should be:
 
 1. Configure Supabase locally and create the hosted project.
 2. Add Supabase SSR authentication and the profiles table.
-3. Create the first SQL migration for Page, Page Type, Page Relation, tags, tool installation, ownership, indexes, and RLS.
-4. Synchronize Prisma with the migrated Supabase schema and create the server-only client.
+3. Establish the Prisma schema as the absolute source of truth for Page, Page Type, Page Relation, tags, tool installation, ownership, and indexes.
+4. Generate the Prisma client and push changes using Prisma migrate.
 5. Add the secure data-access layer.
 6. Build the application shell and Tools page.
 7. Add Exam, Subject, Chapter, Topic, and Skill extensions.

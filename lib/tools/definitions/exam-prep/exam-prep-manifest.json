@@ -1,0 +1,698 @@
+{
+  "manifestVersion": 1,
+  "tool": {
+    "key": "core.exam-prep",
+    "name": "Exam Prep",
+    "description": "Track exam subjects, chapters, and topics through four study stages: Learn, Revise, Practice, and Test.",
+    "icon": "graduation-cap",
+    "category": "learn"
+  },
+  "release": {
+    "version": "1.0.0",
+    "schemaVersion": 1
+  },
+  "routes": {
+    "home": "/tools/exam-prep",
+    "create": "/tools/exam-prep/new"
+  },
+  "defaultGrants": [
+    {
+      "permissionKey": "blocks.read.owned",
+      "effect": "allow",
+      "constraints": {
+        "origin": "installation",
+        "blockTypeKeys": [
+          "exam-prep.exam",
+          "exam-prep.subject",
+          "exam-prep.chapter",
+          "exam-prep.topic"
+        ]
+      }
+    },
+    {
+      "permissionKey": "blocks.write.owned",
+      "effect": "allow",
+      "constraints": {
+        "origin": "installation",
+        "blockTypeKeys": [
+          "exam-prep.exam",
+          "exam-prep.subject",
+          "exam-prep.chapter",
+          "exam-prep.topic"
+        ]
+      }
+    }
+  ],
+  "blockTypes": [
+    {
+      "key": "exam-prep.exam",
+      "name": "Exam",
+      "description": "An exam with a date, target, and set of subjects.",
+      "kind": "container",
+      "schemaVersion": 1,
+      "propertiesSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [],
+        "properties": {
+          "examCode": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 80
+          },
+          "conductingBody": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 120
+          },
+          "durationMinutes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "totalMarks": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 1
+          },
+          "targetMarks": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          },
+          "examDate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 32
+          },
+          "officialUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 512
+          }
+        }
+      }
+    },
+    {
+      "key": "exam-prep.subject",
+      "name": "Subject",
+      "description": "A subject in an exam with weightage and four-stage progress tracking.",
+      "kind": "container",
+      "schemaVersion": 1,
+      "propertiesSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "weightage",
+          "foundationLevel"
+        ],
+        "properties": {
+          "weightage": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "foundationLevel": {
+            "type": "string",
+            "enum": [
+              "Beginner",
+              "Moderate",
+              "Advanced"
+            ]
+          },
+          "expectedMarks": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          }
+        }
+      }
+    },
+    {
+      "key": "exam-prep.chapter",
+      "name": "Chapter",
+      "description": "A chapter within a subject, grouping related topics together.",
+      "kind": "container",
+      "schemaVersion": 1,
+      "propertiesSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [],
+        "properties": {
+          "important": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    {
+      "key": "exam-prep.topic",
+      "name": "Topic",
+      "description": "An atomic study topic tracking Learn, Revise, Practice, and Test completion.",
+      "kind": "entity",
+      "schemaVersion": 1,
+      "propertiesSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "learningStatus",
+          "revisionCount",
+          "practiceCount",
+          "testCount"
+        ],
+        "properties": {
+          "learningStatus": {
+            "type": "boolean"
+          },
+          "revisionCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 5
+          },
+          "practiceCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 5
+          },
+          "testCount": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 5
+          },
+          "lastRevised": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 32
+          },
+          "nextRevision": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 32
+          },
+          "important": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  ],
+  "relationTypes": [
+    {
+      "key": "exam-prep.exam-has-subject",
+      "name": "Exam has subject",
+      "description": "Links an exam to a subject. A subject can belong to multiple exams (e.g. Linear Algebra in GATE and GRE).",
+      "sourceBlockTypeKey": "exam-prep.exam",
+      "targetBlockTypeKey": "exam-prep.subject",
+      "cardinality": "many_to_many"
+    },
+    {
+      "key": "exam-prep.subject-has-chapter",
+      "name": "Subject has chapter",
+      "description": "Connects a subject to one of its chapters.",
+      "sourceBlockTypeKey": "exam-prep.subject",
+      "targetBlockTypeKey": "exam-prep.chapter",
+      "cardinality": "one_to_many"
+    },
+    {
+      "key": "exam-prep.chapter-has-topic",
+      "name": "Chapter has topic",
+      "description": "Connects a chapter to one of its topics.",
+      "sourceBlockTypeKey": "exam-prep.chapter",
+      "targetBlockTypeKey": "exam-prep.topic",
+      "cardinality": "one_to_many"
+    }
+  ],
+  "actions": [
+    {
+      "key": "exam.create",
+      "name": "Create exam",
+      "description": "Creates an exam prep container.",
+      "execution": "deterministic",
+      "requiredPermissions": [
+        "blocks.write.owned"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "title"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "summary": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "examDate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "targetMarks": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          }
+        }
+      },
+      "output": {
+        "rootBlockTypeKey": "exam-prep.exam",
+        "createsBlockTypeKeys": [
+          "exam-prep.exam"
+        ],
+        "writesBlockTypeKeys": []
+      }
+    },
+    {
+      "key": "subject.create",
+      "name": "Create subject",
+      "description": "Creates a subject under an exam.",
+      "execution": "deterministic",
+      "requiredPermissions": [
+        "blocks.write.owned"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "examId",
+          "title",
+          "weightage",
+          "foundationLevel"
+        ],
+        "properties": {
+          "examId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "summary": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "weightage": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "foundationLevel": {
+            "type": "string",
+            "enum": [
+              "Beginner",
+              "Moderate",
+              "Advanced"
+            ]
+          },
+          "expectedMarks": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0
+          }
+        }
+      },
+      "output": {
+        "rootBlockTypeKey": "exam-prep.subject",
+        "createsBlockTypeKeys": [
+          "exam-prep.subject"
+        ],
+        "writesBlockTypeKeys": [
+          "exam-prep.exam"
+        ]
+      }
+    },
+    {
+      "key": "chapter.create",
+      "name": "Create chapter",
+      "description": "Creates a chapter under a subject.",
+      "execution": "deterministic",
+      "requiredPermissions": [
+        "blocks.write.owned"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "subjectId",
+          "title",
+          "important"
+        ],
+        "properties": {
+          "subjectId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "summary": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "important": {
+            "type": "boolean"
+          }
+        }
+      },
+      "output": {
+        "rootBlockTypeKey": "exam-prep.chapter",
+        "createsBlockTypeKeys": [
+          "exam-prep.chapter"
+        ],
+        "writesBlockTypeKeys": [
+          "exam-prep.subject"
+        ]
+      }
+    },
+    {
+      "key": "topic.create",
+      "name": "Create topic",
+      "description": "Creates a topic under a chapter.",
+      "execution": "deterministic",
+      "requiredPermissions": [
+        "blocks.write.owned"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "chapterId",
+          "title",
+          "important"
+        ],
+        "properties": {
+          "chapterId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "summary": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "important": {
+            "type": "boolean"
+          }
+        }
+      },
+      "output": {
+        "rootBlockTypeKey": "exam-prep.topic",
+        "createsBlockTypeKeys": [
+          "exam-prep.topic"
+        ],
+        "writesBlockTypeKeys": [
+          "exam-prep.chapter"
+        ]
+      }
+    },
+    {
+      "key": "topic.set-learning",
+      "name": "Set topic learning status",
+      "description": "Marks a topic as learned (or unlearned). Learning must be true before revision, practice, or test can advance.",
+      "execution": "deterministic",
+      "requiredPermissions": [
+        "blocks.write.owned"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "topicId",
+          "learned"
+        ],
+        "properties": {
+          "topicId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "learned": {
+            "type": "boolean",
+            "description": "true to mark learned, false to unmark."
+          }
+        }
+      },
+      "output": {
+        "rootBlockTypeKey": "exam-prep.topic",
+        "createsBlockTypeKeys": [],
+        "writesBlockTypeKeys": [
+          "exam-prep.topic"
+        ]
+      }
+    },
+    {
+      "key": "topic.record-revision",
+      "name": "Record topic revision",
+      "description": "Increments the revision count for a topic. Topic must be learned first. Updates spaced-repetition schedule.",
+      "execution": "deterministic",
+      "requiredPermissions": [
+        "blocks.write.owned"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "topicId"
+        ],
+        "properties": {
+          "topicId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 500,
+            "description": "Optional note about this revision session."
+          }
+        }
+      },
+      "output": {
+        "rootBlockTypeKey": "exam-prep.topic",
+        "createsBlockTypeKeys": [],
+        "writesBlockTypeKeys": [
+          "exam-prep.topic"
+        ]
+      }
+    },
+    {
+      "key": "topic.record-practice",
+      "name": "Record topic practice",
+      "description": "Increments the practice count for a topic. Topic must be learned first.",
+      "execution": "deterministic",
+      "requiredPermissions": [
+        "blocks.write.owned"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "topicId"
+        ],
+        "properties": {
+          "topicId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 500
+          }
+        }
+      },
+      "output": {
+        "rootBlockTypeKey": "exam-prep.topic",
+        "createsBlockTypeKeys": [],
+        "writesBlockTypeKeys": [
+          "exam-prep.topic"
+        ]
+      }
+    },
+    {
+      "key": "topic.record-test",
+      "name": "Record topic test",
+      "description": "Increments the test count for a topic.",
+      "execution": "deterministic",
+      "requiredPermissions": [
+        "blocks.write.owned"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "topicId"
+        ],
+        "properties": {
+          "topicId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 500
+          }
+        }
+      },
+      "output": {
+        "rootBlockTypeKey": "exam-prep.topic",
+        "createsBlockTypeKeys": [],
+        "writesBlockTypeKeys": [
+          "exam-prep.topic"
+        ]
+      }
+    },
+    {
+      "key": "exam.get-context",
+      "name": "Get exam context",
+      "description": "Returns the full exam context: all subjects with their chapter and topic trees, progress rollups, and exam metadata.",
+      "execution": "deterministic",
+      "requiredPermissions": [
+        "blocks.read.owned"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "examId"
+        ],
+        "properties": {
+          "examId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "output": {
+        "rootBlockTypeKey": "exam-prep.exam",
+        "createsBlockTypeKeys": [],
+        "writesBlockTypeKeys": [
+          "exam-prep.exam"
+        ]
+      }
+    },
+    {
+      "key": "exam.get-weak-topics",
+      "name": "Get weak topics",
+      "description": "Returns topics that are below a progress threshold in the specified study stage. Ordered by subject weightage then chapter importance.",
+      "execution": "deterministic",
+      "requiredPermissions": [
+        "blocks.read.owned"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "examId",
+          "stage"
+        ],
+        "properties": {
+          "examId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "stage": {
+            "type": "string",
+            "enum": [
+              "learning",
+              "revision",
+              "practice",
+              "test"
+            ],
+            "description": "Which study stage to filter on."
+          },
+          "limit": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "maximum": 50,
+            "description": "Maximum number of topics to return (default 20)."
+          }
+        }
+      },
+      "output": {
+        "rootBlockTypeKey": "exam-prep.exam",
+        "createsBlockTypeKeys": [],
+        "writesBlockTypeKeys": [
+          "exam-prep.exam"
+        ]
+      }
+    },
+    {
+      "key": "subject.get-progress",
+      "name": "Get subject progress",
+      "description": "Returns the four-stage progress rollup for a single subject.",
+      "execution": "deterministic",
+      "requiredPermissions": [
+        "blocks.read.owned"
+      ],
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "subjectId"
+        ],
+        "properties": {
+          "subjectId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "output": {
+        "rootBlockTypeKey": "exam-prep.subject",
+        "createsBlockTypeKeys": [],
+        "writesBlockTypeKeys": [
+          "exam-prep.subject"
+        ]
+      }
+    }
+  ]
+}

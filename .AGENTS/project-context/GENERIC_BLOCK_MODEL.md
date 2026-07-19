@@ -88,7 +88,7 @@ GATE CSE   --includes--> Engineering Mathematics
 ISRO CS    --includes--> Engineering Mathematics
 ```
 
-`BlockRelationType` defines the key, optional source and target block types, cardinality, and inverse key. Database triggers reject cross-workspace edges and invalid registered endpoints.
+`BlockRelationType` defines the key, optional source and target block types, cardinality, and inverse key. Business logic in `prisma.$transaction` rejects cross-workspace edges and invalid registered endpoints.
 
 `ExamSubjectConfig` extends an `includes` relation with exam-specific weightage, marks, section, syllabus version, validity dates, and provenance.
 
@@ -100,7 +100,7 @@ Typed extensions use the block ID as their primary key:
 - `SubjectBlock`
 - `Assessment`
 
-Database triggers verify that each extension is attached to the matching registered block type. New extensions should be introduced only when a domain has stable fields or rules that do not belong in generic properties.
+Application logic verifies that each extension is attached to the matching registered block type. New extensions should be introduced only when a domain has stable fields or rules that do not belong in generic properties.
 
 ## Assessments
 
@@ -151,13 +151,12 @@ Cloud blocks use visibility plus explicit agent access:
 ## Database Ownership
 
 - Supabase Auth owns identities in `auth.users`.
-- `profiles.id` has a SQL foreign key to `auth.users.id`.
-- The signup trigger creates a profile, personal workspace, and owner membership.
-- Supabase SQL migrations under `supabase/migrations` are the single executable migration history.
-- Prisma defines the application model and provides server-only typed queries.
-- PostgreSQL SQL handles RLS, Auth triggers, checks, and cross-record validation that Prisma cannot express.
-
-Do not create an independent Prisma Migrate history for the same database.
+- `Profile` maps to the authenticated user ID.
+- Lazy application-level user provisioning happens in `lib/auth/provision.ts`, handling profile and personal workspace creation.
+- Prisma is the absolute source of truth for the schema.
+- Next.js Server Actions with `prisma.$transaction` handle all business logic.
+- We use a central TypeScript Tool Registry (`lib/tools/registry.ts`) and a dynamic synchronization script (`lib/tools/sync-registry.ts`) via Prisma seed to automatically populate the database tool catalogs.
+- No custom PostgreSQL triggers or RPCs are used for business logic, tool definitions, or user provisioning.
 
 ## Initial Query Indexes
 

@@ -60,7 +60,7 @@ export const goalsPathsManifest = parseToolManifest({
     category: "plan",
   },
   release: {
-    version: "3.1.0",
+    version: "1.0.0",
     schemaVersion: 2,
   },
   routes: {

@@ -5,7 +5,7 @@ import { useActionState, useState } from "react"
 import {
   createArcAction,
   type CreateArcActionState,
-} from "@/app/(app)/tools/goals-paths/actions"
+} from "@/lib/tools/goals-paths/actions"
 import { ArcCoverPreview } from "@/components/tools/create-arc/arc-cover-preview"
 import { ArcDirectionEditor } from "@/components/tools/create-arc/arc-direction-editor"
 import { ArcFormActions } from "@/components/tools/create-arc/arc-form-actions"
@@ -28,16 +28,18 @@ const initialState: CreateArcActionState = { status: "idle", message: "" }
 type CreateArcFormProps = {
   workspaceId: string
   installationId: string
+  workspaceSlug: string
   idempotencyKey: string
 }
 
 export function CreateArcForm({
   workspaceId,
   installationId,
+  workspaceSlug,
   idempotencyKey,
 }: CreateArcFormProps) {
   const [state, formAction, pending] = useActionState(
-    createArcAction,
+    createArcAction.bind(null, workspaceSlug),
     initialState
   )
   const [draft, setDraft] = useState<ArcDraft>(EMPTY_ARC_DRAFT)
@@ -59,7 +61,7 @@ export function CreateArcForm({
 
   if (state.status === "success") {
     return (
-      <ArcFormSuccess message={state.message} rootBlockId={state.rootBlockId} />
+      <ArcFormSuccess message={state.message} rootBlockId={state.rootBlockId} workspaceSlug={workspaceSlug} />
     )
   }
 
@@ -75,7 +77,7 @@ export function CreateArcForm({
       <input type="hidden" name="installationId" value={installationId} />
       <input type="hidden" name="idempotencyKey" value={idempotencyKey} />
 
-      <ArcFormToolbar />
+      <ArcFormToolbar workspaceSlug={workspaceSlug} />
 
       <div className="mx-auto grid w-full max-w-6xl items-start gap-10 px-4 pb-12 sm:px-6 lg:grid-cols-[22rem_minmax(0,1fr)] lg:gap-14 lg:px-8 xl:px-10 lg:pb-16 xl:grid-cols-[24rem_minmax(0,1fr)] xl:gap-16">
         <aside className="flex min-w-0 flex-col gap-5 lg:sticky lg:top-20">

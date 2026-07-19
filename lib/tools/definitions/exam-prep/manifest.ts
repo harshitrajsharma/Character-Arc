@@ -57,6 +57,13 @@ const subjectPropertiesSchema = {
     },
     /** Expected marks from this subject (optional, for planning). */
     expectedMarks: { type: ["number", "null"], minimum: 0 },
+    /** Progress Policy overrides for this subject */
+    revisionTarget: { type: "integer", minimum: 1, maximum: 100 },
+    practiceTarget: { type: "integer", minimum: 1, maximum: 100 },
+    highYieldRevisionTarget: { type: "integer", minimum: 1, maximum: 100 },
+    highYieldPracticeTarget: { type: "integer", minimum: 1, maximum: 100 },
+    chapterTestTarget: { type: "integer", minimum: 0, maximum: 100 },
+    subjectTestTarget: { type: "integer", minimum: 0, maximum: 100 },
   },
 }
 
@@ -99,7 +106,7 @@ export const examPrepManifest = parseToolManifest({
     category: "learn",
   },
   release: {
-    version: "1.0.0",
+    version: "1.3.1",
     schemaVersion: 1,
   },
   routes: {
@@ -205,6 +212,259 @@ export const examPrepManifest = parseToolManifest({
 
   // ─── Agent-callable actions ───────────────────────────────────────────────
   actions: [
+    {
+      key: "exam.create",
+      name: "Create exam",
+      description: "Creates an exam prep container.",
+      execution: "deterministic",
+      requiredPermissions: ["blocks.write.owned"],
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["title"],
+        properties: {
+          title: { type: "string", minLength: 1, maxLength: 120 },
+          summary: { type: "string", maxLength: 4000 },
+          examDate: optionalText(32),
+          targetMarks: { type: ["number", "null"], minimum: 0 },
+        },
+      },
+      output: {
+        rootBlockTypeKey: "exam-prep.exam",
+        createsBlockTypeKeys: ["exam-prep.exam"],
+        writesBlockTypeKeys: [],
+      },
+    },
+    {
+      key: "subject.create",
+      name: "Create subject",
+      description: "Creates a subject under an exam.",
+      execution: "deterministic",
+      requiredPermissions: ["blocks.write.owned"],
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["examId", "title", "weightage", "foundationLevel"],
+        properties: {
+          examId: { type: "string", format: "uuid" },
+          title: { type: "string", minLength: 1, maxLength: 120 },
+          summary: { type: "string", maxLength: 4000 },
+          weightage: { type: "number", minimum: 0, maximum: 100 },
+          foundationLevel: {
+            type: "string",
+            enum: ["Beginner", "Moderate", "Advanced"],
+          },
+          expectedMarks: { type: ["number", "null"], minimum: 0 },
+        },
+      },
+      output: {
+        rootBlockTypeKey: "exam-prep.subject",
+        createsBlockTypeKeys: ["exam-prep.subject"],
+        writesBlockTypeKeys: ["exam-prep.exam"],
+      },
+    },
+    {
+      key: "chapter.create",
+      name: "Create chapter",
+      description: "Creates a chapter under a subject.",
+      execution: "deterministic",
+      requiredPermissions: ["blocks.write.owned"],
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["subjectId", "title", "important"],
+        properties: {
+          subjectId: { type: "string", format: "uuid" },
+          title: { type: "string", minLength: 1, maxLength: 120 },
+          summary: { type: "string", maxLength: 4000 },
+          important: { type: "boolean" },
+        },
+      },
+      output: {
+        rootBlockTypeKey: "exam-prep.chapter",
+        createsBlockTypeKeys: ["exam-prep.chapter"],
+        writesBlockTypeKeys: ["exam-prep.subject"],
+      },
+    },
+    {
+      key: "topic.create",
+      name: "Create topic",
+      description: "Creates a topic under a chapter.",
+      execution: "deterministic",
+      requiredPermissions: ["blocks.write.owned"],
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["chapterId", "title", "important"],
+        properties: {
+          chapterId: { type: "string", format: "uuid" },
+          title: { type: "string", minLength: 1, maxLength: 120 },
+          summary: { type: "string", maxLength: 4000 },
+          important: { type: "boolean" },
+        },
+      },
+      output: {
+        rootBlockTypeKey: "exam-prep.topic",
+        createsBlockTypeKeys: ["exam-prep.topic"],
+        writesBlockTypeKeys: ["exam-prep.chapter"],
+      },
+    },
+    {
+      key: "chapter.update",
+      name: "Update chapter",
+      description: "Updates a chapter's properties.",
+      execution: "deterministic",
+      requiredPermissions: ["blocks.write.owned"],
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["chapterId", "title", "important"],
+        properties: {
+          chapterId: { type: "string", format: "uuid" },
+          title: { type: "string", minLength: 1, maxLength: 120 },
+          important: { type: "boolean" },
+        },
+      },
+      output: {
+        rootBlockTypeKey: "exam-prep.chapter",
+        createsBlockTypeKeys: [],
+        writesBlockTypeKeys: ["exam-prep.chapter"],
+      },
+    },
+    {
+      key: "chapter.delete",
+      name: "Delete chapter",
+      description: "Deletes a chapter.",
+      execution: "deterministic",
+      requiredPermissions: ["blocks.write.owned"],
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["chapterId"],
+        properties: {
+          chapterId: { type: "string", format: "uuid" },
+        },
+      },
+      output: {
+        rootBlockTypeKey: "exam-prep.chapter",
+        createsBlockTypeKeys: [],
+        writesBlockTypeKeys: ["exam-prep.chapter"],
+      },
+    },
+    {
+      key: "topic.update",
+      name: "Update topic",
+      description: "Updates a topic's properties.",
+      execution: "deterministic",
+      requiredPermissions: ["blocks.write.owned"],
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["topicId", "title", "important"],
+        properties: {
+          ...topicIdInput,
+          title: { type: "string", minLength: 1, maxLength: 120 },
+          important: { type: "boolean" },
+        },
+      },
+      output: {
+        rootBlockTypeKey: "exam-prep.topic",
+        createsBlockTypeKeys: [],
+        writesBlockTypeKeys: ["exam-prep.topic"],
+      },
+    },
+    {
+      key: "topic.delete",
+      name: "Delete topic",
+      description: "Deletes a topic.",
+      execution: "deterministic",
+      requiredPermissions: ["blocks.write.owned"],
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["topicId"],
+        properties: {
+          ...topicIdInput,
+        },
+      },
+      output: {
+        rootBlockTypeKey: "exam-prep.topic",
+        createsBlockTypeKeys: [],
+        writesBlockTypeKeys: ["exam-prep.topic"],
+      },
+    },
+    {
+      key: "chapter.reorder",
+      name: "Reorder chapters",
+      description: "Reorders chapters within a subject.",
+      execution: "deterministic",
+      requiredPermissions: ["blocks.write.owned"],
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["subjectId", "chapterIds"],
+        properties: {
+          ...subjectIdInput,
+          chapterIds: {
+            type: "array",
+            uniqueItems: true,
+            items: { type: "string", format: "uuid" },
+          },
+        },
+      },
+      output: {
+        rootBlockTypeKey: "exam-prep.subject",
+        createsBlockTypeKeys: [],
+        writesBlockTypeKeys: ["exam-prep.subject"],
+      },
+    },
+    {
+      key: "topic.reorder",
+      name: "Reorder topics",
+      description: "Reorders topics within a chapter.",
+      execution: "deterministic",
+      requiredPermissions: ["blocks.write.owned"],
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["chapterId", "topicIds"],
+        properties: {
+          chapterId: { type: "string", format: "uuid" },
+          topicIds: {
+            type: "array",
+            uniqueItems: true,
+            items: { type: "string", format: "uuid" },
+          },
+        },
+      },
+      output: {
+        rootBlockTypeKey: "exam-prep.chapter",
+        createsBlockTypeKeys: [],
+        writesBlockTypeKeys: ["exam-prep.chapter"],
+      },
+    },
+    {
+      key: "topic.set-progress",
+      name: "Set topic progress count",
+      description: "Sets revision/practice/test count directly for a topic.",
+      execution: "deterministic",
+      requiredPermissions: ["blocks.write.owned"],
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["topicId", "stage", "count"],
+        properties: {
+          ...topicIdInput,
+          stage: { type: "string", enum: ["revision", "practice", "test"] },
+          count: { type: "integer", minimum: 0, maximum: 100 },
+        },
+      },
+      output: {
+        rootBlockTypeKey: "exam-prep.topic",
+        createsBlockTypeKeys: [],
+        writesBlockTypeKeys: ["exam-prep.topic"],
+      },
+    },
     // ── Topic progress mutations ───────────────────────────────────────────
     {
       key: "topic.set-learning",
@@ -319,6 +579,32 @@ export const examPrepManifest = parseToolManifest({
         rootBlockTypeKey: "exam-prep.exam",
         createsBlockTypeKeys: [],
         writesBlockTypeKeys: ["exam-prep.exam"],
+      },
+    },
+    {
+      key: "subject.update-settings",
+      name: "Update subject settings",
+      description: "Updates the progress policy targets for a subject.",
+      execution: "deterministic",
+      requiredPermissions: ["blocks.write.owned"],
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["subjectId", "revisionTarget", "practiceTarget", "highYieldRevisionTarget", "highYieldPracticeTarget", "chapterTestTarget", "subjectTestTarget"],
+        properties: {
+          ...subjectIdInput,
+          revisionTarget: { type: "integer", minimum: 1, maximum: 100 },
+          practiceTarget: { type: "integer", minimum: 1, maximum: 100 },
+          highYieldRevisionTarget: { type: "integer", minimum: 1, maximum: 100 },
+          highYieldPracticeTarget: { type: "integer", minimum: 1, maximum: 100 },
+          chapterTestTarget: { type: "integer", minimum: 0, maximum: 100 },
+          subjectTestTarget: { type: "integer", minimum: 0, maximum: 100 },
+        },
+      },
+      output: {
+        rootBlockTypeKey: "exam-prep.subject",
+        createsBlockTypeKeys: [],
+        writesBlockTypeKeys: ["exam-prep.subject"],
       },
     },
     {

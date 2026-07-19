@@ -180,6 +180,7 @@ model Profile {
   skills            UserSkill[]
   toolInstallations ToolInstallation[] @relation("ToolInstaller")
   toolRuns          ToolRun[]          @relation("ToolRunActor")
+  testRecords       TestRecord[]
 
   @@map("profiles")
 }
@@ -206,6 +207,8 @@ model Workspace {
   files               FileObject[]
   examBlocks          ExamBlock[]
   subjectBlocks       SubjectBlock[]
+  chapterBlocks       ChapterBlock[]
+  topicBlocks         TopicBlock[]
   examSubjectConfigs  ExamSubjectConfig[]
   assessments         Assessment[]
   questions           Question[]
@@ -223,6 +226,7 @@ model Workspace {
   toolInstallations   ToolInstallation[]
   toolGrants          ToolGrant[]
   toolRuns            ToolRun[]
+  testRecords         TestRecord[]
 
   @@index([createdById])
   @@index([kind, archivedAt])
@@ -307,12 +311,17 @@ model Block {
   userStates             UserBlockState[]
   examDetails            ExamBlock?         @relation("ExamBlockIdentity")
   subjectDetails         SubjectBlock?      @relation("SubjectBlockIdentity")
+  chapterDetails         ChapterBlock?      @relation("ChapterBlockIdentity")
+  topicDetails           TopicBlock?        @relation("TopicBlockIdentity")
   assessmentDetails      Assessment?        @relation("AssessmentIdentity")
   assessmentsForExam     Assessment[]       @relation("AssessmentExam")
   questionTargets        QuestionTarget[]
   progressEvidence       ProgressEvidence[]
   topicProgress          TopicProgress[]
   userSkills             UserSkill[]
+  examTestRecords        TestRecord[]       @relation("ExamTestRecords")
+  subjectTestRecords     TestRecord[]       @relation("SubjectTestRecords")
+  chapterTestRecords     TestRecord[]       @relation("ChapterTestRecords")
 
   @@unique([workspaceId, slug])
   @@index([workspaceId, parentBlockId, position])
@@ -486,6 +495,28 @@ model SubjectBlock {
 
   @@index([workspaceId, canonicalCode])
   @@map("subject_blocks")
+}
+
+model ChapterBlock {
+  blockId     String @id @map("block_id") @db.Uuid
+  workspaceId String @map("workspace_id") @db.Uuid
+
+  block     Block     @relation("ChapterBlockIdentity", fields: [blockId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@map("chapter_blocks")
+}
+
+model TopicBlock {
+  blockId     String @id @map("block_id") @db.Uuid
+  workspaceId String @map("workspace_id") @db.Uuid
+
+  block     Block     @relation("TopicBlockIdentity", fields: [blockId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@map("topic_blocks")
 }
 
 /// Exam-specific metadata for an `exam --includes--> subject` relation.
@@ -903,4 +934,33 @@ model ToolRun {
   @@index([actorId, createdAt])
   @@index([toolReleaseId, actionKey, createdAt])
   @@map("tool_runs")
+}
+
+model TestRecord {
+  id          String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId String @map("workspace_id") @db.Uuid
+  userId      String @map("user_id") @db.Uuid
+
+  examId    String  @map("exam_id") @db.Uuid
+  subjectId String? @map("subject_id") @db.Uuid
+  chapterId String? @map("chapter_id") @db.Uuid
+
+  title         String
+  marksObtained Decimal @map("marks_obtained") @db.Decimal(8, 2)
+  totalMarks    Decimal @map("total_marks") @db.Decimal(8, 2)
+  summary       String?
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      Profile   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exam      Block     @relation("ExamTestRecords", fields: [examId], references: [id], onDelete: Cascade)
+  subject   Block?    @relation("SubjectTestRecords", fields: [subjectId], references: [id], onDelete: Cascade)
+  chapter   Block?    @relation("ChapterTestRecords", fields: [chapterId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, userId, chapterId])
+  @@index([workspaceId, userId, subjectId])
+  @@index([workspaceId, userId, examId])
+  @@map("test_records")
 }

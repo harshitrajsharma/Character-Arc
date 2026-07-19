@@ -3,14 +3,30 @@ import "server-only"
 import { z } from "zod"
 
 import { requireVerifiedClaims } from "@/lib/auth/session"
-import { createServerSupabaseClient } from "@/lib/supabase/server"
+import { prisma } from "@/lib/prisma"
 import {
   resolveToolActionStrict,
   validateActionInput,
 } from "@/lib/tools/action-contract"
-import { parseToolManifest, type ToolActionResult } from "@/lib/tools/contracts"
+import { parseToolManifest, type ToolActionResult, type ToolExecutionPrincipal } from "@/lib/tools/contracts"
 import { evaluateToolPermissions } from "@/lib/tools/permissions"
 import { getFirstPartyToolManifest } from "@/lib/tools/registry"
+import { executeCreateArc, createArcUpdateExecutor, createArcContentExecutor } from "./goals-paths-handlers"
+import {
+  createExamPrepSyllabusItemExecutor,
+  executeExamPrepCreateExam,
+  executeExamPrepCreateSubject,
+  executeExamPrepCreateChapter,
+  executeExamPrepCreateTopic,
+  executeExamPrepReorderChapters,
+  executeExamPrepReorderTopics,
+  executeExamPrepTopicRecordPractice,
+  executeExamPrepTopicRecordRevision,
+  executeExamPrepTopicRecordTest,
+  executeExamPrepTopicSetProgress,
+  executeExamPrepTopicSetLearning,
+  executeExamPrepSubjectUpdateSettings,
+} from "./exam-prep-handlers"
 
 const executeInputSchema = z.object({
   workspaceId: z.uuid(),
@@ -43,22 +59,13 @@ const grantsSchema = z.array(
   })
 )
 
-const executionResponseSchema = z.object({
-  run_id: z.uuid(),
-  run_status: z.enum(["queued", "running", "succeeded", "failed", "cancelled"]),
-  root_block_id: z.uuid().nullable(),
-  created_block_ids: z.array(z.uuid()),
-  evidence_ids: z.array(z.uuid()),
-  error_code: z.string().nullable(),
-  error_message: z.string().nullable(),
-})
-
-type ExecuteToolActionInput = z.input<typeof executeInputSchema>
+export type ExecuteToolActionInput = z.input<typeof executeInputSchema>
 
 type HandlerBinding = Readonly<{
   handlerVersion: string
   execute: (
     input: z.output<typeof executeInputSchema>,
+    principal: ToolExecutionPrincipal,
     handlerVersion: string
   ) => Promise<ToolActionResult>
 }>
@@ -95,234 +102,152 @@ function canonicalJson(value: unknown): string {
   return JSON.stringify(value)
 }
 
-async function executeCreateArc(
-  input: z.output<typeof executeInputSchema>,
-  handlerVersion: string
-): Promise<ToolActionResult> {
-  const supabase = await createServerSupabaseClient()
-  const { data, error } = await supabase.rpc(
-    "execute_goals_paths_create_arc_v3",
-    {
-      action_input: input.input,
-      requested_handler_version: handlerVersion,
-      requested_idempotency_key: input.idempotencyKey,
-      target_installation_id: input.installationId,
-      target_workspace_id: input.workspaceId,
-    }
-  )
-
-  if (error) {
-    const code =
-      error.code === "42501"
-        ? "FORBIDDEN"
-        : error.code === "P0002"
-          ? "NOT_AVAILABLE"
-          : error.code === "22023"
-            ? "INVALID_INPUT"
-            : "FAILED"
-
-    throw new ToolActionExecutionError(
-      code === "FORBIDDEN"
-        ? "This tool is not allowed to make that change."
-        : code === "INVALID_INPUT"
-          ? "The action input is invalid or conflicts with an earlier request."
-          : code === "NOT_AVAILABLE"
-            ? "The installed tool action is unavailable."
-            : "The action could not be completed. Try again.",
-      code
-    )
-  }
-
-  const row = Array.isArray(data) ? data[0] : data
-  const result = executionResponseSchema.safeParse(row)
-
-  if (!result.success) {
-    throw new ToolActionExecutionError(
-      "The action completed with an invalid execution receipt.",
-      "FAILED"
-    )
-  }
-
-  if (result.data.run_status === "failed") {
-    throw new ToolActionExecutionError(
-      result.data.error_message ?? "The action could not be completed.",
-      "RUN_FAILED"
-    )
-  }
-
-  return {
-    runId: result.data.run_id,
-    status: result.data.run_status,
-    rootBlockId: result.data.root_block_id ?? undefined,
-    createdBlockIds: result.data.created_block_ids,
-    evidenceIds: result.data.evidence_ids,
-  }
-}
-
-function createArcUpdateExecutor(actionKey: "arc.check-in" | "arc.set-status") {
-  return async function executeArcUpdate(
-    input: z.output<typeof executeInputSchema>,
-    handlerVersion: string
-  ): Promise<ToolActionResult> {
-    const supabase = await createServerSupabaseClient()
-    const { data, error } = await supabase.rpc(
-      "execute_goals_paths_arc_update_v2",
-      {
-        action_input: input.input,
-        requested_action_key: actionKey,
-        requested_handler_version: handlerVersion,
-        requested_idempotency_key: input.idempotencyKey,
-        target_installation_id: input.installationId,
-        target_workspace_id: input.workspaceId,
-      }
-    )
-
-    if (error) {
-      const code =
-        error.code === "42501"
-          ? "FORBIDDEN"
-          : error.code === "P0002"
-            ? "NOT_AVAILABLE"
-            : error.code === "22023"
-              ? "INVALID_INPUT"
-              : "FAILED"
-
-      throw new ToolActionExecutionError(
-        code === "FORBIDDEN"
-          ? "This tool is not allowed to make that change."
-          : code === "INVALID_INPUT"
-            ? "The action input is invalid or conflicts with an earlier request."
-            : code === "NOT_AVAILABLE"
-              ? "This Arc is unavailable."
-              : "The action could not be completed. Try again.",
-        code
-      )
-    }
-
-    const row = Array.isArray(data) ? data[0] : data
-    const result = executionResponseSchema.safeParse(row)
-    if (!result.success) {
-      throw new ToolActionExecutionError(
-        "The action completed with an invalid execution receipt.",
-        "FAILED"
-      )
-    }
-    if (result.data.run_status === "failed") {
-      throw new ToolActionExecutionError(
-        result.data.error_message ?? "The action could not be completed.",
-        "RUN_FAILED"
-      )
-    }
-
-    return {
-      runId: result.data.run_id,
-      status: result.data.run_status,
-      rootBlockId: result.data.root_block_id ?? undefined,
-      createdBlockIds: result.data.created_block_ids,
-      evidenceIds: result.data.evidence_ids,
-    }
-  }
-}
-
-function createArcContentExecutor(actionKey: "arc.update" | "arc.delete") {
-  return async function executeArcContent(
-    input: z.output<typeof executeInputSchema>,
-    handlerVersion: string
-  ): Promise<ToolActionResult> {
-    const supabase = await createServerSupabaseClient()
-    const { data, error } = await supabase.rpc(
-      "execute_goals_paths_arc_content_v1",
-      {
-        action_input: input.input,
-        requested_action_key: actionKey,
-        requested_handler_version: handlerVersion,
-        requested_idempotency_key: input.idempotencyKey,
-        target_installation_id: input.installationId,
-        target_workspace_id: input.workspaceId,
-      }
-    )
-
-    if (error) {
-      const code =
-        error.code === "42501"
-          ? "FORBIDDEN"
-          : error.code === "P0002"
-            ? "NOT_AVAILABLE"
-            : error.code === "22023"
-              ? "INVALID_INPUT"
-              : "FAILED"
-
-      throw new ToolActionExecutionError(
-        code === "FORBIDDEN"
-          ? "Only the Arc owner can make that change."
-          : code === "INVALID_INPUT"
-            ? "This Arc changed elsewhere. Refresh it before trying again."
-            : code === "NOT_AVAILABLE"
-              ? "This Arc is unavailable."
-              : "The Arc could not be changed. Try again.",
-        code
-      )
-    }
-
-    const row = Array.isArray(data) ? data[0] : data
-    const result = executionResponseSchema.safeParse(row)
-    if (!result.success) {
-      throw new ToolActionExecutionError(
-        "The action completed with an invalid execution receipt.",
-        "FAILED"
-      )
-    }
-    if (result.data.run_status === "failed") {
-      throw new ToolActionExecutionError(
-        result.data.error_message ?? "The Arc could not be changed.",
-        "RUN_FAILED"
-      )
-    }
-
-    return {
-      runId: result.data.run_id,
-      status: result.data.run_status,
-      rootBlockId: result.data.root_block_id ?? undefined,
-      createdBlockIds: result.data.created_block_ids,
-      evidenceIds: result.data.evidence_ids,
-    }
-  }
-}
-
 const handlers = new Map<string, HandlerBinding>([
   [
-    "core.goals-paths@3.1.0:arc.create",
+    "core.goals-paths@1.0.0:arc.create",
     {
       handlerVersion: "goals-paths.arc.create.v3.1",
       execute: executeCreateArc,
     },
   ],
   [
-    "core.goals-paths@3.1.0:arc.check-in",
+    "core.goals-paths@1.0.0:arc.check-in",
     {
       handlerVersion: "goals-paths.arc.check-in.v1",
       execute: createArcUpdateExecutor("arc.check-in"),
     },
   ],
   [
-    "core.goals-paths@3.1.0:arc.set-status",
+    "core.goals-paths@1.0.0:arc.set-status",
     {
       handlerVersion: "goals-paths.arc.set-status.v1",
       execute: createArcUpdateExecutor("arc.set-status"),
     },
   ],
   [
-    "core.goals-paths@3.1.0:arc.update",
+    "core.goals-paths@1.0.0:arc.update",
     {
       handlerVersion: "goals-paths.arc.update.v1",
       execute: createArcContentExecutor("arc.update"),
     },
   ],
   [
-    "core.goals-paths@3.1.0:arc.delete",
+    "core.goals-paths@1.0.0:arc.delete",
     {
       handlerVersion: "goals-paths.arc.delete.v1",
       execute: createArcContentExecutor("arc.delete"),
+    },
+  ],
+  [
+    "core.exam-prep@1.3.1:exam.create",
+    {
+      handlerVersion: "exam-prep.exam.create.v1",
+      execute: executeExamPrepCreateExam,
+    },
+  ],
+  [
+    "core.exam-prep@1.3.1:subject.create",
+    {
+      handlerVersion: "exam-prep.subject.create.v1",
+      execute: executeExamPrepCreateSubject,
+    },
+  ],
+  [
+    "core.exam-prep@1.3.1:chapter.create",
+    {
+      handlerVersion: "exam-prep.chapter.create.v1",
+      execute: executeExamPrepCreateChapter,
+    },
+  ],
+  [
+    "core.exam-prep@1.3.1:topic.create",
+    {
+      handlerVersion: "exam-prep.topic.create.v1",
+      execute: executeExamPrepCreateTopic,
+    },
+  ],
+  [
+    "core.exam-prep@1.3.1:chapter.update",
+    {
+      handlerVersion: "exam-prep.chapter.update.v1",
+      execute: createExamPrepSyllabusItemExecutor("chapter", "update"),
+    },
+  ],
+  [
+    "core.exam-prep@1.3.1:chapter.delete",
+    {
+      handlerVersion: "exam-prep.chapter.delete.v1",
+      execute: createExamPrepSyllabusItemExecutor("chapter", "delete"),
+    },
+  ],
+  [
+    "core.exam-prep@1.3.1:topic.update",
+    {
+      handlerVersion: "exam-prep.topic.update.v1",
+      execute: createExamPrepSyllabusItemExecutor("topic", "update"),
+    },
+  ],
+  [
+    "core.exam-prep@1.3.1:topic.delete",
+    {
+      handlerVersion: "exam-prep.topic.delete.v1",
+      execute: createExamPrepSyllabusItemExecutor("topic", "delete"),
+    },
+  ],
+  [
+    "core.exam-prep@1.3.1:chapter.reorder",
+    {
+      handlerVersion: "exam-prep.chapter.reorder.v1",
+      execute: executeExamPrepReorderChapters,
+    },
+  ],
+  [
+    "core.exam-prep@1.3.1:topic.reorder",
+    {
+      handlerVersion: "exam-prep.topic.reorder.v1",
+      execute: executeExamPrepReorderTopics,
+    },
+  ],
+  [
+    "core.exam-prep@1.3.1:topic.set-learning",
+    {
+      handlerVersion: "exam-prep.topic.set-learning.v1",
+      execute: executeExamPrepTopicSetLearning,
+    },
+  ],
+  [
+    "core.exam-prep@1.3.1:topic.set-progress",
+    {
+      handlerVersion: "exam-prep.topic.set-progress.v1",
+      execute: executeExamPrepTopicSetProgress,
+    },
+  ],
+  [
+    "core.exam-prep@1.3.1:topic.record-revision",
+    {
+      handlerVersion: "exam-prep.topic.record-revision.v1",
+      execute: executeExamPrepTopicRecordRevision,
+    },
+  ],
+  [
+    "core.exam-prep@1.3.1:topic.record-practice",
+    {
+      handlerVersion: "exam-prep.topic.record-practice.v1",
+      execute: executeExamPrepTopicRecordPractice,
+    },
+  ],
+  [
+    "core.exam-prep@1.3.1:topic.record-test",
+    {
+      handlerVersion: "exam-prep.topic.record-test.v1",
+      execute: executeExamPrepTopicRecordTest,
+    },
+  ],
+  [
+    "core.exam-prep@1.3.1:subject.update-settings",
+    {
+      handlerVersion: "exam-prep.subject.update-settings.v1",
+      execute: executeExamPrepSubjectUpdateSettings,
     },
   ],
 ])
@@ -337,7 +262,49 @@ export async function executeToolAction(input: ExecuteToolActionInput) {
     )
   }
 
-  await requireVerifiedClaims("/tools")
+  const claims = await requireVerifiedClaims("/tools")
+  
+  const principal: ToolExecutionPrincipal = {
+    actorId: claims.sub,
+    workspaceId: parsed.data.workspaceId,
+    invocationSource: "web",
+  }
+
+  return executeToolActionForPrincipal(parsed.data, principal)
+}
+
+export async function executeToolActionForPrincipal(
+  input: ExecuteToolActionInput,
+  principal: ToolExecutionPrincipal
+) {
+  const parsed = executeInputSchema.safeParse(input)
+
+  if (!parsed.success) {
+    throw new ToolActionExecutionError(
+      "The tool action request is invalid.",
+      "INVALID_INPUT"
+    )
+  }
+
+  if (parsed.data.workspaceId !== principal.workspaceId) {
+    throw new ToolActionExecutionError(
+      "The principal workspace does not match the action workspace.",
+      "FORBIDDEN"
+    )
+  }
+
+  const membership = await prisma.workspaceMember.findUnique({
+    where: {
+      workspaceId_userId: {
+        workspaceId: principal.workspaceId,
+        userId: principal.actorId,
+      },
+    },
+    select: { role: true },
+  })
+  if (!membership) {
+    throw new ToolActionExecutionError("Workspace access is required.", "FORBIDDEN")
+  }
 
   const localManifest = getFirstPartyToolManifest(parsed.data.toolKey)
   if (!localManifest) {
@@ -348,6 +315,9 @@ export async function executeToolAction(input: ExecuteToolActionInput) {
   }
 
   const action = resolveToolActionStrict(localManifest, parsed.data.actionKey)
+  if (membership.role === "VIEWER" && action.requiredPermissions.some((permission) => permission.startsWith("blocks.write"))) {
+    throw new ToolActionExecutionError("Workspace write access is required.", "FORBIDDEN")
+  }
   const inputValidation = validateActionInput(action, parsed.data.input)
   if (!inputValidation.success) {
     throw new ToolActionExecutionError(
@@ -365,25 +335,40 @@ export async function executeToolAction(input: ExecuteToolActionInput) {
     )
   }
 
-  const supabase = await createServerSupabaseClient()
-  const [installationResult, grantsResult] = await Promise.all([
-    supabase
-      .from("tool_installations")
-      .select("id, workspace_id, tool_definition_id, tool_release_id, status")
-      .eq("id", parsed.data.installationId)
-      .eq("workspace_id", parsed.data.workspaceId)
-      .maybeSingle(),
-    supabase
-      .from("tool_grants")
-      .select("permission_key, effect, constraints")
-      .eq("installation_id", parsed.data.installationId),
-  ])
+  let installationData, grantsData;
+  try {
+    const [instData, grData] = await Promise.all([
+      prisma.toolInstallation.findUnique({
+        where: { id: parsed.data.installationId, workspaceId: parsed.data.workspaceId },
+        select: { id: true, workspaceId: true, toolDefinitionId: true, toolReleaseId: true, status: true }
+      }),
+      prisma.toolGrant.findMany({
+        where: { installationId: parsed.data.installationId },
+        select: { permissionKey: true, effect: true, constraints: true }
+      })
+    ])
+    installationData = instData ? {
+      ...instData,
+      workspace_id: instData.workspaceId,
+      tool_definition_id: instData.toolDefinitionId,
+      tool_release_id: instData.toolReleaseId,
+      status: instData.status.toLowerCase(),
+    } : null;
+    grantsData = grData.map((grant) => ({
+      ...grant,
+      permission_key: grant.permissionKey,
+      effect: grant.effect.toLowerCase(),
+    }));
+  } catch {
+    installationData = null;
+    grantsData = null;
+  }
 
-  const installation = installationSchema.safeParse(installationResult.data)
-  const grants = grantsSchema.safeParse(grantsResult.data)
+  const installation = installationSchema.safeParse(installationData)
+  const grants = grantsSchema.safeParse(grantsData)
   if (
-    installationResult.error ||
-    grantsResult.error ||
+    !installationData ||
+    !grantsData ||
     !installation.success ||
     !grants.success ||
     installation.data.status !== "active"
@@ -394,24 +379,30 @@ export async function executeToolAction(input: ExecuteToolActionInput) {
     )
   }
 
-  const [definitionResult, releaseResult] = await Promise.all([
-    supabase
-      .from("tool_definitions")
-      .select("id, key")
-      .eq("id", installation.data.tool_definition_id)
-      .maybeSingle(),
-    supabase
-      .from("tool_releases")
-      .select("id, version, manifest")
-      .eq("id", installation.data.tool_release_id)
-      .maybeSingle(),
-  ])
+  let definitionData, releaseData;
+  try {
+    const [defData, relData] = await Promise.all([
+      prisma.toolDefinition.findUnique({
+        where: { id: installation.data.tool_definition_id },
+        select: { id: true, key: true }
+      }),
+      prisma.toolRelease.findUnique({
+        where: { id: installation.data.tool_release_id },
+        select: { id: true, version: true, manifest: true }
+      })
+    ])
+    definitionData = defData;
+    releaseData = relData;
+  } catch {
+    definitionData = null;
+    releaseData = null;
+  }
 
-  const definition = definitionSchema.safeParse(definitionResult.data)
-  const release = releaseSchema.safeParse(releaseResult.data)
+  const definition = definitionSchema.safeParse(definitionData)
+  const release = releaseSchema.safeParse(releaseData)
   if (
-    definitionResult.error ||
-    releaseResult.error ||
+    !definitionData ||
+    !releaseData ||
     !definition.success ||
     !release.success ||
     definition.data.key !== parsed.data.toolKey ||
@@ -464,5 +455,5 @@ export async function executeToolAction(input: ExecuteToolActionInput) {
     )
   }
 
-  return handler.execute(parsed.data, handler.handlerVersion)
+  return handler.execute(parsed.data, principal, handler.handlerVersion)
 }

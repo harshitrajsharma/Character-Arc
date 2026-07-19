@@ -1,14 +1,14 @@
 "use client"
 
-import { useActionState, useRef } from "react"
-import { CheckIcon, SendIcon } from "lucide-react"
+import { useActionState, useEffect, useRef } from "react"
+import { SendIcon } from "lucide-react"
 
 import {
   checkInArcAction,
   setArcStatusAction,
   type ArcMutationActionState,
-} from "@/app/(app)/tools/goals-paths/actions"
-import { Alert, AlertDescription } from "@/components/ui/alert"
+} from "@/lib/tools/goals-paths/actions"
+import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import {
   Field,
@@ -45,6 +45,7 @@ type ArcCheckInFormProps = {
   arcId: string
   workspaceId: string
   installationId: string
+  workspaceSlug: string
   currentStatus?: string | null
   progressPercent?: number | null
 }
@@ -53,19 +54,28 @@ export function ArcCheckInForm({
   arcId,
   workspaceId,
   installationId,
+  workspaceSlug,
   currentStatus = "not_started",
   progressPercent = 0,
 }: ArcCheckInFormProps) {
   const [checkInState, checkInFormAction, checkInPending] = useActionState(
-    checkInArcAction,
+    checkInArcAction.bind(null, workspaceSlug),
     INITIAL_STATE
   )
   const [statusState, statusFormAction, statusPending] = useActionState(
-    setArcStatusAction,
+    setArcStatusAction.bind(null, workspaceSlug),
     INITIAL_STATE
   )
   const checkInIdempotencyRef = useRef<HTMLInputElement>(null)
   const statusIdempotencyRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (checkInState.status === "success") {
+      toast.success(checkInState.message)
+    } else if (checkInState.status === "error") {
+      toast.error(checkInState.message)
+    }
+  }, [checkInState])
 
   function refreshCheckInKey() {
     if (checkInIdempotencyRef.current) {
@@ -211,21 +221,6 @@ export function ArcCheckInForm({
             {checkInPending ? "Saving..." : "Save check-in"}
           </Button>
         </FieldGroup>
-
-        {checkInState.status !== "idle" ? (
-          <Alert
-            variant={
-              checkInState.status === "error" ? "destructive" : "default"
-            }
-            className="mt-4"
-            aria-live="polite"
-          >
-            {checkInState.status === "success" ? (
-              <CheckIcon aria-hidden="true" />
-            ) : null}
-            <AlertDescription>{checkInState.message}</AlertDescription>
-          </Alert>
-        ) : null}
       </form>
     </div>
   )

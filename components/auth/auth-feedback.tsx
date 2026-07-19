@@ -1,33 +1,31 @@
-import { CircleAlertIcon, CircleCheckIcon } from "lucide-react"
+"use client"
 
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { cn } from "@/lib/utils"
+import { useEffect, useRef } from "react"
+import { toast } from "sonner"
 
 export function AuthFeedback({
   error,
   notice,
-  className,
+  className, // unused but kept for type signature compatibility
 }: {
   error?: string
   notice?: string
   className?: string
 }) {
-  if (!error && !notice) {
-    return null
-  }
+  const lastShownError = useRef<string | undefined>(undefined)
+  const lastShownNotice = useRef<string | undefined>(undefined)
 
-  return (
-    <Alert
-      variant={error ? "destructive" : "default"}
-      className={cn(
-        "rounded-lg border-border bg-brand-neon-soft text-foreground *:data-[slot=alert-description]:text-muted-foreground",
-        error &&
-          "text-destructive *:data-[slot=alert-description]:text-destructive/90",
-        className
-      )}
-    >
-      {error ? <CircleAlertIcon /> : <CircleCheckIcon />}
-      <AlertDescription>{error ?? notice}</AlertDescription>
-    </Alert>
-  )
+  useEffect(() => {
+    if (error && error !== lastShownError.current) {
+      toast.error(error)
+      lastShownError.current = error
+    }
+    
+    if (notice && notice !== lastShownNotice.current) {
+      toast.success(notice)
+      lastShownNotice.current = notice
+    }
+  }, [error, notice])
+
+  return null
 }

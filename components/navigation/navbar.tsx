@@ -26,7 +26,8 @@ export function Navbar({ user }: NavbarProps) {
     if (!isAuthenticated) return
 
     const syncHash = () => {
-      if (pathname.startsWith("/tools")) setActive("tools")
+      if (pathname === "/tools" || pathname.startsWith("/tools/")) setActive("tools")
+      else if (pathname === "/workspace" || pathname.startsWith("/workspace/")) setActive("workspace")
       else if (window.location.hash === "#workspace") setActive("workspace")
       else if (window.location.hash === "#tools") setActive("tools")
       else setActive("today")

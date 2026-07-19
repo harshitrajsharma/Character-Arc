@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import { workspaceRoutes } from "@/lib/routes/workspace-tools"
 import { EllipsisIcon, PencilIcon, Trash2Icon } from "lucide-react"
 
 import { ArcDeleteDialog } from "@/components/tools/goals-paths/arc-delete-dialog"
@@ -21,6 +22,7 @@ type ArcDetailActionsProps = {
   checkInCount: number
   workspaceId: string
   installationId: string
+  workspaceSlug: string
   deleteIdempotencyKey: string
 }
 
@@ -31,7 +33,7 @@ export function ArcDetailActions(props: ArcDetailActionsProps) {
     <>
       <div className="flex items-center gap-1.5">
         <Link
-          href={`/tools/goals-paths/${props.arcId}/edit`}
+          href={workspaceRoutes.goalsPaths.arcEdit(props.workspaceSlug, props.arcId)}
           className={cn(
             buttonVariants({ variant: "secondary", size: "sm" }),
             "min-h-11 sm:min-h-8"
@@ -75,6 +77,7 @@ export function ArcDetailActions(props: ArcDetailActionsProps) {
         checkInCount={props.checkInCount}
         workspaceId={props.workspaceId}
         installationId={props.installationId}
+        workspaceSlug={props.workspaceSlug}
         idempotencyKey={props.deleteIdempotencyKey}
       />
     </>

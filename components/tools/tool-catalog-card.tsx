@@ -4,6 +4,7 @@ import Link from "next/link"
 import { InstallToolForm } from "@/components/tools/install-tool-form"
 import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
+import { resolveToolDestination } from "@/lib/routes/workspace-tools"
 import type { ToolCatalogItem } from "@/lib/tools/catalog"
 import { cn } from "@/lib/utils"
 
@@ -23,11 +24,18 @@ const categoryLabel = {
 type ToolCatalogCardProps = {
   item: ToolCatalogItem
   workspaceId: string
+  workspaceSlug: string
 }
 
-export function ToolCatalogCard({ item, workspaceId }: ToolCatalogCardProps) {
+export function ToolCatalogCard({ item, workspaceId, workspaceSlug }: ToolCatalogCardProps) {
   const Icon = iconByKey[item.icon] ?? SparklesIcon
   const installed = item.installationStatus === "active"
+  const destination = resolveToolDestination({
+    workspaceSlug,
+    toolKey: item.key,
+    catalogRoute: item.homeRoute,
+    installed,
+  })
 
   return (
     <article className="group relative flex min-h-52 min-w-0 flex-col rounded-lg border bg-card p-4 transition-colors focus-within:border-foreground/20 hover:border-foreground/20">
@@ -39,7 +47,7 @@ export function ToolCatalogCard({ item, workspaceId }: ToolCatalogCardProps) {
         <div className="relative z-10 shrink-0">
           {installed ? (
             <Link
-              href={item.homeRoute}
+              href={destination}
               className={cn(
                 buttonVariants({ variant: "secondary", size: "sm" }),
                 "h-11 min-w-20 sm:h-8"
@@ -50,6 +58,7 @@ export function ToolCatalogCard({ item, workspaceId }: ToolCatalogCardProps) {
           ) : (
             <InstallToolForm
               workspaceId={workspaceId}
+              workspaceSlug={workspaceSlug}
               toolKey={item.key}
               installationStatus={item.installationStatus}
               installable={item.installable}
@@ -61,7 +70,7 @@ export function ToolCatalogCard({ item, workspaceId }: ToolCatalogCardProps) {
       <div className="mt-4 min-w-0">
         <h2 className="truncate font-heading text-lg font-semibold">
           <Link
-            href={item.homeRoute}
+            href={destination}
             className="outline-none after:absolute after:inset-0 focus-visible:after:rounded-lg focus-visible:after:ring-3 focus-visible:after:ring-ring/30"
             aria-label={`View ${item.name}`}
           >

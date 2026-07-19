@@ -140,6 +140,11 @@ Status meaning must remain independent from feature branding.
 | Error, danger, or destructive action | `destructive` / coral-red | Use only for a real error or risk        |
 | Information                          | Blue or cyan              | Use for neutral information, not success |
 
+Success utilities follow the same role pattern as brand families:
+`bg-success`, `bg-success-soft`, `border-success-line`, `text-success-ink`,
+and `text-success-foreground`. Use them only for verified completion or saved
+positive outcomes.
+
 Never communicate status through color alone. Include text, an icon, shape, or
 explicit label. A cyan Exam Prep feature does not make every positive result
 cyan; verified success remains green.

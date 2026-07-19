@@ -17,6 +17,7 @@ const initialState: InstallToolActionState = {
 
 type InstallToolFormProps = {
   workspaceId: string
+  workspaceSlug: string
   toolKey: string
   installationStatus: "active" | "disabled" | "removed" | "not_installed"
   installable: boolean
@@ -24,6 +25,7 @@ type InstallToolFormProps = {
 
 export function InstallToolForm({
   workspaceId,
+  workspaceSlug,
   toolKey,
   installationStatus,
   installable,
@@ -70,6 +72,7 @@ export function InstallToolForm({
   return (
     <form action={formAction} className="flex flex-col items-end gap-2">
       <input type="hidden" name="workspaceId" value={workspaceId} />
+      <input type="hidden" name="workspaceSlug" value={workspaceSlug} />
       <input type="hidden" name="toolKey" value={toolKey} />
       <Button
         type="submit"

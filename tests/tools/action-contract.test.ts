@@ -10,6 +10,7 @@ import {
   type ToolAction,
 } from "@/lib/tools/action-contract"
 import type { ToolManifest } from "@/lib/tools/contracts"
+import { examPrepManifest } from "@/lib/tools/definitions/exam-prep/manifest"
 import { goalsPathsManifest } from "@/lib/tools/definitions/goals-paths/manifest"
 
 function manifestWithInputSchema(
@@ -220,6 +221,73 @@ describe("action input validation", () => {
       validateActionInput(manifest.actions[0], { body: "# Direction" })
     ).toEqual({ success: true, data: { body: "# Direction" } })
   })
+
+  test("accepts schema descriptions and enforces unique array items", () => {
+    const manifest = manifestWithInputSchema({
+      type: "object",
+      description: "A documented action input.",
+      additionalProperties: false,
+      required: ["ids"],
+      properties: {
+        ids: {
+          type: "array",
+          description: "Ordered identifiers.",
+          uniqueItems: true,
+          items: { type: "string", description: "One identifier." },
+        },
+      },
+    })
+
+    expect(validateActionInput(manifest.actions[0], { ids: ["a", "b"] })).toEqual({
+      success: true,
+      data: { ids: ["a", "b"] },
+    })
+
+    const duplicateResult = validateActionInput(manifest.actions[0], { ids: ["a", "a"] })
+    expect(duplicateResult.success).toBe(false)
+    if (!duplicateResult.success) {
+      expect(duplicateResult.issues[0]).toMatchObject({
+        code: "unique_items",
+        path: ["ids", 1],
+        schemaPath: ["properties", "ids", "uniqueItems"],
+      })
+    }
+  })
+
+  test("accepts Exam Prep learning and reorder action schemas", () => {
+    const topicId = "58a0111e-43d0-4464-83c0-a5132c6bd4f5"
+    const chapterId = "68a0111e-43d0-4464-83c0-a5132c6bd4f6"
+
+    expect(
+      validateToolActionInput(examPrepManifest, "topic.set-learning", {
+        topicId,
+        learned: true,
+      })
+    ).toEqual({ success: true, data: { topicId, learned: true } })
+
+    expect(
+      validateToolActionInput(examPrepManifest, "topic.reorder", {
+        chapterId,
+        topicIds: [topicId],
+      }).success
+    ).toBe(true)
+
+    expect(
+      validateToolActionInput(examPrepManifest, "topic.set-progress", {
+        topicId,
+        stage: "revision",
+        count: 6,
+      }).success
+    ).toBe(true)
+
+    expect(
+      validateToolActionInput(examPrepManifest, "topic.set-progress", {
+        topicId,
+        stage: "revision",
+        count: 101,
+      }).success
+    ).toBe(false)
+  })
 })
 
 describe("schema fail-closed behavior", () => {
@@ -245,7 +313,7 @@ describe("schema fail-closed behavior", () => {
   })
 
   test("rejects unsupported types and unions", () => {
-    const unsupportedType = manifestWithInputSchema({ type: "boolean" })
+    const unsupportedType = manifestWithInputSchema({ type: "date-time" })
     const unsupportedUnion = manifestWithInputSchema({
       type: ["string", "number"],
     })

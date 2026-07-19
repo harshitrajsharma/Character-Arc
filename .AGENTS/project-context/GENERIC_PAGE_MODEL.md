@@ -319,9 +319,7 @@ Use Prisma for:
 
 Use `@supabase/ssr` and `@supabase/supabase-js` for Auth and Storage. Do not use Prisma in Client Components.
 
-Choose one migration authority. For this project, use Supabase SQL migrations as the source of truth because RLS policies, storage policies, functions, and extensions are not fully represented by the Prisma schema. After applying migrations, keep the Prisma schema synchronized and regenerate Prisma Client.
-
-Do not maintain independent Prisma Migrate and Supabase migration histories for the same schema.
+Choose one migration authority. For this project, Prisma is the absolute source of truth for the schema. We do not use Supabase SQL migrations for schema definitions or business logic. Next.js Server Actions with `prisma.$transaction` handle all logic, and `lib/tools/sync-registry.ts` handles dynamic database population.
 
 ## Initial Implementation Cut
 

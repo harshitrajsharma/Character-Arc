@@ -1,0 +1,62 @@
+// @ts-expect-error Bun supplies this module at test runtime; Bun types are not installed.
+import { describe, it, expect } from "bun:test"
+import { resolveToolDestination, workspaceRoutes } from "./workspace-tools"
+
+describe("workspaceRoutes", () => {
+  it("encodes unsafe workspace slugs", () => {
+    expect(workspaceRoutes.home("my workspace")).toBe("/workspace/my%20workspace")
+    expect(workspaceRoutes.home("hello/world")).toBe("/workspace/hello%2Fworld")
+  })
+
+  it("builds exam prep routes correctly", () => {
+    const slug = "test-slug"
+    expect(workspaceRoutes.examPrep.home(slug)).toBe("/workspace/test-slug/exam-prep")
+    expect(workspaceRoutes.examPrep.new(slug)).toBe("/workspace/test-slug/exam-prep/new")
+    expect(workspaceRoutes.examPrep.exam(slug, "exam-1")).toBe("/workspace/test-slug/exam-prep/exam-1")
+    expect(workspaceRoutes.examPrep.subject(slug, "exam-1", "subj-2")).toBe("/workspace/test-slug/exam-prep/exam-1/subjects/subj-2")
+    expect(workspaceRoutes.examPrep.subjectSettings(slug, "exam-1", "subj-2")).toBe("/workspace/test-slug/exam-prep/exam-1/subjects/subj-2/settings")
+  })
+
+  it("builds goals and paths routes correctly", () => {
+    const slug = "test-slug"
+    expect(workspaceRoutes.goalsPaths.home(slug)).toBe("/workspace/test-slug/goals-paths")
+    expect(workspaceRoutes.goalsPaths.new(slug)).toBe("/workspace/test-slug/goals-paths/new")
+    expect(workspaceRoutes.goalsPaths.arc(slug, "arc-1")).toBe("/workspace/test-slug/goals-paths/arc-1")
+    expect(workspaceRoutes.goalsPaths.arcEdit(slug, "arc-1")).toBe("/workspace/test-slug/goals-paths/arc-1/edit")
+  })
+
+  it("safely encodes nested segment IDs", () => {
+    expect(workspaceRoutes.examPrep.subject("slug", "exam/1", "subj/2")).toBe("/workspace/slug/exam-prep/exam%2F1/subjects/subj%2F2")
+  })
+
+  it("routes installed tools to their workspace", () => {
+    expect(
+      resolveToolDestination({
+        workspaceSlug: "my workspace",
+        toolKey: "core.exam-prep",
+        catalogRoute: "/tools/exam-prep",
+        installed: true,
+      })
+    ).toBe("/workspace/my%20workspace/exam-prep")
+  })
+
+  it("keeps uninstalled tools in the catalog", () => {
+    expect(
+      resolveToolDestination({
+        workspaceSlug: "personal",
+        toolKey: "core.exam-prep",
+        catalogRoute: "/tools/exam-prep",
+        installed: false,
+      })
+    ).toBe("/tools/exam-prep")
+  })
+
+  it("maps both installed first-party tools", () => {
+    expect(workspaceRoutes.toolHome("personal", "core.exam-prep")).toBe(
+      "/workspace/personal/exam-prep"
+    )
+    expect(workspaceRoutes.toolHome("personal", "core.goals-paths")).toBe(
+      "/workspace/personal/goals-paths"
+    )
+  })
+})

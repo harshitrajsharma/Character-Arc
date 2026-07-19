@@ -1,6 +1,8 @@
-import { LockKeyholeIcon, TargetIcon } from "lucide-react"
+import { useEffect } from "react"
 
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { LockKeyholeIcon, TargetIcon } from "lucide-react"
+import { toast } from "sonner"
+
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
 
@@ -10,15 +12,14 @@ type ArcFormActionsProps = {
 }
 
 export function ArcFormActions({ pending, errorMessage }: ArcFormActionsProps) {
+  useEffect(() => {
+    if (!pending && errorMessage) {
+      toast.error("Arc not created", { description: errorMessage })
+    }
+  }, [pending, errorMessage])
+
   return (
     <>
-      {errorMessage ? (
-        <Alert variant="destructive" className="mt-6">
-          <TargetIcon aria-hidden="true" />
-          <AlertTitle>Arc not created</AlertTitle>
-          <AlertDescription>{errorMessage}</AlertDescription>
-        </Alert>
-      ) : null}
 
       <div className="mt-6 flex flex-col gap-3">
         <Button type="submit" size="lg" disabled={pending} className="w-full">

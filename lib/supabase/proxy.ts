@@ -31,7 +31,8 @@ export async function refreshSupabaseSession(request: NextRequest) {
   const { data } = await supabase.auth.getClaims()
   const isProtectedRoute =
     request.nextUrl.pathname.startsWith("/dashboard") ||
-    request.nextUrl.pathname.startsWith("/tools")
+    request.nextUrl.pathname.startsWith("/tools") ||
+    request.nextUrl.pathname.startsWith("/workspace")
 
   if (isProtectedRoute && !data?.claims?.sub) {
     const loginUrl = request.nextUrl.clone()
@@ -42,6 +43,22 @@ export async function refreshSupabaseSession(request: NextRequest) {
     loginUrl.searchParams.set("next", nextPath)
 
     return NextResponse.redirect(loginUrl)
+  }
+
+  // The JWT may still be valid after a DB reset or user deletion.
+  // Verify the user actually exists in the auth database.
+  if (isProtectedRoute && data?.claims?.sub) {
+    const { data: userData, error: userError } = await supabase.auth.getUser()
+
+    if (userError || !userData?.user) {
+      await supabase.auth.signOut()
+
+      const loginUrl = request.nextUrl.clone()
+      loginUrl.pathname = "/login"
+      loginUrl.search = ""
+
+      return NextResponse.redirect(loginUrl)
+    }
   }
 
   return response
