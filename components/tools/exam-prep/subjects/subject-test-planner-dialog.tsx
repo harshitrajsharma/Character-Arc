@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 "use client"
 
 import { useState, useTransition, useEffect } from "react"
@@ -15,7 +16,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
 import { syncSubjectTestScheduleAction } from "@/lib/tools/exam-prep/actions/test-actions"
@@ -87,12 +88,25 @@ export function SubjectTestPlannerDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-[100dvh] w-full max-w-none flex-col overflow-hidden border-0 p-4 sm:h-[95vh] sm:max-w-4xl sm:rounded-xl sm:border sm:p-6">
-        <DialogHeader className="shrink-0 pb-2">
-          <DialogTitle>Unified Test Schedule: {subjectName}</DialogTitle>
-          <DialogDescription>
-            Plan your master test series here. Tests assigned to a specific chapter will appear in that chapter's tracker. Multi-chapter and subject tests will appear below the syllabus.
-          </DialogDescription>
+      <DialogContent className="flex h-dvh w-full max-w-none flex-col overflow-hidden border-0 p-4 sm:h-[95vh] sm:max-w-4xl sm:rounded-xl sm:border sm:p-6">
+        <DialogHeader className="shrink-0 pb-4 border-b border-border/40">
+          <div className="flex items-center gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-brand-violet text-brand-violet-foreground shadow-sm">
+              <CalendarIcon className="size-5" />
+            </div>
+            <div>
+              <DialogTitle className="font-heading text-lg font-semibold tracking-tight text-foreground">
+                Unified Test Schedule
+              </DialogTitle>
+              <DialogDescription className="text-sm text-muted-foreground mt-0.5">
+                Manage and align study tests for <span className="font-semibold text-brand-violet-ink">{subjectName}</span>
+              </DialogDescription>
+            </div>
+          </div>
+          <div className="mt-3 rounded-lg bg-muted/40 p-3 text-xs leading-relaxed text-muted-foreground border border-border/20">
+            <span className="font-semibold text-foreground mr-1">💡 Planning Tip:</span>
+            Tests assigned to a specific chapter appear in its tracker. Full-subject and multi-chapter tests appear below the syllabus.
+          </div>
         </DialogHeader>
 
         <form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col">
@@ -104,7 +118,15 @@ export function SubjectTestPlannerDialog({
               </div>
             ) : (
               tests.map((test, index) => (
-                <div key={test.id} className="relative flex flex-col gap-3 rounded-lg border bg-card p-4 shadow-sm sm:flex-row sm:items-center sm:gap-2 sm:p-3">
+                <div
+                  key={test.id}
+                  className={cn(
+                    "relative flex flex-col gap-3 rounded-lg border bg-card p-4 shadow-sm sm:flex-row sm:items-center sm:gap-2 sm:p-3 border-l-4 transition-all duration-200",
+                    test.scope === "subject" && "border-l-brand-cyan-line",
+                    test.scope === "multi-chapter" && "border-l-brand-violet-line",
+                    test.scope === "chapter" && "border-l-border"
+                  )}
+                >
                   <div className="absolute right-2 top-2 sm:hidden">
                     <Button type="button" variant="ghost" size="icon" onClick={() => removeTest(test.id)} className="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
                       <Trash2Icon className="h-4 w-4" />

@@ -29,10 +29,10 @@ export default async function ExamDetailPage({
 }) {
   const { workspaceSlug, id } = await params
   const workspace = await getWorkspaceIdentity(workspaceSlug)
-  await requireActiveToolInstallation(workspaceSlug, "core.exam-prep")
+  const installation = await requireActiveToolInstallation(workspaceSlug, "core.exam-prep")
   const { exam, issue } = await getExamDetail(workspace.id, workspaceSlug, id)
 
-  if (issue === "not_found" || !exam) {
+  if (issue === "not_found" || !exam || exam.originToolInstallationId !== installation.id) {
     notFound()
   }
 
@@ -40,7 +40,7 @@ export default async function ExamDetailPage({
     redirect(workspaceRoutes.examPrep.home(workspaceSlug))
   }
 
-  const subjectsWithRelations = await getExamDashboardData(id, workspace.id)
+  const subjectsWithRelations = await getExamDashboardData(id, workspace.id, installation.id)
 
 
 

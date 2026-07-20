@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import "server-only"
 
 import { z } from "zod"
@@ -31,6 +32,7 @@ const examRowsSchema = z.array(
     revision: z.any(),
     createdAt: z.date(),
     updatedAt: z.date(),
+    originToolInstallationId: z.string().uuid().nullable(),
   })
 )
 
@@ -80,6 +82,7 @@ export type ExamDetail = ExamListItem & {
   visibility: "private" | "workspace" | "public"
   allowAgentAccess: boolean
   schemaVersion: number
+  originToolInstallationId: string | null
 }
 
 type ExamPrepIssue =
@@ -134,7 +137,19 @@ export async function getExamsOverview(workspaceId: string, workspaceSlug: strin
       archivedAt: null,
     },
     select: {
-      id: true, title: true, summary: true, body: true, status: true, visibility: true, allowAgentAccess: true, properties: true, schemaVersion: true, revision: true, createdAt: true, updatedAt: true
+      id: true,
+      title: true,
+      summary: true,
+      body: true,
+      status: true,
+      visibility: true,
+      allowAgentAccess: true,
+      properties: true,
+      schemaVersion: true,
+      revision: true,
+      createdAt: true,
+      updatedAt: true,
+      originToolInstallationId: true,
     },
     orderBy: { updatedAt: 'desc' },
     take: 50
@@ -211,7 +226,21 @@ export async function getExamDetail(workspaceId: string, workspaceSlug: string, 
         blockTypeId: blockType.id,
         archivedAt: null,
       },
-      select: { id: true, title: true, summary: true, body: true, status: true, visibility: true, allowAgentAccess: true, properties: true, schemaVersion: true, revision: true, createdAt: true, updatedAt: true }
+      select: {
+        id: true,
+        title: true,
+        summary: true,
+        body: true,
+        status: true,
+        visibility: true,
+        allowAgentAccess: true,
+        properties: true,
+        schemaVersion: true,
+        revision: true,
+        createdAt: true,
+        updatedAt: true,
+        originToolInstallationId: true,
+      }
     }),
     prisma.userBlockState.findUnique({
       where: {
@@ -255,6 +284,7 @@ export async function getExamDetail(workspaceId: string, workspaceSlug: string, 
       visibility: row.visibility.toLowerCase() as "public" | "workspace" | "private",
       allowAgentAccess: row.allowAgentAccess,
       schemaVersion: row.schemaVersion,
+      originToolInstallationId: row.originToolInstallationId,
     },
   }
 }
