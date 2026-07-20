@@ -58,7 +58,7 @@ export function DetailSheet({
         side={side}
         showCloseButton={false}
         className={cn(
-          "h-dvh w-full! max-w-none! overflow-hidden border-border/70 bg-background p-0 shadow-2xl motion-reduce:transition-none data-[side=left]:sm:w-[clamp(28rem,42vw,42.5rem)]! data-[side=right]:sm:w-[clamp(28rem,42vw,42.5rem)]! data-[side=left]:sm:rounded-r-3xl data-[side=right]:sm:rounded-l-3xl",
+          "h-dvh w-full! max-w-none! overflow-hidden border-border/70 bg-background/20 backdrop-blur-2xl p-0 shadow-2xl motion-reduce:transition-none data-[side=left]:sm:w-[clamp(28rem,42vw,42.5rem)]! data-[side=right]:sm:w-[clamp(28rem,42vw,42.5rem)]! data-[side=left]:sm:rounded-r-3xl data-[side=right]:sm:rounded-l-3xl",
           className
         )}
       >
@@ -81,7 +81,7 @@ export function DetailSheet({
                 {fullPageHref ? (
                   <Button
                     render={<Link href={fullPageHref} />}
-                    variant="ghost"
+                    variant="secondary"
                     size="sm"
                     className="min-h-11 gap-1.5 px-3"
                     aria-label={fullPageLabel}
@@ -129,7 +129,7 @@ export function DetailSheet({
           </ScrollArea>
 
           {footer ? (
-            <footer className="shrink-0 border-t border-border/60 bg-gradient-to-t from-background via-background to-background/95 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 sm:px-6">
+            <footer className="shrink-0 border-t border-border/60 bg-linear-to-t from-background via-background to-background/95 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 sm:px-6">
               {footer}
             </footer>
           ) : null}

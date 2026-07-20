@@ -14,12 +14,12 @@ interface SettingsPageProps {
 export default async function SubjectSettingsPage({ params }: SettingsPageProps) {
   const { workspaceSlug, id: examId, subjectId } = await params
   const workspace = await getWorkspaceIdentity(workspaceSlug)
-  await requireActiveToolInstallation(workspaceSlug, "core.exam-prep")
+  const installation = await requireActiveToolInstallation(workspaceSlug, "core.exam-prep")
   
   // Authenticate and retrieve exam details
   const { exam, issue } = await getExamDetail(workspace.id, workspaceSlug, examId)
 
-  if (issue === "not_found" || !exam) {
+  if (issue === "not_found" || !exam || exam.originToolInstallationId !== installation.id) {
     notFound()
   }
 
@@ -28,7 +28,7 @@ export default async function SubjectSettingsPage({ params }: SettingsPageProps)
   }
 
   // Retrieve subject details with workspace claims verified
-  const subjectWithRelations = await getExamSubjectDashboardData(exam.id, subjectId, workspace.id)
+  const subjectWithRelations = await getExamSubjectDashboardData(workspace.id, installation.id, exam.id, subjectId)
 
   if (!subjectWithRelations) {
     notFound()

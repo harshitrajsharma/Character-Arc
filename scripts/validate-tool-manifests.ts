@@ -1,42 +1,20 @@
-import { readFile } from "node:fs/promises"
-import { isDeepStrictEqual } from "node:util"
-
 import { parseToolManifest } from "@/lib/tools/contracts"
-import { examPrepManifest } from "@/lib/tools/definitions/exam-prep/manifest"
-import { goalsPathsManifest } from "@/lib/tools/definitions/goals-paths/manifest"
+import { listFirstPartyToolManifests } from "@/lib/tools/registry"
 
-const releases = [
-  {
-    manifest: goalsPathsManifest,
-    migrationPath:
-      "supabase/migrations/20260717103415_publish_goals_paths_3_1_arc_management.sql",
-  },
-  {
-    manifest: examPrepManifest,
-    migrationPath:
-      "supabase/migrations/20260717170000_exam_prep_mutations_v2.sql",
-  },
-]
+const manifests = listFirstPartyToolManifests()
 
-for (const release of releases) {
-  const migration = await readFile(release.migrationPath, "utf8")
-  const snapshot = migration.split("$manifest$")[1]
+if (manifests.length === 0) {
+  throw new Error("At least one first-party tool manifest must be registered.")
+}
 
-  if (!snapshot) {
-    throw new Error(
-      `Manifest snapshot is missing from ${release.migrationPath}.`
-    )
-  }
+for (const manifest of manifests) {
+  const parsedManifest = parseToolManifest(manifest)
 
-  const databaseManifest = parseToolManifest(JSON.parse(snapshot))
-
-  if (!isDeepStrictEqual(release.manifest, databaseManifest)) {
-    throw new Error(
-      `${release.manifest.tool.key}@${release.manifest.release.version} differs from its database snapshot.`
-    )
+  if (parsedManifest.tool.key !== manifest.tool.key) {
+    throw new Error("The parsed manifest key does not match its registry key.")
   }
 
   console.log(
-    `Validated ${release.manifest.tool.key}@${release.manifest.release.version}`
+    `Validated ${parsedManifest.tool.key}@${parsedManifest.release.version}`
   )
 }

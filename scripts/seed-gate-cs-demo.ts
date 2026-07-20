@@ -5,11 +5,26 @@
  * bun run scripts/seed-gate-cs-demo.ts --workspace-slug <slug> --actor-id <user-id> --confirm
  */
 import { prisma } from "../lib/prisma";
-import { executeToolActionForPrincipal } from "../lib/tools/execute-tool-action";
 import {
   getGateCsDemoIdempotencyKey,
   parseGateCsDemoSeedArguments,
 } from "./seed-gate-cs-demo.helpers";
+
+type PrincipalToolExecutor =
+  typeof import("../lib/tools/execute-tool-action").executeToolActionForPrincipal;
+
+async function loadPrincipalToolExecutor(): Promise<PrincipalToolExecutor> {
+  // @ts-expect-error Bun supplies this module for the Bun-only seed command.
+  const { mock } = await import("bun:test");
+
+  mock.module("server-only", () => ({}));
+
+  const { executeToolActionForPrincipal } = await import(
+    "../lib/tools/execute-tool-action"
+  );
+
+  return executeToolActionForPrincipal;
+}
 
 async function main() {
   const { workspaceSlug, actorId, confirm } = parseGateCsDemoSeedArguments(
@@ -100,6 +115,7 @@ async function main() {
     workspaceId: workspace.id,
     invocationSource: "web" as const,
   };
+  const executeToolActionForPrincipal = await loadPrincipalToolExecutor();
 
   const executeAction = async (actionKey: string, input: unknown, idKey: string) => {
     return executeToolActionForPrincipal(

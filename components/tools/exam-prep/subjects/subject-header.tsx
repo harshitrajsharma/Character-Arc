@@ -47,8 +47,7 @@ export function SubjectHeader({
             {settingsPresentation === "link" ? (
               <Button
                 render={<Link href={workspaceRoutes.examPrep.subjectSettings(workspaceSlug, examId, subject.id)} />}
-                variant="outline"
-                size="sm"
+                variant="secondary"
                 className="h-10 gap-1.5 rounded-full px-3"
               >
                 <Settings className="h-3.5 w-3.5 text-muted-foreground" />

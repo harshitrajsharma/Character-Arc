@@ -7,6 +7,7 @@ import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { QueryProvider } from "@/components/query-provider"
 import { cn } from "@/lib/utils"
+import Sidebar from "@/components/sidebar/sidebar-example"
 
 const dmSansHeading = DM_Sans({
   subsets: ["latin"],

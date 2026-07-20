@@ -81,7 +81,7 @@ export function SubjectCard({
             {/* Header Section */}
             <div className="space-y-3">
               <div className="flex items-start justify-between gap-4">
-                <h2 className="line-clamp-2 text-xl font-bold leading-tight text-foreground">
+                <h2 className="line-clamp-1 text-xl font-bold leading-tight text-foreground">
                   {subject.name}
                 </h2>
                 <Badge

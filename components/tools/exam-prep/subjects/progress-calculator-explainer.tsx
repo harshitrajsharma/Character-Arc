@@ -13,7 +13,7 @@ export function ProgressCalculatorExplainer({ policy, compact = false }: { polic
   return (
     <section className="space-y-5" aria-labelledby="progress-explainer-title">
       <div className="max-w-2xl">
-        <h2 id="progress-explainer-title" className="font-heading text-xl font-semibold">How progress works</h2>
+        <h2 id="progress-explainer-title" className="font-heading text-xl font-semibold">How overall progress works?</h2>
         <p className="mt-1 text-sm leading-6 text-muted-foreground">
           Each stage contributes a fixed share. Targets cap the percentage calculation, not your effort.
         </p>

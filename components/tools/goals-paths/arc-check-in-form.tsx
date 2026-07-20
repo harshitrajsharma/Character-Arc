@@ -1,6 +1,6 @@
 "use client"
 
-import { useActionState, useEffect, useRef } from "react"
+import { useActionState, useEffect, useRef, useState } from "react"
 import { SendIcon } from "lucide-react"
 
 import {
@@ -58,6 +58,18 @@ export function ArcCheckInForm({
   currentStatus = "not_started",
   progressPercent = 0,
 }: ArcCheckInFormProps) {
+  const [prevProgressPercent, setPrevProgressPercent] = useState(progressPercent)
+  const [progressVal, setProgressVal] = useState<number | string>(
+    progressPercent !== null && progressPercent !== undefined ? Math.round(progressPercent) : 0
+  )
+
+  if (progressPercent !== prevProgressPercent) {
+    setPrevProgressPercent(progressPercent)
+    setProgressVal(
+      progressPercent !== null && progressPercent !== undefined ? Math.round(progressPercent) : 0
+    )
+  }
+
   const [checkInState, checkInFormAction, checkInPending] = useActionState(
     checkInArcAction.bind(null, workspaceSlug),
     INITIAL_STATE
@@ -185,7 +197,8 @@ export function ArcCheckInForm({
               min={0}
               max={100}
               step={1}
-              defaultValue={Math.round(progressPercent ?? 0)}
+              value={progressVal}
+              onChange={(e) => setProgressVal(e.target.value)}
               aria-describedby="arc-progress-description"
               className="h-11 sm:h-9"
             />
