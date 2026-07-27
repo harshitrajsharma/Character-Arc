@@ -9,6 +9,32 @@ export interface ProgressStats {
   percentage: number;
 }
 
+export interface TestProgressEvidence {
+  percentage: number;
+  completedRecords: number;
+  targetRecords: number;
+  chapter: {
+    completedRecords: number;
+    targetRecords: number;
+  };
+  subject: {
+    completedRecords: number;
+    targetRecords: number;
+  };
+}
+
+export interface ExpectedMarksEvidence {
+  percentage: number | null;
+  chapterAveragePercentage: number | null;
+  subjectAveragePercentage: number | null;
+  validChapterRecords: number;
+  validSubjectRecords: number;
+  testedChapters: number;
+  activeChapters: number;
+  chapterCoveragePercentage: number;
+  coverageStatus: "none" | "limited" | "developing" | "strong";
+}
+
 export interface TopicProgress {
   learning: number;
   revision: number;
@@ -24,7 +50,9 @@ export interface ChapterProgress extends TopicProgress {
 export interface SubjectProgress extends TopicProgress {
   overall: number;
   foundationLevel: FoundationLevel;
-  expectedMarks: number;
+  expectedMarks: number | null;
+  expectedMarksEvidence: ExpectedMarksEvidence;
+  testEvidence: TestProgressEvidence;
   stats: Record<ProgressMode, ProgressStats>;
 }
 

@@ -17,7 +17,7 @@ export function ArcFormToolbar({ workspaceSlug }: { workspaceSlug?: string }) {
         }
         className={cn(
           buttonVariants({ variant: "ghost", size: "sm" }),
-          "-ml-3"
+          "-ml-3 hidden md:inline-flex"
         )}
       >
         <ArrowLeftIcon data-icon="inline-start" aria-hidden="true" />

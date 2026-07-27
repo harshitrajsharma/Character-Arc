@@ -26,6 +26,9 @@ import {
   executeExamPrepTopicSetProgress,
   executeExamPrepTopicSetLearning,
   executeExamPrepSubjectUpdateSettings,
+  executeExamPrepTestRecordCreate,
+  executeExamPrepTestRecordUpdate,
+  executeExamPrepTestRecordDelete,
 } from "./exam-prep-handlers"
 
 const executeInputSchema = z.object({
@@ -139,115 +142,136 @@ const handlers = new Map<string, HandlerBinding>([
     },
   ],
   [
-    "core.exam-prep@1.3.1:exam.create",
+    "core.exam-prep@1.5.0:exam.create",
     {
       handlerVersion: "exam-prep.exam.create.v1",
       execute: executeExamPrepCreateExam,
     },
   ],
   [
-    "core.exam-prep@1.3.1:subject.create",
+    "core.exam-prep@1.5.0:subject.create",
     {
       handlerVersion: "exam-prep.subject.create.v1",
       execute: executeExamPrepCreateSubject,
     },
   ],
   [
-    "core.exam-prep@1.3.1:chapter.create",
+    "core.exam-prep@1.5.0:chapter.create",
     {
       handlerVersion: "exam-prep.chapter.create.v1",
       execute: executeExamPrepCreateChapter,
     },
   ],
   [
-    "core.exam-prep@1.3.1:topic.create",
+    "core.exam-prep@1.5.0:topic.create",
     {
       handlerVersion: "exam-prep.topic.create.v1",
       execute: executeExamPrepCreateTopic,
     },
   ],
   [
-    "core.exam-prep@1.3.1:chapter.update",
+    "core.exam-prep@1.5.0:chapter.update",
     {
       handlerVersion: "exam-prep.chapter.update.v1",
       execute: createExamPrepSyllabusItemExecutor("chapter", "update"),
     },
   ],
   [
-    "core.exam-prep@1.3.1:chapter.delete",
+    "core.exam-prep@1.5.0:chapter.delete",
     {
       handlerVersion: "exam-prep.chapter.delete.v1",
       execute: createExamPrepSyllabusItemExecutor("chapter", "delete"),
     },
   ],
   [
-    "core.exam-prep@1.3.1:topic.update",
+    "core.exam-prep@1.5.0:topic.update",
     {
       handlerVersion: "exam-prep.topic.update.v1",
       execute: createExamPrepSyllabusItemExecutor("topic", "update"),
     },
   ],
   [
-    "core.exam-prep@1.3.1:topic.delete",
+    "core.exam-prep@1.5.0:topic.delete",
     {
       handlerVersion: "exam-prep.topic.delete.v1",
       execute: createExamPrepSyllabusItemExecutor("topic", "delete"),
     },
   ],
   [
-    "core.exam-prep@1.3.1:chapter.reorder",
+    "core.exam-prep@1.5.0:chapter.reorder",
     {
       handlerVersion: "exam-prep.chapter.reorder.v1",
       execute: executeExamPrepReorderChapters,
     },
   ],
   [
-    "core.exam-prep@1.3.1:topic.reorder",
+    "core.exam-prep@1.5.0:topic.reorder",
     {
       handlerVersion: "exam-prep.topic.reorder.v1",
       execute: executeExamPrepReorderTopics,
     },
   ],
   [
-    "core.exam-prep@1.3.1:topic.set-learning",
+    "core.exam-prep@1.5.0:topic.set-learning",
     {
       handlerVersion: "exam-prep.topic.set-learning.v1",
       execute: executeExamPrepTopicSetLearning,
     },
   ],
   [
-    "core.exam-prep@1.3.1:topic.set-progress",
+    "core.exam-prep@1.5.0:topic.set-progress",
     {
       handlerVersion: "exam-prep.topic.set-progress.v1",
       execute: executeExamPrepTopicSetProgress,
     },
   ],
   [
-    "core.exam-prep@1.3.1:topic.record-revision",
+    "core.exam-prep@1.5.0:topic.record-revision",
     {
       handlerVersion: "exam-prep.topic.record-revision.v1",
       execute: executeExamPrepTopicRecordRevision,
     },
   ],
   [
-    "core.exam-prep@1.3.1:topic.record-practice",
+    "core.exam-prep@1.5.0:topic.record-practice",
     {
       handlerVersion: "exam-prep.topic.record-practice.v1",
       execute: executeExamPrepTopicRecordPractice,
     },
   ],
   [
-    "core.exam-prep@1.3.1:topic.record-test",
+    "core.exam-prep@1.5.0:topic.record-test",
     {
       handlerVersion: "exam-prep.topic.record-test.v1",
       execute: executeExamPrepTopicRecordTest,
     },
   ],
   [
-    "core.exam-prep@1.3.1:subject.update-settings",
+    "core.exam-prep@1.5.0:subject.update-settings",
     {
       handlerVersion: "exam-prep.subject.update-settings.v1",
       execute: executeExamPrepSubjectUpdateSettings,
+    },
+  ],
+  [
+    "core.exam-prep@1.5.0:test-record.create",
+    {
+      handlerVersion: "exam-prep.test-record.create.v1",
+      execute: executeExamPrepTestRecordCreate,
+    },
+  ],
+  [
+    "core.exam-prep@1.5.0:test-record.update",
+    {
+      handlerVersion: "exam-prep.test-record.update.v1",
+      execute: executeExamPrepTestRecordUpdate,
+    },
+  ],
+  [
+    "core.exam-prep@1.5.0:test-record.delete",
+    {
+      handlerVersion: "exam-prep.test-record.delete.v1",
+      execute: executeExamPrepTestRecordDelete,
     },
   ],
 ])

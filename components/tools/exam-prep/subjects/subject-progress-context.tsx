@@ -12,6 +12,8 @@ import {
 
 import { withCalculatedSubjectProgress } from "@/lib/tools/exam-prep/progress/subject-rollup"
 import type { ChapterWithRelations, SubjectWithRelations } from "@/types/progressapp/domain"
+import type { NormalizedTestRecord } from "@/lib/tools/exam-prep/actions/test-actions"
+import { upsertTestRecord as upsertTestRecordHelper, removeTestRecord as removeTestRecordHelper } from "./test-record-state"
 
 type ChapterUpdater =
   | ChapterWithRelations[]
@@ -20,6 +22,8 @@ type ChapterUpdater =
 type SubjectProgressContextValue = {
   subject: SubjectWithRelations
   updateChapters: (updater: ChapterUpdater) => void
+  upsertTestRecord: (record: NormalizedTestRecord) => void
+  removeTestRecord: (recordId: string) => void
 }
 
 const SubjectProgressContext = createContext<SubjectProgressContextValue | null>(null)
@@ -32,10 +36,12 @@ export function SubjectProgressProvider({
   children: ReactNode
 }) {
   const [sourceSubject, setSourceSubject] = useState(initialSubject)
+  const [prevInitialSubject, setPrevInitialSubject] = useState(initialSubject)
 
-  useEffect(() => {
-    queueMicrotask(() => setSourceSubject(initialSubject))
-  }, [initialSubject])
+  if (initialSubject !== prevInitialSubject) {
+    setPrevInitialSubject(initialSubject)
+    setSourceSubject(initialSubject)
+  }
 
   const updateChapters = useCallback((updater: ChapterUpdater) => {
     setSourceSubject((current) => ({
@@ -44,13 +50,22 @@ export function SubjectProgressProvider({
     }))
   }, [])
 
+  const upsertTestRecord = useCallback((record: NormalizedTestRecord) => {
+    setSourceSubject((current) => upsertTestRecordHelper(current, record))
+  }, [])
+
+  const removeTestRecord = useCallback((recordId: string) => {
+    setSourceSubject((current) => removeTestRecordHelper(current, recordId))
+  }, [])
+
   const subject = useMemo(
     () => withCalculatedSubjectProgress(sourceSubject),
     [sourceSubject]
   )
+  
   const value = useMemo(
-    () => ({ subject, updateChapters }),
-    [subject, updateChapters]
+    () => ({ subject, updateChapters, upsertTestRecord, removeTestRecord }),
+    [subject, updateChapters, upsertTestRecord, removeTestRecord]
   )
 
   return (

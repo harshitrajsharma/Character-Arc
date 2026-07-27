@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import { notFound, redirect } from "next/navigation"
 import { workspaceRoutes } from "@/lib/routes/workspace-tools"
 
-import { CreateArcForm } from "@/components/tools/create-arc-form"
+import { CreateArcForm } from "@/components/tools/goals-paths/create-arc-form"
 import { getGoalsPathsOverview } from "@/lib/tools/definitions/goals-paths/repository"
 
 export const metadata: Metadata = { title: "Create an Arc" }

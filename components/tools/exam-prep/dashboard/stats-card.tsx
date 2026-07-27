@@ -7,8 +7,8 @@ import { surfaceVariants } from "@/lib/tools/exam-prep/design-system";
 
 interface StatsCardProps {
   title: string;
-  value: number;
-  total: number;
+  value: number | string;
+  total?: number;
   tooltipText: string;
   suffix?: string;
   badge?: {
@@ -102,9 +102,11 @@ export function StatsCard({
           <span className={cn("text-xl sm:text-2xl md:text-3xl font-bold tracking-tight transition-colors", theme.textColor)}>
             {value}
           </span>
-          <span className="text-sm md:text-base text-muted-foreground/60 font-medium">
-            / {total}
-          </span>
+          {total !== undefined ? (
+            <span className="text-sm md:text-base text-muted-foreground/60 font-medium">
+              / {total}
+            </span>
+          ) : null}
         </div>
         <span className="text-[10px] md:text-sm ml-6 text-muted-foreground font-medium">
           {suffix}

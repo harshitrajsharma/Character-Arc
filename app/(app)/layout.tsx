@@ -1,5 +1,7 @@
 import { Navbar } from "@/components/navigation/navbar"
 import { requireVerifiedClaims } from "@/lib/auth/session"
+import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
+import { AppSidebar } from "@/components/sidebar/app-sidebar"
 
 function claimString(value: unknown) {
   return typeof value === "string" ? value : undefined
@@ -26,9 +28,12 @@ export default async function AppLayout({
     .toUpperCase()
 
   return (
-    <div className="min-h-svh">
+    <SidebarProvider defaultOpen={false}>
       <Navbar user={{ name, email, avatarUrl, initials }} />
-      {children}
-    </div>
+      <AppSidebar collapsible="icon" variant="floating" className="top-15! h-[calc(100svh-60px)]!" />
+      <SidebarInset>
+        {children}
+      </SidebarInset>
+    </SidebarProvider>
   )
 }

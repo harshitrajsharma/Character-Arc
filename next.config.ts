@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: dirname(fileURLToPath(import.meta.url)),
   },
-  allowedDevOrigins: ['10.180.195.162'],
+  allowedDevOrigins: ['10.116.177.162'],
 }
 
 

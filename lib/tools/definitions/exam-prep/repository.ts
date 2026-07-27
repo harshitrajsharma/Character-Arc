@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import "server-only"
 
+import { cache } from "react"
 import { z } from "zod"
 
 import { requireVerifiedClaims } from "@/lib/auth/session"
@@ -195,10 +196,10 @@ export async function getExamsOverview(workspaceId: string, workspaceSlug: strin
   return { exams, issue: null }
 }
 
-export async function getExamDetail(workspaceId: string, workspaceSlug: string, examId: string): Promise<{
+export const getExamDetail = cache(async (workspaceId: string, workspaceSlug: string, examId: string): Promise<{
   exam: ExamDetail | null
   issue: ExamPrepIssue | "not_found" | null
-}> {
+}> => {
   const parsedExamId = z.uuid().safeParse(examId)
   if (!parsedExamId.success) {
     return { exam: null, issue: "not_found" }
@@ -287,7 +288,8 @@ export async function getExamDetail(workspaceId: string, workspaceSlug: string, 
       originToolInstallationId: row.originToolInstallationId,
     },
   }
-}
+})
+
 
 export type SubjectListItem = {
   id: string

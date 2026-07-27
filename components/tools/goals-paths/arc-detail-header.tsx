@@ -116,7 +116,7 @@ export function ArcDetailHeader({
       <div className="flex items-center justify-between gap-3">
         <Link
           href={workspaceRoutes.goalsPaths.home(workspaceSlug)}
-          className={buttonVariants({ variant: "ghost", size: "sm" })}
+          className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "hidden md:inline-flex")}
         >
           <ArrowLeftIcon data-icon="inline-start" aria-hidden="true" />
           All arcs

@@ -11,8 +11,8 @@ export interface BaseTest {
 
 export interface BaseTestRecord {
   id: string;
-  userId: string;
-  workspaceId: string;
+  userId?: string;
+  workspaceId?: string;
   examId: string;
   subjectId?: string | null;
   chapterId?: string | null;

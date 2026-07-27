@@ -14,7 +14,10 @@ describe("workspaceRoutes", () => {
     expect(workspaceRoutes.examPrep.new(slug)).toBe("/workspace/test-slug/exam-prep/new")
     expect(workspaceRoutes.examPrep.exam(slug, "exam-1")).toBe("/workspace/test-slug/exam-prep/exam-1")
     expect(workspaceRoutes.examPrep.subject(slug, "exam-1", "subj-2")).toBe("/workspace/test-slug/exam-prep/exam-1/subjects/subj-2")
-    expect(workspaceRoutes.examPrep.subjectSettings(slug, "exam-1", "subj-2")).toBe("/workspace/test-slug/exam-prep/exam-1/subjects/subj-2/settings")
+    expect(workspaceRoutes.examPrep.subjectSettings(slug, "subj-2")).toBe("/workspace/test-slug/exam-prep/subjects/subj-2/settings")
+    expect(workspaceRoutes.examPrep.subjectSettings(slug, "subj-2", "exam-1")).toBe(
+      "/workspace/test-slug/exam-prep/subjects/subj-2/settings?fromExam=exam-1"
+    )
   })
 
   it("builds goals and paths routes correctly", () => {
@@ -27,6 +30,9 @@ describe("workspaceRoutes", () => {
 
   it("safely encodes nested segment IDs", () => {
     expect(workspaceRoutes.examPrep.subject("slug", "exam/1", "subj/2")).toBe("/workspace/slug/exam-prep/exam%2F1/subjects/subj%2F2")
+    expect(workspaceRoutes.examPrep.subjectSettings("slug", "subj/2", "exam/1")).toBe(
+      "/workspace/slug/exam-prep/subjects/subj%2F2/settings?fromExam=exam%2F1"
+    )
   })
 
   it("routes installed tools to their workspace", () => {

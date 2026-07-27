@@ -9,7 +9,7 @@ import {
   getExamPrepActionContext,
 } from "@/lib/tools/definitions/exam-prep/action-context"
 import { executeToolAction } from "@/lib/tools/execute-tool-action"
-import { subjectProgressPolicySchema } from "@/lib/tools/exam-prep/progress/policy"
+import { subjectProgressPolicyUpdateSchema } from "@/lib/tools/exam-prep/progress/policy"
 
 import { workspaceSlugSchema } from "@/lib/tools/exam-prep/actions/common"
 
@@ -84,11 +84,12 @@ export async function createSubjectAction(
   return { status: "success" }
 }
 
-const updateSubjectSettingsSchema = subjectProgressPolicySchema.extend({
-  workspaceSlug: workspaceSlugSchema,
-  subjectId: z.string().uuid(),
-  examId: z.string().uuid(),
-})
+const updateSubjectSettingsSchema = z
+  .object({
+    workspaceSlug: workspaceSlugSchema,
+    subjectId: z.string().uuid(),
+  })
+  .and(subjectProgressPolicyUpdateSchema)
 
 export type UpdateSubjectSettingsState = {
   status: "idle" | "success" | "error"
@@ -103,13 +104,12 @@ export async function updateSubjectSettingsAction(
   const rawData = {
     workspaceSlug: formData.get("workspaceSlug"),
     subjectId: formData.get("subjectId"),
-    examId: formData.get("examId"),
-    revisionTarget: Number(formData.get("revisionTarget")),
-    practiceTarget: Number(formData.get("practiceTarget")),
-    highYieldRevisionTarget: Number(formData.get("highYieldRevisionTarget")),
-    highYieldPracticeTarget: Number(formData.get("highYieldPracticeTarget")),
-    chapterTestTarget: Number(formData.get("chapterTestTarget")),
-    subjectTestTarget: Number(formData.get("subjectTestTarget")),
+    revisionTarget: readRequiredNumber(formData, "revisionTarget"),
+    practiceTarget: readRequiredNumber(formData, "practiceTarget"),
+    highYieldRevisionTarget: readRequiredNumber(formData, "highYieldRevisionTarget"),
+    highYieldPracticeTarget: readRequiredNumber(formData, "highYieldPracticeTarget"),
+    chapterTestTarget: readRequiredNumber(formData, "chapterTestTarget"),
+    subjectTestTarget: readRequiredNumber(formData, "subjectTestTarget"),
   }
 
   const parsed = updateSubjectSettingsSchema.safeParse(rawData)
@@ -150,8 +150,20 @@ export async function updateSubjectSettingsAction(
     }
   }
 
-  revalidatePath(workspaceRoutes.examPrep.exam(parsed.data.workspaceSlug, parsed.data.examId))
-  revalidatePath(workspaceRoutes.examPrep.subject(parsed.data.workspaceSlug, parsed.data.examId, parsed.data.subjectId), "layout")
-  revalidatePath(workspaceRoutes.examPrep.subjectSettings(parsed.data.workspaceSlug, parsed.data.examId, parsed.data.subjectId))
-  return { status: "success", message: "Subject progress rules updated." }
+  revalidatePath(workspaceRoutes.examPrep.home(parsed.data.workspaceSlug), "layout")
+  revalidatePath(
+    workspaceRoutes.examPrep.subjectSettings(parsed.data.workspaceSlug, parsed.data.subjectId)
+  )
+  return {
+    status: "success",
+    message: "Subject progress rules updated everywhere this subject is used.",
+  }
+}
+
+function readRequiredNumber(formData: FormData, name: string) {
+  const value = formData.get(name)
+  if (typeof value !== "string" || value.trim() === "") return undefined
+
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : value
 }

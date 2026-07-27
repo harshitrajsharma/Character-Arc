@@ -9,6 +9,7 @@ export type SegmentedSelectorOption<Value extends string> = {
   value: Value
   label: string
   icon?: LucideIcon
+  disabled?: boolean
   activeClassName?: string
 }
 
@@ -19,6 +20,7 @@ type SegmentedSelectorProps<Value extends string> = {
   ariaLabel: string
   className?: string
   itemClassName?: string
+  collapsedLabelsOnMobile?: boolean
 }
 
 export function SegmentedSelector<Value extends string>({
@@ -28,6 +30,7 @@ export function SegmentedSelector<Value extends string>({
   ariaLabel,
   className,
   itemClassName,
+  collapsedLabelsOnMobile = false,
 }: SegmentedSelectorProps<Value>) {
   return (
     <ToggleGroup
@@ -39,24 +42,42 @@ export function SegmentedSelector<Value extends string>({
       variant="outline"
       spacing={0}
       aria-label={ariaLabel}
-      className={cn("w-full max-w-full overflow-x-auto sm:w-fit", className)}
+      className={cn(
+        "w-full max-w-full overflow-x-auto sm:w-fit scrollbar-none [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden",
+        className
+      )}
     >
       {options.map((option) => {
         const Icon = option.icon
+        const isSelected = option.value === value
 
         return (
           <ToggleGroupItem
             key={option.value}
             value={option.value}
+            disabled={option.disabled}
             aria-label={option.label}
             className={cn(
-              "flex-1 justify-center sm:flex-none",
+              "justify-center sm:flex-none transition-all",
+              collapsedLabelsOnMobile
+                ? isSelected
+                  ? "max-sm:flex-1"
+                  : "max-sm:flex-none max-sm:w-14"
+                : "max-sm:flex-1",
               option.activeClassName,
               itemClassName
             )}
           >
-            {Icon ? <Icon data-icon="inline-start" aria-hidden="true" /> : null}
-            {option.label}
+            {Icon ? <Icon data-icon="inline-start" aria-hidden="true" className={cn("shrink-0", collapsedLabelsOnMobile && !isSelected && "max-sm:mr-0")} /> : null}
+            <span
+              className={cn(
+                collapsedLabelsOnMobile && Icon && !isSelected
+                  ? "hidden sm:inline"
+                  : ""
+              )}
+            >
+              {option.label}
+            </span>
           </ToggleGroupItem>
         )
       })}

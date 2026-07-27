@@ -56,6 +56,25 @@
   --canvas-minimal: var(--canvas-graphite);
   --canvas-signal: var(--canvas-emerald);
   --canvas-afterglow: var(--canvas-wine);
+
+  /* Day phases — light mode */
+  --phase-night: oklch(44% 0.14 275);
+  --phase-night-accent: oklch(52% 0.12 310);
+
+  --phase-dawn: oklch(70% 0.14 35);
+  --phase-dawn-accent: oklch(72% 0.12 320);
+
+  --phase-morning: oklch(68% 0.12 225);
+  --phase-morning-accent: oklch(64% 0.14 260);
+
+  --phase-afternoon: oklch(66% 0.13 190);
+  --phase-afternoon-accent: oklch(64% 0.12 225);
+
+  --phase-golden: oklch(68% 0.15 70);
+  --phase-golden-accent: oklch(64% 0.16 35);
+
+  --phase-evening: oklch(48% 0.14 315);
+  --phase-evening-accent: oklch(43% 0.13 275);
 }
 
 .dark {
@@ -98,6 +117,25 @@
   --canvas-emerald: oklch(30.1% 0.057 175);
   --canvas-electric: oklch(30% 0.07 267);
   --canvas-golden: oklch(30% 0.052 83);
+
+  /* Day phases — dark mode */
+  --phase-night: oklch(60% 0.16 275);
+  --phase-night-accent: oklch(64% 0.14 310);
+
+  --phase-dawn: oklch(76% 0.16 35);
+  --phase-dawn-accent: oklch(74% 0.15 320);
+
+  --phase-morning: oklch(80% 0.12 225);
+  --phase-morning-accent: oklch(74% 0.15 260);
+
+  --phase-afternoon: oklch(78% 0.14 190);
+  --phase-afternoon-accent: oklch(74% 0.14 225);
+
+  --phase-golden: oklch(76% 0.17 70);
+  --phase-golden-accent: oklch(72% 0.18 35);
+
+  --phase-evening: oklch(66% 0.16 315);
+  --phase-evening-accent: oklch(60% 0.15 275);
 }
 
 :root,

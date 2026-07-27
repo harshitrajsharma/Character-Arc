@@ -1,8 +1,6 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { motion, AnimatePresence } from "framer-motion"
-
 import { AlertCircle, CheckCircle2, Clock, Plus, BookIcon, LayoutGridIcon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -18,9 +16,9 @@ import { Input } from "@/components/ui/input"
 import { SegmentedSelector, type SegmentedSelectorOption } from "@/components/ui/segmented-selector"
 import type { SubjectWithRelations } from "@/types/progressapp/domain"
 import { SubjectCard, type SubjectCategory } from "./subject-card"
-import { CreateSubjectDialog } from "./create-subject-dialog"
-
-
+import { CreateSubjectDialog } from "./dialogs/create-subject-dialog"
+import { getCanonicalSubjectProgress } from "./progress-helper"
+import { cn } from "@/lib/utils"
 
 interface SubjectsViewProps {
   workspaceSlug: string
@@ -30,60 +28,88 @@ interface SubjectsViewProps {
 
 type SubjectFilter = SubjectCategory | "all"
 
-const subjectFilterOptions: readonly SegmentedSelectorOption<SubjectFilter>[] = [
-  {
-    label: "All",
-    value: "all",
-    icon: LayoutGridIcon,
-    activeClassName: "aria-pressed:!bg-brand-violet-soft aria-pressed:!text-brand-violet-ink",
-  },
-  {
-    label: "In Progress",
-    value: "in-progress",
-    icon: Clock,
-    activeClassName: "aria-pressed:!bg-brand-cyan-soft aria-pressed:!text-brand-cyan-ink",
-  },
-  {
-    label: "Not Started",
-    value: "not-started",
-    icon: AlertCircle,
-    activeClassName: "aria-pressed:!bg-destructive/10 aria-pressed:!text-destructive",
-  },
-  {
-    label: "Completed",
-    value: "completed",
-    icon: CheckCircle2,
-    activeClassName: "aria-pressed:!bg-brand-neon-soft aria-pressed:!text-brand-neon-ink",
-  },
-]
-
 export function SubjectsView({ workspaceSlug, examId, subjects }: SubjectsViewProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [activeTab, setActiveTab] = useState<SubjectFilter>("all")
 
+  // Normalize search query with trim and locale-safe casing
   const filteredSubjects = useMemo(() => {
-    if (!searchQuery.trim()) return subjects
-    const query = searchQuery.toLowerCase()
-    return subjects.filter((s) => s.name.toLowerCase().includes(query))
+    const trimmedQuery = searchQuery.trim().toLocaleLowerCase()
+    if (!trimmedQuery) return subjects
+    return subjects.filter((s) => s.name.toLocaleLowerCase().includes(trimmedQuery))
   }, [subjects, searchQuery])
 
+  // Categorize filtered subjects using the canonical helper
   const categorized = useMemo(() => {
-    return filteredSubjects.reduce(
-      (acc, subject) => {
-        // Mock progress calculation for now - map from your actual progress calculation
-        const overallProgress = subject.overallProgress ?? 0
-        if (overallProgress === 0) acc.notStarted.push(subject)
-        else if (overallProgress >= 100) acc.completed.push(subject)
-        else acc.inProgress.push(subject)
-        return acc
+    const acc = {
+      notStarted: [] as SubjectWithRelations[],
+      inProgress: [] as SubjectWithRelations[],
+      completed: [] as SubjectWithRelations[],
+    }
+
+    for (const subject of filteredSubjects) {
+      const { category } = getCanonicalSubjectProgress(subject)
+      if (category === "not-started") {
+        acc.notStarted.push(subject)
+      } else if (category === "completed") {
+        acc.completed.push(subject)
+      } else {
+        acc.inProgress.push(subject)
+      }
+    }
+
+    return acc
+  }, [filteredSubjects])
+
+  // Count total subjects in each category (unfiltered) for stable indicators
+  const totalCategorized = useMemo(() => {
+    const acc = { notStarted: 0, inProgress: 0, completed: 0 }
+    for (const s of subjects) {
+      const { category } = getCanonicalSubjectProgress(s)
+      if (category === "not-started") {
+        acc.notStarted++
+      } else if (category === "completed") {
+        acc.completed++
+      } else {
+        acc.inProgress++
+      }
+    }
+    return acc
+  }, [subjects])
+
+  // Build segmented selector options dynamically with counts
+  const filterOptions = useMemo<SegmentedSelectorOption<SubjectFilter>[]>(() => {
+    return [
+      {
+        label: `All (${subjects.length})`,
+        value: "all",
+        icon: LayoutGridIcon,
+        activeClassName:
+          "aria-pressed:!bg-brand-violet-soft aria-pressed:!text-brand-violet-ink aria-pressed:!border-brand-violet-line",
       },
       {
-        notStarted: [] as SubjectWithRelations[],
-        inProgress: [] as SubjectWithRelations[],
-        completed: [] as SubjectWithRelations[],
-      }
-    )
-  }, [filteredSubjects])
+        label: `In Progress (${totalCategorized.inProgress})`,
+        value: "in-progress",
+        icon: Clock,
+        activeClassName:
+          "aria-pressed:!bg-brand-cyan-soft aria-pressed:!text-brand-cyan-ink aria-pressed:!border-brand-cyan-line",
+      },
+      {
+        label: `Not Started (${totalCategorized.notStarted})`,
+        value: "not-started",
+        icon: AlertCircle,
+        activeClassName:
+          "aria-pressed:!bg-destructive/10 aria-pressed:!text-destructive aria-pressed:!border-destructive/20",
+      },
+      {
+        label: `Completed (${totalCategorized.completed})`,
+        value: "completed",
+        icon: CheckCircle2,
+        activeClassName:
+          "aria-pressed:!bg-success-soft aria-pressed:!text-success-ink aria-pressed:!border-success-line",
+      },
+    ]
+  }, [subjects.length, totalCategorized])
 
   const renderSection = (
     category: SubjectCategory,
@@ -92,176 +118,199 @@ export function SubjectsView({ workspaceSlug, examId, subjects }: SubjectsViewPr
     title: string,
     titleColor: string
   ) => (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 10 }}
-      transition={{ duration: 0.3 }}
-      className="space-y-4"
-    >
+    <div className="space-y-4 transition-all duration-200">
       <div className="flex items-center gap-2">
         {icon}
-        <h3 className={`text-lg font-semibold ${titleColor}`}>{title}</h3>
+        <h3 className={cn("text-lg font-semibold tracking-tight", titleColor)}>{title}</h3>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {sectionSubjects.map((subject) => (
-          <motion.div
-            key={subject.id}
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.3 }}
-          >
-            <SubjectCard workspaceSlug={workspaceSlug} subject={subject} category={category} examId={examId} />
-          </motion.div>
+          <div key={subject.id} className="h-full transition-all duration-200 motion-reduce:transition-none">
+            <SubjectCard workspaceSlug={workspaceSlug} subject={subject} examId={examId} />
+          </div>
         ))}
       </div>
-    </motion.div>
+    </div>
   )
 
+  const subjectsToShow = useMemo(() => {
+    if (activeTab === "all") return filteredSubjects
+    if (activeTab === "in-progress") return categorized.inProgress
+    if (activeTab === "not-started") return categorized.notStarted
+    return categorized.completed
+  }, [activeTab, filteredSubjects, categorized])
+
   return (
-    <div className="flex min-h-screen flex-1 flex-col space-y-6 md:p-4">
+    <div className="flex flex-1 flex-col space-y-6 md:p-4">
       {/* Navigation and Controls */}
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col-reverse gap-4 md:flex-row md:items-center md:justify-between">
         <SegmentedSelector
           value={activeTab}
-          options={subjectFilterOptions}
+          options={filterOptions}
           onValueChange={setActiveTab}
           ariaLabel="Filter subjects by progress"
+          collapsedLabelsOnMobile
+          itemClassName="h-11 sm:h-9 text-xs sm:text-sm px-3 sm:px-4"
         />
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center w-full sm:w-auto">
+          <div className="relative w-full sm:w-64">
+            <label htmlFor="subject-search" className="sr-only">
+              Search subjects
+            </label>
             <Input
+              id="subject-search"
               placeholder="Search subjects..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full sm:w-64"
+              className="w-full h-11 sm:h-9"
             />
-            <CreateSubjectDialog workspaceSlug={workspaceSlug} examId={examId}>
-              <Button className="w-full sm:w-auto">
-                <Plus className="mr-2 size-4" />
-                Add Subject
-              </Button>
-            </CreateSubjectDialog>
+          </div>
+          <CreateSubjectDialog workspaceSlug={workspaceSlug} examId={examId}>
+            <Button className="w-full sm:w-auto h-11 sm:h-9 font-medium">
+              <Plus className="mr-2 size-4" aria-hidden="true" />
+              Add Subject
+            </Button>
+          </CreateSubjectDialog>
         </div>
       </div>
 
-      {/* Subjects Grid */}
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={activeTab}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.3 }}
-          className="space-y-6 pb-4 sm:pb-0"
-        >
-          {activeTab === "all" ? (
-            <>
-              {categorized.inProgress.length > 0 &&
-                renderSection(
-                  "in-progress",
-                  categorized.inProgress,
-                  <Clock className="size-5 text-blue-500" />,
-                  "In Progress",
-                  "text-blue-500"
+      {/* Subjects Grid & Empty States */}
+      <div className="space-y-6 pb-4 sm:pb-0">
+        {subjects.length === 0 ? (
+          /* Empty State 1: No subjects yet */
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon" className="bg-brand-violet-soft text-brand-violet-ink">
+                <BookIcon aria-hidden="true" />
+              </EmptyMedia>
+              <EmptyTitle>Start your first subject</EmptyTitle>
+              <EmptyDescription>
+                Break down your exam into subjects to track progress effectively.
+              </EmptyDescription>
+            </EmptyHeader>
+            <EmptyContent>
+              <CreateSubjectDialog workspaceSlug={workspaceSlug} examId={examId}>
+                <Button className="h-11 sm:h-9 font-medium">
+                  <Plus className="mr-2 size-4" aria-hidden="true" />
+                  Create a subject
+                </Button>
+              </CreateSubjectDialog>
+            </EmptyContent>
+          </Empty>
+        ) : filteredSubjects.length === 0 ? (
+          /* Empty State 2: No search results */
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon" className="bg-muted text-muted-foreground">
+                <BookIcon aria-hidden="true" />
+              </EmptyMedia>
+              <EmptyTitle>No matching subjects</EmptyTitle>
+              <EmptyDescription>
+                We couldn&apos;t find any subjects matching &ldquo;{searchQuery}&rdquo;.
+              </EmptyDescription>
+            </EmptyHeader>
+            <EmptyContent>
+              <Button
+                variant="outline"
+                onClick={() => setSearchQuery("")}
+                className="h-11 sm:h-9 font-medium"
+              >
+                Clear search query
+              </Button>
+            </EmptyContent>
+          </Empty>
+        ) : activeTab !== "all" && subjectsToShow.length === 0 ? (
+          /* Empty State 3: No subjects in selected category */
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia
+                variant="icon"
+                className={cn(
+                  activeTab === "completed"
+                    ? "bg-success-soft text-success-ink"
+                    : activeTab === "in-progress"
+                    ? "bg-brand-cyan-soft text-brand-cyan-ink"
+                    : "bg-destructive/10 text-destructive"
                 )}
-              {categorized.notStarted.length > 0 &&
-                renderSection(
-                  "not-started",
-                  categorized.notStarted,
-                  <AlertCircle className="size-5 text-red-500" />,
-                  "Not Started",
-                  "text-red-500"
-                )}
-              {categorized.completed.length > 0 &&
-                renderSection(
-                  "completed",
-                  categorized.completed,
-                  <CheckCircle2 className="size-5 text-green-500" />,
-                  "Completed",
-                  "text-green-500"
-                )}
-              {filteredSubjects.length === 0 && (
-                <Empty>
-                  <EmptyHeader>
-                    <EmptyMedia variant="icon" className="bg-brand-violet-soft text-brand-violet-ink">
-                      <BookIcon aria-hidden="true" />
-                    </EmptyMedia>
-                    <EmptyTitle>{subjects.length === 0 ? "Start your first subject" : "No matching subjects"}</EmptyTitle>
-                    <EmptyDescription>
-                      {subjects.length === 0
-                        ? "Break down your exam into subjects to track progress effectively."
-                        : "Try a different search or clear the current query."}
-                    </EmptyDescription>
-                  </EmptyHeader>
-                  <EmptyContent>
-                    {subjects.length === 0 ? (
-                      <CreateSubjectDialog workspaceSlug={workspaceSlug} examId={examId}>
-                        <Button>
-                          <Plus className="mr-2 size-4" aria-hidden="true" />
-                          Create a subject
-                        </Button>
-                      </CreateSubjectDialog>
-                    ) : (
-                      <Button variant="outline" onClick={() => setSearchQuery("")}>
-                        Clear search
-                      </Button>
-                    )}
-                  </EmptyContent>
-                </Empty>
-              )}
-            </>
-          ) : (
-            (() => {
-              const subjectsToShow =
-                activeTab === "in-progress"
-                  ? categorized.inProgress
-                  : activeTab === "not-started"
-                  ? categorized.notStarted
-                  : categorized.completed
-
-              const icon =
-                activeTab === "in-progress" ? (
-                  <Clock className="size-5 text-blue-500" />
+              >
+                {activeTab === "in-progress" ? (
+                  <Clock className="size-5" aria-hidden="true" />
                 ) : activeTab === "not-started" ? (
-                  <AlertCircle className="size-5 text-red-500" />
+                  <AlertCircle className="size-5" aria-hidden="true" />
                 ) : (
-                  <CheckCircle2 className="size-5 text-green-500" />
-                )
-
-              const title =
-                activeTab === "in-progress"
-                  ? "In Progress"
-                  : activeTab === "not-started"
-                  ? "Not Started"
-                  : "Completed"
-
-              const titleColor =
-                activeTab === "in-progress"
-                  ? "text-blue-500"
-                  : activeTab === "not-started"
-                  ? "text-red-500"
-                  : "text-green-500"
-
-              return subjectsToShow.length > 0 ? (
-                renderSection(activeTab, subjectsToShow, icon, title, titleColor)
-              ) : (
-                <Empty>
-                  <EmptyHeader>
-                    <EmptyMedia variant="icon">{icon}</EmptyMedia>
-                    <EmptyTitle>No {title.toLowerCase()} subjects</EmptyTitle>
-                    <EmptyDescription>You don&apos;t have any subjects in the {title} category yet.</EmptyDescription>
-                  </EmptyHeader>
-                  <EmptyContent>
-                    <Button variant="outline" onClick={() => setActiveTab("all")}>
-                      View all subjects
-                    </Button>
-                  </EmptyContent>
-                </Empty>
-              )
-            })()
-          )}
-        </motion.div>
-      </AnimatePresence>
+                  <CheckCircle2 className="size-5" aria-hidden="true" />
+                )}
+              </EmptyMedia>
+              <EmptyTitle>
+                No {activeTab === "in-progress" ? "in-progress" : activeTab === "not-started" ? "not-started" : "completed"} subjects
+              </EmptyTitle>
+              <EmptyDescription>
+                You don&apos;t have any subjects in the {activeTab === "in-progress" ? "In Progress" : activeTab === "not-started" ? "Not Started" : "Completed"} category.
+              </EmptyDescription>
+            </EmptyHeader>
+            <EmptyContent>
+              <Button
+                variant="outline"
+                onClick={() => setActiveTab("all")}
+                className="h-11 sm:h-9 font-medium"
+              >
+                View all subjects
+              </Button>
+            </EmptyContent>
+          </Empty>
+        ) : activeTab === "all" ? (
+          /* Normal Grid: All Category View */
+          <>
+            {categorized.inProgress.length > 0 &&
+              renderSection(
+                "in-progress",
+                categorized.inProgress,
+                <Clock className="size-5 text-brand-cyan-ink" aria-hidden="true" />,
+                "In Progress",
+                "text-brand-cyan-ink"
+              )}
+            {categorized.notStarted.length > 0 &&
+              renderSection(
+                "not-started",
+                categorized.notStarted,
+                <AlertCircle className="size-5 text-destructive" aria-hidden="true" />,
+                "Not Started",
+                "text-destructive"
+              )}
+            {categorized.completed.length > 0 &&
+              renderSection(
+                "completed",
+                categorized.completed,
+                <CheckCircle2 className="size-5 text-success-ink" aria-hidden="true" />,
+                "Completed",
+                "text-success-ink"
+              )}
+          </>
+        ) : (
+          /* Normal Grid: Specific Category View */
+          renderSection(
+            activeTab,
+            subjectsToShow,
+            activeTab === "in-progress" ? (
+              <Clock className="size-5 text-brand-cyan-ink" aria-hidden="true" />
+            ) : activeTab === "not-started" ? (
+              <AlertCircle className="size-5 text-destructive" aria-hidden="true" />
+            ) : (
+              <CheckCircle2 className="size-5 text-success-ink" aria-hidden="true" />
+            ),
+            activeTab === "in-progress"
+              ? "In Progress"
+              : activeTab === "not-started"
+              ? "Not Started"
+              : "Completed",
+            activeTab === "in-progress"
+              ? "text-brand-cyan-ink"
+              : activeTab === "not-started"
+              ? "text-destructive"
+              : "text-success-ink"
+          )
+        )}
+      </div>
     </div>
   )
 }

@@ -84,7 +84,7 @@ const syllabusItemUpdateSchema = z.object({
   workspaceSlug: workspaceSlugSchema,
   kind: z.enum(["chapter", "topic"]),
   id: z.string().uuid(),
-  title: z.string().trim().min(1).max(120),
+  name: z.string().trim().min(1).max(120),
   important: z.boolean(),
 })
 
@@ -221,7 +221,7 @@ export async function updateSyllabusItemAction(input: z.input<typeof syllabusIte
   const idKey = parsed.kind === "chapter" ? "chapterId" : "topicId"
   await executeExamPrepMutation(parsed.workspaceSlug, `${parsed.kind}.update`, {
     [idKey]: parsed.id,
-    title: parsed.title,
+    title: parsed.name,
     important: parsed.important,
   })
   revalidateExamPrep(parsed.workspaceSlug)

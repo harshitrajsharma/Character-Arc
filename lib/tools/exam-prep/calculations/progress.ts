@@ -17,6 +17,12 @@ import {
 } from "./types"
 import { getProgressSummary } from "@/lib/tools/exam-prep/progress/selectors"
 import { normalizeSubjectProgressPolicy, type SubjectProgressPolicy } from "@/lib/tools/exam-prep/progress/policy"
+import {
+  calculateChapterTestProgress,
+  calculateExpectedMarksEvidence,
+  calculateSubjectTestProgress,
+  type TestProgressEvidence,
+} from "./test-records"
 
 /**
  * Safely get topics array from a chapter
@@ -58,6 +64,14 @@ function statsFromRollup(totalTopics: number, percentage: number): ProgressStats
     completedTopics: Math.round((totalTopics * percentage) / 100),
     percentage,
   };
+}
+
+function statsFromTestEvidence(evidence: TestProgressEvidence): ProgressStats {
+  return {
+    totalTopics: evidence.targetRecords,
+    completedTopics: evidence.completedRecords,
+    percentage: evidence.percentage,
+  }
 }
 
 function aggregateProgressStats(chapterProgress: ChapterProgress[]): SubjectProgress["stats"] {
@@ -129,28 +143,24 @@ export function calculateFoundationLevel(progress: {
   revision: number;
   practice: number;
   test: number;
+  overall?: number;
 }): FoundationLevel {
-  // Weighted calculation (Learning: 40%, Others: 20% each)
-  const weightedProgress =
-    (progress.learning * 0.4) +
-    (progress.revision * 0.2) +
-    (progress.practice * 0.2) +
-    (progress.test * 0.2);
+  const overallProgress = progress.overall ?? calculateWeightedOverallProgress(progress);
 
-  if (weightedProgress >= 80) return "Advanced";
-  if (weightedProgress >= 50) return "Moderate";
+  if (overallProgress >= 80) return "Advanced";
+  if (overallProgress >= 50) return "Moderate";
   return "Beginner";
 }
 
 /**
  * Calculate expected marks based on test performance
  */
-export function calculateExpectedMarks(subject: SubjectWithRelations): number {
-  const tests = Array.isArray(subject.tests) ? subject.tests : [];
-  if (tests.length === 0) return subject.expectedMarks || 0;
-
-  const testAverage = tests.reduce((acc, test) => acc + test.score, 0) / tests.length;
-  return Math.round((subject.weightage * testAverage) / 100);
+export function calculateExpectedMarks(subject: SubjectWithRelations): number | null {
+  return calculateExpectedMarksEvidence({
+    chapterIds: getSafeChapters(subject).map((chapter) => chapter.id),
+    records: subject.testRecords,
+    weightage: subject.weightage,
+  }).expectedMarks
 }
 
 /**
@@ -176,7 +186,11 @@ export function calculateChapterProgress(chapter: ChapterWithRelations, policy?:
   }
 
   const normalizedPolicy = normalizeSubjectProgressPolicy(policy)
-  const testProgress = getTargetProgress(chapter.testRecords?.length ?? 0, normalizedPolicy.chapterTestTarget)
+  const testEvidence = calculateChapterTestProgress(
+    chapter.testRecords,
+    normalizedPolicy.chapterTestTarget
+  )
+  const testProgress = testEvidence.percentage
   const progress = calculateProgressRollup(topics, normalizedPolicy, testProgress);
 
   // Calculate stats for each category
@@ -184,7 +198,7 @@ export function calculateChapterProgress(chapter: ChapterWithRelations, policy?:
     learning: calculateModeProgressStats(topics, 'learning', normalizedPolicy),
     revision: calculateModeProgressStats(topics, 'revision', normalizedPolicy),
     practice: calculateModeProgressStats(topics, 'practice', normalizedPolicy),
-    test: statsFromRollup(totalTopics, testProgress)
+    test: statsFromTestEvidence(testEvidence)
   };
 
   const overall = progress.overall;
@@ -202,21 +216,53 @@ export function calculateChapterProgress(chapter: ChapterWithRelations, policy?:
 export function calculateSubjectProgress(subject: SubjectWithRelations): SubjectProgress {
   const chapters = getSafeChapters(subject);
   const policy = normalizeSubjectProgressPolicy(subject.progressPolicy)
+  const chapterIds = chapters.map((chapter) => chapter.id)
+  const testEvidence = calculateSubjectTestProgress({
+    chapterIds,
+    records: subject.testRecords,
+    policy,
+  })
+  const marksEvidence = calculateExpectedMarksEvidence({
+    chapterIds,
+    records: subject.testRecords,
+    weightage: subject.weightage,
+  })
+  const expectedMarksEvidence = {
+    percentage: marksEvidence.percentage,
+    chapterAveragePercentage: marksEvidence.chapterAveragePercentage,
+    subjectAveragePercentage: marksEvidence.subjectAveragePercentage,
+    validChapterRecords: marksEvidence.validChapterRecords,
+    validSubjectRecords: marksEvidence.validSubjectRecords,
+    testedChapters: marksEvidence.testedChapters,
+    activeChapters: marksEvidence.activeChapters,
+    chapterCoveragePercentage: marksEvidence.chapterCoveragePercentage,
+    coverageStatus: marksEvidence.coverageStatus,
+  }
 
   if (chapters.length === 0) {
-    const progress = getProgressFromRollup(subject);
+    const storedProgress = getProgressFromRollup(subject);
+    const progress = {
+      ...storedProgress,
+      test: testEvidence.percentage,
+      overall: calculateWeightedOverallProgress({
+        ...storedProgress,
+        test: testEvidence.percentage,
+      }),
+    }
     const totalTopics = subject.topicCount || 0;
     const completedTopics = Math.round((totalTopics * progress.learning) / 100);
 
     return {
       ...progress,
       foundationLevel: (subject.foundationLevel as FoundationLevel) || calculateFoundationLevel(progress),
-      expectedMarks: subject.expectedMarks || 0,
+      expectedMarks: marksEvidence.expectedMarks,
+      expectedMarksEvidence,
+      testEvidence,
       stats: {
         learning: { totalTopics, completedTopics, percentage: progress.learning },
         revision: { totalTopics, completedTopics: Math.round((totalTopics * progress.revision) / 100), percentage: progress.revision },
         practice: { totalTopics, completedTopics: Math.round((totalTopics * progress.practice) / 100), percentage: progress.practice },
-        test: { totalTopics, completedTopics: Math.round((totalTopics * progress.test) / 100), percentage: progress.test }
+        test: statsFromTestEvidence(testEvidence)
       }
     }
   }
@@ -224,14 +270,13 @@ export function calculateSubjectProgress(subject: SubjectWithRelations): Subject
   const allTopics = chapters.flatMap(chapter => getSafeTopics(chapter));
 
   if (allTopics.length > 0) {
-    const subjectRecords = subject.testRecords?.filter((record) => !record.chapterId) ?? []
-    const testProgress = getTargetProgress(subjectRecords.length, policy.subjectTestTarget)
+    const testProgress = testEvidence.percentage
     const progress = calculateProgressRollup(allTopics, policy, testProgress);
     const stats = {
       learning: calculateModeProgressStats(allTopics, 'learning', policy),
       revision: calculateModeProgressStats(allTopics, 'revision', policy),
       practice: calculateModeProgressStats(allTopics, 'practice', policy),
-      test: statsFromRollup(allTopics.length, testProgress)
+      test: statsFromTestEvidence(testEvidence)
     };
 
     return {
@@ -241,7 +286,9 @@ export function calculateSubjectProgress(subject: SubjectWithRelations): Subject
       test: progress.test,
       overall: progress.overall,
       foundationLevel: calculateFoundationLevel(progress),
-      expectedMarks: calculateExpectedMarks(subject),
+      expectedMarks: marksEvidence.expectedMarks,
+      expectedMarksEvidence,
+      testEvidence,
       stats
     };
   }
@@ -257,7 +304,7 @@ export function calculateSubjectProgress(subject: SubjectWithRelations): Subject
     learning: stats.learning.percentage,
     revision: stats.revision.percentage,
     practice: stats.practice.percentage,
-    test: stats.test.percentage
+    test: testEvidence.percentage
   };
 
   const overall = calculateWeightedOverallProgress(progress);
@@ -266,17 +313,16 @@ export function calculateSubjectProgress(subject: SubjectWithRelations): Subject
   const foundationLevel = calculateFoundationLevel(progress);
 
   // Calculate expected marks based on test performance only
-  const expectedMarks = calculateExpectedMarks(subject);
-
   return {
     ...progress,
     overall,
     foundationLevel,
-    expectedMarks,
-    stats
+    expectedMarks: marksEvidence.expectedMarks,
+    expectedMarksEvidence,
+    testEvidence,
+    stats: {
+      ...stats,
+      test: statsFromTestEvidence(testEvidence),
+    }
   };
-}
-
-function getTargetProgress(completed: number, target: number) {
-  return target === 0 ? 100 : Math.min(100, Math.round((completed / target) * 1000) / 10)
 }

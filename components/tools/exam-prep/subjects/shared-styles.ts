@@ -81,10 +81,10 @@ export const categoryVariants = {
 }
 
 export const statCardVariants = {
-  expectedMarks: {
-    valueColor: "text-destructive",
-    bgColor: "bg-destructive",
-    iconColor: "text-destructive",
+  averageMarks: {
+    valueColor: "text-brand-neon-ink",
+    bgColor: "bg-brand-neon",
+    iconColor: "text-brand-neon-ink",
   },
   topicsCompleted: {
     valueColor: "text-brand-cyan-ink",
