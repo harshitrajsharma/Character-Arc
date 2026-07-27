@@ -30,12 +30,30 @@ describe("Subject Progress Policy", () => {
     expect(normalizeSubjectProgressPolicy({ revisionTarget: 10 })).toEqual({
       ...defaultSubjectProgressPolicy,
       revisionTarget: 10,
+      highYieldRevisionTarget: 10,
+    })
+  })
+
+  test("normalization never makes high-yield targets weaker than standard targets", () => {
+    expect(
+      normalizeSubjectProgressPolicy({
+        revisionTarget: 8,
+        practiceTarget: 7,
+        highYieldRevisionTarget: 3,
+        highYieldPracticeTarget: 4,
+      })
+    ).toEqual({
+      ...defaultSubjectProgressPolicy,
+      revisionTarget: 8,
+      practiceTarget: 7,
+      highYieldRevisionTarget: 8,
+      highYieldPracticeTarget: 7,
     })
   })
 
   test("normalizeSubjectProgressPolicy falls back to defaults for invalid setting structures", () => {
-    expect(normalizeSubjectProgressPolicy({ revisionTarget: 101 } as any)).toEqual(defaultSubjectProgressPolicy)
-    expect(normalizeSubjectProgressPolicy({ practiceTarget: -1 } as any)).toEqual(defaultSubjectProgressPolicy)
+    expect(normalizeSubjectProgressPolicy({ revisionTarget: 101 })).toEqual(defaultSubjectProgressPolicy)
+    expect(normalizeSubjectProgressPolicy({ practiceTarget: -1 })).toEqual(defaultSubjectProgressPolicy)
   })
 
   test("validateSubjectProgressPolicy accepts valid settings", () => {
@@ -53,6 +71,16 @@ describe("Subject Progress Policy", () => {
   test("validateSubjectProgressPolicy throws error on invalid settings", () => {
     expect(() => validateSubjectProgressPolicy({ revisionTarget: 101 })).toThrow()
     expect(() => validateSubjectProgressPolicy({ chapterTestTarget: -5 })).toThrow()
+    expect(() =>
+      validateSubjectProgressPolicy({
+        revisionTarget: 8,
+        practiceTarget: 7,
+        highYieldRevisionTarget: 3,
+        highYieldPracticeTarget: 4,
+        chapterTestTarget: 1,
+        subjectTestTarget: 1,
+      })
+    ).toThrow()
   })
 
   test("action manifest accepts valid subject.update-settings input", () => {

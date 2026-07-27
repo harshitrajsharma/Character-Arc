@@ -1,12 +1,14 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- Legacy handlers predate strict action input types. */
 import crypto from "crypto"
 
 import { prisma } from "@/lib/prisma"
 import { ToolActionExecutionError, type ExecuteToolActionInput } from "@/lib/tools/execute-tool-action"
-import type { ToolActionResult, ToolExecutionPrincipal } from "@/lib/tools/contracts"
+import type { JsonValue, ToolActionResult, ToolExecutionPrincipal } from "@/lib/tools/contracts"
 import { BlockStatus, BlockVisibility, Prisma, ToolRunStatus } from "../../generated/prisma/client"
+import { validateTestRecordMarks } from "./exam-prep/calculations/test-records"
 
 // Shared helper to generate hashes
-function hashInput(input: any): string {
+function hashInput(input: unknown): string {
   return crypto.createHash("md5").update(JSON.stringify(input)).digest("hex")
 }
 
@@ -455,7 +457,14 @@ export async function executeExamPrepTopicSetLearning(
       if (!block) throw new Error("Topic not found")
 
       const props = (block.properties as any) || {}
-      props.learningStatus = Boolean(actionInput.learned)
+      const learned = Boolean(actionInput.learned)
+      const wasLearned = props.learningStatus === true
+      props.learningStatus = learned
+      props.learningCompletedAt = learned
+        ? wasLearned && typeof props.learningCompletedAt === "string"
+          ? props.learningCompletedAt
+          : new Date().toISOString()
+        : null
 
       await tx.block.update({
         where: { id: topicId },
@@ -547,6 +556,9 @@ export async function executeExamPrepTopicSetProgress(
               nextRevision: new Date(now.getTime() + actionInput.count * 2 * 86_400_000).toISOString(),
             }
           : {}),
+        ...(actionInput.stage === "practice" && actionInput.count > Number(properties.practiceCount ?? 0)
+          ? { lastPracticed: now.toISOString() }
+          : {}),
       }
       await tx.block.update({
         where: { id: block.id },
@@ -620,7 +632,10 @@ export function createExamPrepTopicRecordEventExecutor(eventField: string, actio
         if (!block) throw new Error("Topic not found")
 
         const props = (block.properties as any) || {}
+        const recordedAt = new Date().toISOString()
         props[eventField] = (props[eventField] || 0) + 1
+        if (eventField === "revisionCount") props.lastRevised = recordedAt
+        if (eventField === "practiceCount") props.lastPracticed = recordedAt
 
         await tx.block.update({
           where: { id: topicId },
@@ -911,6 +926,20 @@ export async function executeExamPrepSubjectUpdateSettings(
   }
   const subjectId = actionInput.subjectId
 
+  if (actionInput.highYieldRevisionTarget < actionInput.revisionTarget) {
+    throw new ToolActionExecutionError(
+      "High-yield revisions must be at least the standard revision target.",
+      "INVALID_INPUT"
+    )
+  }
+
+  if (actionInput.highYieldPracticeTarget < actionInput.practiceTarget) {
+    throw new ToolActionExecutionError(
+      "High-yield practice must be at least the standard practice target.",
+      "INVALID_INPUT"
+    )
+  }
+
   try {
     const result = await prisma.$transaction(async (tx) => {
       const installation = await tx.toolInstallation.findFirst({
@@ -995,3 +1024,405 @@ export async function executeExamPrepSubjectUpdateSettings(
 }
 
 
+
+
+// ─── Canonical TestRecord mutation handlers ─────────────────────────────────
+
+/* eslint-enable @typescript-eslint/no-explicit-any */
+
+type CreateTestRecordInput = {
+  workspaceId: string
+  examId: string
+  subjectId: string
+  chapterId?: string | null
+  title: string
+  marksObtained: number
+  totalMarks: number
+  summary?: string | null
+}
+
+type UpdateTestRecordInput = {
+  workspaceId: string
+  testRecordId: string
+  title: string
+  marksObtained: number
+  totalMarks: number
+  summary?: string | null
+}
+
+type DeleteTestRecordInput = {
+  workspaceId: string
+  testRecordId: string
+}
+
+function serializeTestRecord(record: {
+  id: string
+  examId: string
+  subjectId: string | null
+  chapterId: string | null
+  title: string
+  marksObtained: Prisma.Decimal
+  totalMarks: Prisma.Decimal
+  summary: string | null
+  createdAt: Date
+  updatedAt: Date
+}): Record<string, JsonValue> {
+  return {
+    id: record.id,
+    examId: record.examId,
+    subjectId: record.subjectId,
+    chapterId: record.chapterId,
+    title: record.title,
+    marksObtained: Number(record.marksObtained),
+    totalMarks: Number(record.totalMarks),
+    summary: record.summary,
+    createdAt: record.createdAt.toISOString(),
+    updatedAt: record.updatedAt.toISOString(),
+  }
+}
+
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback
+}
+
+export async function executeExamPrepTestRecordCreate(
+  input: ExecuteToolActionInput,
+  principal: ToolExecutionPrincipal,
+  handlerVersion: string
+): Promise<ToolActionResult> {
+  const actorId = principal.actorId
+  if (!actorId) throw new ToolActionExecutionError("Workspace write access is required.", "FORBIDDEN")
+
+  const actionInput = input.input as CreateTestRecordInput
+  if (actionInput.workspaceId !== principal.workspaceId) {
+    throw new ToolActionExecutionError("The principal workspace does not match the action workspace.", "FORBIDDEN")
+  }
+
+  const runId = crypto.randomUUID()
+
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const { marksObtained, totalMarks } = validateTestRecordMarks(
+        actionInput.marksObtained,
+        actionInput.totalMarks
+      )
+
+      const installation = await tx.toolInstallation.findFirstOrThrow({
+        where: {
+          id: input.installationId,
+          workspaceId: input.workspaceId,
+          status: "ACTIVE",
+        },
+        include: { toolRelease: true },
+      })
+
+      await tx.block.findFirstOrThrow({
+        where: {
+          id: actionInput.examId,
+          workspaceId: input.workspaceId,
+          originToolInstallationId: input.installationId,
+          status: "ACTIVE",
+          blockType: { key: "exam-prep.exam" },
+        },
+        select: { id: true },
+      })
+      await tx.block.findFirstOrThrow({
+        where: {
+          id: actionInput.subjectId,
+          workspaceId: input.workspaceId,
+          originToolInstallationId: input.installationId,
+          status: "ACTIVE",
+          blockType: { key: "exam-prep.subject" },
+        },
+        select: { id: true },
+      })
+
+      const subjectRelation = await tx.blockRelation.findFirst({
+        where: {
+          workspaceId: input.workspaceId,
+          fromBlockId: actionInput.examId,
+          toBlockId: actionInput.subjectId,
+          relationType: { key: "exam-prep.exam-has-subject" },
+        },
+        select: { id: true },
+      })
+      if (!subjectRelation) {
+        throw new ToolActionExecutionError("Subject does not belong to this exam.", "INVALID_INPUT")
+      }
+
+      if (actionInput.chapterId) {
+        await tx.block.findFirstOrThrow({
+          where: {
+            id: actionInput.chapterId,
+            workspaceId: input.workspaceId,
+            originToolInstallationId: input.installationId,
+            status: "ACTIVE",
+            blockType: { key: "exam-prep.chapter" },
+          },
+          select: { id: true },
+        })
+        const chapterRelation = await tx.blockRelation.findFirst({
+          where: {
+            workspaceId: input.workspaceId,
+            toBlockId: actionInput.chapterId,
+            relationType: { key: "exam-prep.subject-has-chapter" },
+          },
+          select: { fromBlockId: true },
+        })
+        if (!chapterRelation || chapterRelation.fromBlockId !== actionInput.subjectId) {
+          throw new ToolActionExecutionError("Chapter does not belong to this subject.", "INVALID_INPUT")
+        }
+      }
+
+      const run = await tx.toolRun.create({
+        data: {
+          id: runId,
+          workspaceId: input.workspaceId,
+          installationId: input.installationId,
+          toolReleaseId: installation.toolReleaseId,
+          actorId,
+          actionKey: "test-record.create",
+          handlerVersion,
+          invocationSource: principal.invocationSource,
+          idempotencyKey: input.idempotencyKey,
+          input: { ...actionInput },
+          inputHash: hashInput(actionInput),
+          manifestHash: hashInput(installation.toolRelease.manifest),
+          status: ToolRunStatus.RUNNING,
+          startedAt: new Date(),
+        },
+      })
+
+      const record = await tx.testRecord.create({
+        data: {
+          workspaceId: input.workspaceId,
+          userId: actorId,
+          examId: actionInput.examId,
+          subjectId: actionInput.subjectId,
+          chapterId: actionInput.chapterId ?? null,
+          title: actionInput.title.trim(),
+          marksObtained,
+          totalMarks,
+          summary: actionInput.summary ?? null,
+        },
+      })
+
+      const data = { testRecord: serializeTestRecord(record) }
+      const output = {
+        rootBlockId: actionInput.examId,
+        createdBlockIds: [],
+        evidenceIds: [],
+        data,
+      }
+      await tx.toolRun.update({
+        where: { id: run.id },
+        data: { status: ToolRunStatus.SUCCEEDED, output, completedAt: new Date() },
+      })
+
+      return { data, runId: run.id }
+    })
+
+    return {
+      status: "succeeded",
+      runId: result.runId,
+      rootBlockId: actionInput.examId,
+      createdBlockIds: [],
+      evidenceIds: [],
+      data: result.data,
+    }
+  } catch (error: unknown) {
+    if (error instanceof ToolActionExecutionError) throw error
+    throw new ToolActionExecutionError(getErrorMessage(error, "Failed to create test record"), "RUN_FAILED")
+  }
+}
+
+export async function executeExamPrepTestRecordUpdate(
+  input: ExecuteToolActionInput,
+  principal: ToolExecutionPrincipal,
+  handlerVersion: string
+): Promise<ToolActionResult> {
+  const actorId = principal.actorId
+  if (!actorId) throw new ToolActionExecutionError("Workspace write access is required.", "FORBIDDEN")
+
+  const actionInput = input.input as UpdateTestRecordInput
+  if (actionInput.workspaceId !== principal.workspaceId) {
+    throw new ToolActionExecutionError("The principal workspace does not match the action workspace.", "FORBIDDEN")
+  }
+
+  const runId = crypto.randomUUID()
+
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const validMarks = validateTestRecordMarks(actionInput.marksObtained, actionInput.totalMarks)
+
+      const installation = await tx.toolInstallation.findFirstOrThrow({
+        where: {
+          id: input.installationId,
+          workspaceId: input.workspaceId,
+          status: "ACTIVE",
+        },
+        include: { toolRelease: true },
+      })
+
+      const existing = await tx.testRecord.findFirst({
+        where: {
+          id: actionInput.testRecordId,
+          workspaceId: input.workspaceId,
+          userId: actorId,
+        },
+      })
+      if (!existing) {
+        throw new ToolActionExecutionError("Test record not found or not owned by this actor.", "FORBIDDEN")
+      }
+
+      const run = await tx.toolRun.create({
+        data: {
+          id: runId,
+          workspaceId: input.workspaceId,
+          installationId: input.installationId,
+          toolReleaseId: installation.toolReleaseId,
+          actorId,
+          actionKey: "test-record.update",
+          handlerVersion,
+          invocationSource: principal.invocationSource,
+          idempotencyKey: input.idempotencyKey,
+          input: { ...actionInput },
+          inputHash: hashInput(actionInput),
+          manifestHash: hashInput(installation.toolRelease.manifest),
+          status: ToolRunStatus.RUNNING,
+          startedAt: new Date(),
+        },
+      })
+
+      const record = await tx.testRecord.update({
+        where: { id: existing.id },
+        data: {
+          title: actionInput.title.trim(),
+          marksObtained: validMarks.marksObtained,
+          totalMarks: validMarks.totalMarks,
+          summary: actionInput.summary ?? null,
+        },
+      })
+
+      const data = { testRecord: serializeTestRecord(record) }
+      const output = {
+        rootBlockId: existing.examId,
+        createdBlockIds: [],
+        evidenceIds: [],
+        data,
+      }
+      await tx.toolRun.update({
+        where: { id: run.id },
+        data: { status: ToolRunStatus.SUCCEEDED, output, completedAt: new Date() },
+      })
+
+      return { data, examId: existing.examId, runId: run.id }
+    })
+
+    return {
+      status: "succeeded",
+      runId: result.runId,
+      rootBlockId: result.examId,
+      createdBlockIds: [],
+      evidenceIds: [],
+      data: result.data,
+    }
+  } catch (error: unknown) {
+    if (error instanceof ToolActionExecutionError) throw error
+    throw new ToolActionExecutionError(getErrorMessage(error, "Failed to update test record"), "RUN_FAILED")
+  }
+}
+
+export async function executeExamPrepTestRecordDelete(
+  input: ExecuteToolActionInput,
+  principal: ToolExecutionPrincipal,
+  handlerVersion: string
+): Promise<ToolActionResult> {
+  const actorId = principal.actorId
+  if (!actorId) throw new ToolActionExecutionError("Workspace write access is required.", "FORBIDDEN")
+
+  const actionInput = input.input as DeleteTestRecordInput
+  if (actionInput.workspaceId !== principal.workspaceId) {
+    throw new ToolActionExecutionError("The principal workspace does not match the action workspace.", "FORBIDDEN")
+  }
+
+  const runId = crypto.randomUUID()
+
+  try {
+    const result = await prisma.$transaction(async (tx) => {
+      const installation = await tx.toolInstallation.findFirstOrThrow({
+        where: {
+          id: input.installationId,
+          workspaceId: input.workspaceId,
+          status: "ACTIVE",
+        },
+        include: { toolRelease: true },
+      })
+
+      const existing = await tx.testRecord.findFirst({
+        where: {
+          id: actionInput.testRecordId,
+          workspaceId: input.workspaceId,
+          userId: actorId,
+        },
+      })
+      if (!existing) {
+        throw new ToolActionExecutionError("Test record not found or not owned by this actor.", "FORBIDDEN")
+      }
+
+      const run = await tx.toolRun.create({
+        data: {
+          id: runId,
+          workspaceId: input.workspaceId,
+          installationId: input.installationId,
+          toolReleaseId: installation.toolReleaseId,
+          actorId,
+          actionKey: "test-record.delete",
+          handlerVersion,
+          invocationSource: principal.invocationSource,
+          idempotencyKey: input.idempotencyKey,
+          input: { ...actionInput },
+          inputHash: hashInput(actionInput),
+          manifestHash: hashInput(installation.toolRelease.manifest),
+          status: ToolRunStatus.RUNNING,
+          startedAt: new Date(),
+        },
+      })
+
+      await tx.testRecord.delete({ where: { id: existing.id } })
+
+      const data = {
+        deletedTestRecord: {
+          id: existing.id,
+          examId: existing.examId,
+          subjectId: existing.subjectId,
+          chapterId: existing.chapterId,
+        },
+      }
+      const output = {
+        rootBlockId: existing.examId,
+        createdBlockIds: [],
+        evidenceIds: [],
+        data,
+      }
+      await tx.toolRun.update({
+        where: { id: run.id },
+        data: { status: ToolRunStatus.SUCCEEDED, output, completedAt: new Date() },
+      })
+
+      return { data, examId: existing.examId, runId: run.id }
+    })
+
+    return {
+      status: "succeeded",
+      runId: result.runId,
+      rootBlockId: result.examId,
+      createdBlockIds: [],
+      evidenceIds: [],
+      data: result.data,
+    }
+  } catch (error: unknown) {
+    if (error instanceof ToolActionExecutionError) throw error
+    throw new ToolActionExecutionError(getErrorMessage(error, "Failed to delete test record"), "RUN_FAILED")
+  }
+}

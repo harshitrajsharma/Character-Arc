@@ -37,6 +37,7 @@ export const getWorkspaceIdentity = cache(async (slug: string) => {
 
   return {
     id: workspace.id,
+    userId,
     name: workspace.name,
     slug: workspace.slug,
     kind: workspace.kind,

@@ -1,30 +1,50 @@
-import { notFound, redirect } from "next/navigation"
+import { notFound } from "next/navigation"
+import type { Metadata } from "next"
 
-import { getExamSubjectDashboardData } from "@/lib/tools/definitions/exam-prep/dashboard-queries"
+import {
+  getExamSubjectDashboardData,
+  getSubjectTitle,
+} from "@/lib/tools/definitions/exam-prep/dashboard-queries"
 import { getExamDetail } from "@/lib/tools/definitions/exam-prep/repository"
 import { SubjectDetailPage } from "@/components/tools/exam-prep/subjects/subject-detail-page"
 import { getWorkspaceIdentity, requireActiveToolInstallation } from "@/lib/workspaces/workspace-access"
-import { workspaceRoutes } from "@/lib/routes/workspace-tools"
+
+type SubjectPageParams = Promise<{ workspaceSlug: string; id: string; subjectId: string }>
+
+export async function generateMetadata({
+  params,
+}: {
+  params: SubjectPageParams
+}): Promise<Metadata> {
+  const { workspaceSlug, id: examId, subjectId } = await params
+  const workspace = await getWorkspaceIdentity(workspaceSlug)           // cache hit
+  const installation = await requireActiveToolInstallation(workspaceSlug, "core.exam-prep")  // cache hit
+  const subjectName = await getSubjectTitle(workspace.id, installation.id, subjectId)
+  const { exam } = await getExamDetail(workspace.id, workspaceSlug, examId)  // cache hit from [id]/layout.tsx
+  return {
+    title: subjectName
+      ? `${subjectName} — ${exam?.title ?? "Exam Prep"}`
+      : "Subject",
+  }
+}
 
 export default async function SubjectPage({
   params,
 }: {
-  params: Promise<{ workspaceSlug: string; id: string; subjectId: string }>
+  params: SubjectPageParams
 }) {
   const { workspaceSlug, id: examId, subjectId } = await params
-  const workspace = await getWorkspaceIdentity(workspaceSlug)
-  const installation = await requireActiveToolInstallation(workspaceSlug, "core.exam-prep")
-  const { exam, issue } = await getExamDetail(workspace.id, workspaceSlug, examId)
+  const workspace = await getWorkspaceIdentity(workspaceSlug)           // cache hit
+  const installation = await requireActiveToolInstallation(workspaceSlug, "core.exam-prep")  // cache hit
+  // Note: exam ownership validated by [id]/layout.tsx — no getExamDetail call needed here.
 
-  if (issue === "not_found" || !exam || exam.originToolInstallationId !== installation.id) {
-    notFound()
-  }
-
-  if (issue) {
-    redirect(workspaceRoutes.examPrep.home(workspaceSlug))
-  }
-
-  const subjectWithRelations = await getExamSubjectDashboardData(workspace.id, installation.id, exam.id, subjectId)
+  const subjectWithRelations = await getExamSubjectDashboardData(
+    workspace.id,
+    installation.id,
+    examId,
+    subjectId,
+    workspace.userId
+  )
 
   if (!subjectWithRelations) {
     notFound()

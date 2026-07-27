@@ -12,6 +12,7 @@ import { NavbarPrimaryLinks } from "./navbar-primary-links"
 import { NavbarSearch } from "./navbar-search"
 import { NavClock } from "./nav-clock"
 import { DayPulse } from "./day-pulse"
+import { dayProgress, getDayPhase } from "./day-phase"
 
 type NavbarProps = {
   user?: NavbarUser
@@ -20,7 +21,16 @@ type NavbarProps = {
 export function Navbar({ user }: NavbarProps) {
   const pathname = usePathname()
   const [active, setActive] = useState<NavbarDestinationKey>("today")
+  const [now, setNow] = useState<Date | null>(null)
   const isAuthenticated = Boolean(user)
+
+  useEffect(() => {
+    const update = () => setNow(new Date())
+    update()
+
+    const interval = window.setInterval(update, 60000)
+    return () => window.clearInterval(interval)
+  }, [])
 
   useEffect(() => {
     if (!isAuthenticated) return
@@ -38,10 +48,26 @@ export function Navbar({ user }: NavbarProps) {
     return () => window.removeEventListener("hashchange", syncHash)
   }, [isAuthenticated, pathname])
 
+  const progress = now ? dayProgress() : 0
+  const phase = getDayPhase(progress)
   const homeHref = user ? "/dashboard" : "/"
 
   return (
     <header className="fixed inset-x-0 top-0 z-30 w-full backdrop-blur-xl">
+      {user ? (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-40 w-full"
+          style={{
+            background: `linear-gradient(
+        180deg,
+        color-mix(in oklch, ${phase.cssVar} 20%, transparent) 0%,
+        color-mix(in oklch, ${phase.accentCssVar} 10%, transparent) 45%,
+        transparent 100%
+      )`,
+          }}
+        />
+      ) : null}
       <div className="flex h-15 items-center justify-between gap-2 px-4 md:gap-14">
         <Link
           href={homeHref}

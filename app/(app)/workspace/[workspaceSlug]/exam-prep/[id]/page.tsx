@@ -40,7 +40,12 @@ export default async function ExamDetailPage({
     redirect(workspaceRoutes.examPrep.home(workspaceSlug))
   }
 
-  const subjectsWithRelations = await getExamDashboardData(id, workspace.id, installation.id)
+  const subjectsWithRelations = await getExamDashboardData(
+    id,
+    workspace.id,
+    installation.id,
+    workspace.userId
+  )
 
 
 
@@ -49,7 +54,7 @@ export default async function ExamDetailPage({
       <header className="mb-8 flex items-start gap-4 border-b border-border pb-6">
         <Link
           href={workspaceRoutes.examPrep.home(workspaceSlug)}
-          className="mt-1 flex size-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="mt-1 hidden md:flex size-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
           <ArrowLeftIcon className="size-5" aria-hidden="true" />
           <span className="sr-only">Back to exams</span>

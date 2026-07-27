@@ -16,8 +16,12 @@ export const workspaceRoutes = {
       `/workspace/${encodeURIComponent(slug)}/exam-prep/${encodeURIComponent(examId)}`,
     subject: (slug: string, examId: string, subjectId: string) =>
       `/workspace/${encodeURIComponent(slug)}/exam-prep/${encodeURIComponent(examId)}/subjects/${encodeURIComponent(subjectId)}`,
-    subjectSettings: (slug: string, examId: string, subjectId: string) =>
-      `/workspace/${encodeURIComponent(slug)}/exam-prep/${encodeURIComponent(examId)}/subjects/${encodeURIComponent(subjectId)}/settings`,
+    subjectSettings: (slug: string, subjectId: string, fromExamId?: string) => {
+      const path = `/workspace/${encodeURIComponent(slug)}/exam-prep/subjects/${encodeURIComponent(subjectId)}/settings`
+      return fromExamId
+        ? `${path}?fromExam=${encodeURIComponent(fromExamId)}`
+        : path
+    },
   },
   goalsPaths: {
     home: (slug: string) => `/workspace/${encodeURIComponent(slug)}/goals-paths`,

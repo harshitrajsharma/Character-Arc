@@ -32,6 +32,8 @@ export type DetailSheetProps = {
   className?: string
   contentClassName?: string
   side?: "top" | "right" | "bottom" | "left"
+  floating?: boolean
+  headerDensity?: "default" | "compact"
 }
 
 export function DetailSheet({
@@ -51,29 +53,46 @@ export function DetailSheet({
   className,
   contentClassName,
   side = "right",
+  floating = false,
+  headerDensity = "default",
 }: DetailSheetProps) {
+  const hasCompactHeader = headerDensity === "compact"
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side={side}
         showCloseButton={false}
         className={cn(
-          "h-dvh w-full! max-w-none! overflow-hidden border-border/70 bg-background/20 backdrop-blur-2xl p-0 shadow-2xl motion-reduce:transition-none data-[side=left]:sm:w-[clamp(28rem,42vw,42.5rem)]! data-[side=right]:sm:w-[clamp(28rem,42vw,42.5rem)]! data-[side=left]:sm:rounded-r-3xl data-[side=right]:sm:rounded-l-3xl",
+          "h-dvh w-full! max-w-none! overflow-hidden border-border/70 p-0 shadow-2xl motion-reduce:transition-none data-[side=left]:sm:w-[clamp(28rem,42vw,42.5rem)]! data-[side=right]:sm:w-[clamp(28rem,42vw,42.5rem)]! data-[side=left]:sm:rounded-r-3xl data-[side=right]:sm:rounded-l-3xl",
+          floating && "sm:top-4! sm:bottom-4! sm:right-0! sm:h-[calc(100dvh-2rem)]! sm:rounded-l-2xl! sm:border!",
           className
         )}
       >
         <div className="flex min-h-0 flex-1 flex-col">
-          <header className="relative z-10 shrink-0 border-b border-border/60 bg-background/95 px-4 pb-4 pt-[max(1rem,env(safe-area-inset-top))] sm:px-6 sm:pb-5">
-            <div className="flex min-h-11 items-center justify-between gap-3">
-              <div className="flex min-w-0 items-center gap-3">
+          <header
+            className={cn(
+              "relative z-10 shrink-0 border-b border-border/60 bg-background/95 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] sm:pt-[max(1rem,env(safe-area-inset-top))]",
+              hasCompactHeader ? "pb-2.5 sm:px-5 sm:pb-4" : "pb-4 sm:px-6 sm:pb-5"
+            )}
+          >
+            <div className={cn("flex items-center justify-between gap-3", hasCompactHeader ? "min-h-9 sm:min-h-10" : "min-h-11")}>
+              <div className={cn("flex min-w-0 items-center", hasCompactHeader ? "gap-2.5 sm:gap-3" : "gap-3")}>
                 {icon ? (
-                  <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-muted text-foreground [&_svg]:size-5">
+                  <div
+                    className={cn(
+                      "flex shrink-0 items-center justify-center bg-muted text-foreground",
+                      hasCompactHeader ? "size-8 rounded-lg [&_svg]:size-4 sm:size-9 sm:rounded-xl" : "size-10 rounded-2xl [&_svg]:size-5"
+                    )}
+                  >
                     {icon}
                   </div>
                 ) : null}
                 <div className="min-w-0">
                   {eyebrow ? <div className="text-xs font-medium text-muted-foreground">{eyebrow}</div> : null}
-                  <SheetTitle className="truncate text-lg font-semibold sm:text-xl">{title}</SheetTitle>
+                  <SheetTitle className={cn("truncate font-semibold", hasCompactHeader ? "text-base sm:text-lg" : "text-lg sm:text-xl")}>
+                    {title}
+                  </SheetTitle>
                 </div>
               </div>
               <div className="flex shrink-0 items-center gap-1">
@@ -83,7 +102,7 @@ export function DetailSheet({
                     render={<Link href={fullPageHref} />}
                     variant="secondary"
                     size="sm"
-                    className="min-h-11 gap-1.5 px-3"
+                    className={cn("hidden gap-1.5 px-3 sm:inline-flex", hasCompactHeader ? "h-9" : "min-h-11")}
                     aria-label={fullPageLabel}
                   >
                     <span className="hidden sm:inline">{fullPageLabel}</span>
@@ -95,7 +114,7 @@ export function DetailSheet({
                     <Button
                       variant="ghost"
                       size="icon-lg"
-                      className="rounded-full"
+                      className="size-11 rounded-full border border-border bg-muted text-foreground hover:bg-accent sm:size-10 sm:border-transparent sm:bg-transparent"
                       aria-label="Close details"
                     />
                   }
@@ -105,12 +124,14 @@ export function DetailSheet({
               </div>
             </div>
             {description ? (
-              <SheetDescription className="mt-3 max-w-xl leading-6">{description}</SheetDescription>
+              <SheetDescription className={cn("max-w-xl", hasCompactHeader ? "mt-1.5 hidden text-sm leading-5 sm:block" : "mt-3 leading-6")}>
+                {description}
+              </SheetDescription>
             ) : (
               <SheetDescription className="sr-only">Details for {title}</SheetDescription>
             )}
             {metadata || badges ? (
-              <div className="mt-4 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+              <div className={cn("flex flex-wrap items-center gap-2 text-sm text-muted-foreground", hasCompactHeader ? "mt-2.5 hidden sm:flex" : "mt-4")}>
                 {badges}
                 {metadata}
               </div>

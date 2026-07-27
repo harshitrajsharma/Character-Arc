@@ -2,7 +2,8 @@
 
 import { useTransition } from "react"
 import Link from "next/link"
-import { HomeIcon, LogOutIcon } from "lucide-react"
+import { useTheme } from "next-themes"
+import { HomeIcon, LogOutIcon, MoonIcon, SunIcon } from "lucide-react"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { buttonVariants } from "@/components/ui/button"
@@ -31,6 +32,8 @@ type NavbarAccountMenuProps = {
 
 export function NavbarAccountMenu({ user, onSelect }: NavbarAccountMenuProps) {
   const [isSigningOut, startSignOut] = useTransition()
+  const { theme, setTheme } = useTheme()
+  const isDark = theme === "dark"
 
   return (
     <DropdownMenu>
@@ -78,10 +81,22 @@ export function NavbarAccountMenu({ user, onSelect }: NavbarAccountMenuProps) {
             <HomeIcon aria-hidden="true" />
             Dashboard
           </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={() => setTheme(isDark ? "light" : "dark")}
+          >
+            {isDark ? (
+              <SunIcon aria-hidden="true" />
+            ) : (
+              <MoonIcon aria-hidden="true" />
+            )}
+            {isDark ? "Light mode" : "Dark mode"}
+          </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
           <DropdownMenuItem
+            variant="destructive"
             disabled={isSigningOut}
             onClick={() =>
               startSignOut(async () => {

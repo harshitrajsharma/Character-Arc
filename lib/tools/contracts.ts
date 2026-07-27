@@ -8,6 +8,14 @@ const registryKeySchema = z
 
 const jsonObjectSchema = z.record(z.string(), z.unknown())
 
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue }
+
 const toolGrantSchema = z.object({
   permissionKey: registryKeySchema,
   effect: z.enum(["allow", "deny"]),
@@ -195,6 +203,7 @@ export type ToolActionResult = {
   rootBlockId?: string
   createdBlockIds: string[]
   evidenceIds: string[]
+  data?: Record<string, JsonValue>
 }
 
 export function parseToolManifest(input: unknown) {

@@ -9,7 +9,8 @@ import { SubjectWithRelations } from "@/types/progressapp/domain";
 import { calculateDashboardProgressFromRollups } from "@/lib/tools/exam-prep/calculations/dashboard-progress";
 import { calculateExamFoundation } from "@/lib/tools/exam-prep/calculations/exam-foundation";
 import { getProgressSummary } from "@/lib/tools/exam-prep/progress/selectors";
-import { Target } from "lucide-react";
+import { calculateSubjectProgress } from "@/lib/tools/exam-prep/calculations/progress";
+import { calculateWeightedAverageMarks } from "@/lib/tools/exam-prep/calculations/test-records";
 import { Category, Progress } from "@/types/progressapp/progress";
 import { ProgressCard } from "./progress-card";
 import { AnalyticsProvider } from "@/components/tools/exam-prep/contexts/analytics-context";
@@ -62,6 +63,7 @@ export function DashboardContent({ user }: DashboardContentProps) {
     () => user.subjects.map(subject => ({
       subject,
       progress: getProgressSummary(subject),
+      marksEvidence: calculateSubjectProgress(subject).expectedMarksEvidence,
     })),
     [user.subjects]
   );
@@ -69,13 +71,15 @@ export function DashboardContent({ user }: DashboardContentProps) {
   // Calculate completed subjects
   const completedSubjects = subjectProgress.filter(({ progress }) => progress.learning === 100).length;
 
-  // Calculate total expected marks
-  const totals = subjectProgress.reduce((acc, { subject }) => {
-    return {
-      expectedMarks: acc.expectedMarks + subject.expectedMarks,
-      totalWeightage: acc.totalWeightage + subject.weightage
-    };
-  }, { expectedMarks: 0, totalWeightage: 0 });
+  const averageMarksEvidence = calculateWeightedAverageMarks(
+    subjectProgress.map(({ subject, marksEvidence }) => ({
+      percentage: marksEvidence.percentage,
+      weightage: subject.weightage,
+    }))
+  )
+  const averageMarksSuffix = averageMarksEvidence.percentage !== null
+    ? `based on ${averageMarksEvidence.evidencedSubjects}/${averageMarksEvidence.totalSubjects} subjects`
+    : "No test data"
 
   const getProgressValue = (progress: Progress, category: Category): number => {
     switch (category) {
@@ -120,16 +124,10 @@ export function DashboardContent({ user }: DashboardContentProps) {
                       suffix="completed"
                     />
                     <StatsCard
-                      title="Projected Marks"
-                      value={Math.round(totals.expectedMarks)}
-                      total={Math.round(totals.totalWeightage)}
-                      tooltipText="Projected Marks based on your test performance across all subjects"
-                      suffix="expected"
-                      badge={{
-                        value: user.targetMarks,
-                        icon: <Target className="h-2.5 w-2.5 sm:h-3 sm:w-3" />,
-                        tooltipText: "Your target marks set during onboarding"
-                      }}
+                      title="Average Marks"
+                      value={averageMarksEvidence.percentage === null ? "—" : `${averageMarksEvidence.percentage}%`}
+                      tooltipText="Weightage-adjusted average of subjects with valid Test Records. Subjects without evidence are excluded."
+                      suffix={averageMarksSuffix}
                     />
                   </div>
 
@@ -167,16 +165,10 @@ export function DashboardContent({ user }: DashboardContentProps) {
                           className="flex-1"
                         />
                         <StatsCard
-                          title="Projected Marks"
-                          value={Math.round(totals.expectedMarks)}
-                          total={Math.round(totals.totalWeightage)}
-                          tooltipText="Projected Marks based on your test performance across all subjects"
-                          suffix="expected"
-                          badge={{
-                            value: user.targetMarks,
-                            icon: <Target className="h-2.5 w-2.5 sm:h-3 sm:w-3" />,
-                            tooltipText: "Your target marks set during onboarding"
-                          }}
+                          title="Average Marks"
+                          value={averageMarksEvidence.percentage === null ? "—" : `${averageMarksEvidence.percentage}%`}
+                          tooltipText="Weightage-adjusted average of subjects with valid Test Records. Subjects without evidence are excluded."
+                          suffix={averageMarksSuffix}
                           className="flex-1"
                         />
                       </div>

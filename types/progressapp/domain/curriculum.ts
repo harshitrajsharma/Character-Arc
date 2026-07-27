@@ -20,7 +20,9 @@ export interface BaseTopic {
   practiceCount: number;
   testCount: number;
   position: number;
+  learningCompletedAt?: Date | null;
   lastRevised: Date | null;
+  lastPracticed?: Date | null;
   nextRevision: Date | null;
   chapterId: string;
   createdAt: Date;
@@ -60,7 +62,7 @@ export interface Subject {
   id: string;
   name: string;
   weightage: number;
-  expectedMarks: number;
+  expectedMarks: number | null;
   foundationLevel: FoundationLevel;
   overallProgress: number;
   learningProgress: number;
@@ -96,6 +98,8 @@ export interface TopicUpdateData {
   learningStatus?: boolean;
   revisionCount?: number;
   practiceCount?: number;
+  learningCompletedAt?: Date;
   lastRevised?: Date;
+  lastPracticed?: Date;
   nextRevision?: Date;
 }

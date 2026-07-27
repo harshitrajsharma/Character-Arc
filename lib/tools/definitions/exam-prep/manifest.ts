@@ -26,6 +26,10 @@ const topicPropertiesSchema = {
     testCount: { type: "integer", minimum: 0, maximum: 5 },
     /** ISO-8601 datetime of the last revision event. */
     lastRevised: optionalText(32),
+    /** ISO-8601 datetime when learning was most recently completed. */
+    learningCompletedAt: optionalText(32),
+    /** ISO-8601 datetime of the last practice event. */
+    lastPracticed: optionalText(32),
     /** ISO-8601 datetime when the next revision is due (spaced repetition). */
     nextRevision: optionalText(32),
     /** Whether this topic is flagged as high-importance (1.5× weight in rollup). */
@@ -94,6 +98,7 @@ const examPropertiesSchema = {
 const topicIdInput = { topicId: { type: "string", format: "uuid" } }
 const subjectIdInput = { subjectId: { type: "string", format: "uuid" } }
 const examIdInput = { examId: { type: "string", format: "uuid" } }
+const testRecordIdInput = { testRecordId: { type: "string", format: "uuid" } }
 
 export const examPrepManifest = parseToolManifest({
   manifestVersion: 1,
@@ -106,7 +111,7 @@ export const examPrepManifest = parseToolManifest({
     category: "learn",
   },
   release: {
-    version: "1.3.1",
+    version: "1.5.0",
     schemaVersion: 1,
   },
   routes: {
@@ -542,7 +547,7 @@ export const examPrepManifest = parseToolManifest({
     {
       key: "topic.record-test",
       name: "Record topic test",
-      description: "Increments the test count for a topic.",
+      description: "[DEPRECATED – use test-record.create] Increments the legacy test count for a topic. Retained for backward compatibility only.",
       execution: "deterministic",
       requiredPermissions: ["blocks.write.owned"],
       inputSchema: {
@@ -558,6 +563,84 @@ export const examPrepManifest = parseToolManifest({
         rootBlockTypeKey: "exam-prep.topic",
         createsBlockTypeKeys: [],
         writesBlockTypeKeys: ["exam-prep.topic"],
+      },
+    },
+
+    // ── Canonical TestRecord mutations ─────────────────────────────────────
+    {
+      key: "test-record.create",
+      name: "Create test record",
+      description:
+        "Creates a canonical test-completion record scoped to a chapter (examId + subjectId + chapterId) or full subject (examId + subjectId, no chapterId).",
+      execution: "deterministic",
+      requiredPermissions: ["blocks.write.owned"],
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["workspaceId", "examId", "subjectId", "title", "marksObtained", "totalMarks"],
+        properties: {
+          workspaceId: { type: "string", format: "uuid" },
+          ...examIdInput,
+          ...subjectIdInput,
+          chapterId: { type: ["string", "null"], format: "uuid" },
+          title: { type: "string", minLength: 1, maxLength: 120 },
+          marksObtained: { type: "number", minimum: 0 },
+          totalMarks: { type: "number", minimum: 1 },
+          summary: { type: ["string", "null"], maxLength: 4000 },
+        },
+      },
+      output: {
+        rootBlockTypeKey: "exam-prep.exam",
+        createsBlockTypeKeys: [],
+        writesBlockTypeKeys: ["exam-prep.exam"],
+      },
+    },
+    {
+      key: "test-record.update",
+      name: "Update test record",
+      description:
+        "Updates title, marks, and summary of an existing test record. Ownership by principal.actorId is enforced.",
+      execution: "deterministic",
+      requiredPermissions: ["blocks.write.owned"],
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["workspaceId", "testRecordId", "title", "marksObtained", "totalMarks"],
+        properties: {
+          workspaceId: { type: "string", format: "uuid" },
+          ...testRecordIdInput,
+          title: { type: "string", minLength: 1, maxLength: 120 },
+          marksObtained: { type: "number", minimum: 0 },
+          totalMarks: { type: "number", minimum: 1 },
+          summary: { type: ["string", "null"], maxLength: 4000 },
+        },
+      },
+      output: {
+        rootBlockTypeKey: "exam-prep.exam",
+        createsBlockTypeKeys: [],
+        writesBlockTypeKeys: ["exam-prep.exam"],
+      },
+    },
+    {
+      key: "test-record.delete",
+      name: "Delete test record",
+      description:
+        "Deletes a test record. Ownership by principal.actorId is enforced.",
+      execution: "deterministic",
+      requiredPermissions: ["blocks.write.owned"],
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["workspaceId", "testRecordId"],
+        properties: {
+          workspaceId: { type: "string", format: "uuid" },
+          ...testRecordIdInput,
+        },
+      },
+      output: {
+        rootBlockTypeKey: "exam-prep.exam",
+        createsBlockTypeKeys: [],
+        writesBlockTypeKeys: ["exam-prep.exam"],
       },
     },
 
