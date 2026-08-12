@@ -32,17 +32,19 @@ type SubjectSyllabusProps = {
   onStageChange: (stage: SyllabusStage) => void
   navigationTarget?: NavigationTarget | null
   onNavigationComplete?: () => void
+  localDate?: string
 }
 
-export function SubjectSyllabus({ 
-  workspaceSlug, 
-  examId, 
+export function SubjectSyllabus({
+  workspaceSlug,
+  examId,
   stage,
   onStageChange,
   navigationTarget,
-  onNavigationComplete 
+  onNavigationComplete,
+  localDate,
 }: SubjectSyllabusProps) {
-  const { subject } = useSubjectProgress()
+  const { subject, upsertScheduledTest } = useSubjectProgress()
   const syllabus = useSubjectSyllabus(workspaceSlug, stage, onStageChange)
   const [isSchedulePlannerOpen, setIsSchedulePlannerOpen] = useState(false)
 
@@ -51,27 +53,47 @@ export function SubjectSyllabus({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-sm font-medium text-brand-violet-ink">Syllabus</p>
-          <h2 id="syllabus-heading" className="font-heading text-2xl font-semibold">Chapters and topics</h2>
+          <h2
+            id="syllabus-heading"
+            className="font-heading text-2xl font-semibold"
+          >
+            Chapters and topics
+          </h2>
         </div>
-        <div className="flex flex-col sm:flex-row gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row">
           <Button
             type="button"
             className="border-brand-violet-line bg-brand-violet-soft text-brand-violet-ink hover:bg-brand-violet hover:text-white"
             variant="outline"
             onClick={() => setIsSchedulePlannerOpen(true)}
           >
-            <CalendarIcon className="mr-2 h-4 w-4" />
-            Schedule Tests
+            <CalendarIcon data-icon="inline-start" />
+            Schedule a test
           </Button>
-          <AddChapterDialog workspaceSlug={workspaceSlug} examId={examId} subjectId={subject.id} />
+          <AddChapterDialog
+            workspaceSlug={workspaceSlug}
+            examId={examId}
+            subjectId={subject.id}
+          />
         </div>
       </div>
 
-      <SyllabusStageSelector value={syllabus.stage} onChange={syllabus.setStage} />
+      <SyllabusStageSelector
+        value={syllabus.stage}
+        onChange={syllabus.setStage}
+      />
 
       {syllabus.chapters.length > 0 ? (
-        <DndContext id="dnd-context-chapters" sensors={syllabus.chapterSensors} collisionDetection={closestCenter} onDragEnd={syllabus.handleChapterDragEnd}>
-          <SortableContext items={syllabus.chapters.map((chapter) => chapter.id)} strategy={verticalListSortingStrategy}>
+        <DndContext
+          id="dnd-context-chapters"
+          sensors={syllabus.chapterSensors}
+          collisionDetection={closestCenter}
+          onDragEnd={syllabus.handleChapterDragEnd}
+        >
+          <SortableContext
+            items={syllabus.chapters.map((chapter) => chapter.id)}
+            strategy={verticalListSortingStrategy}
+          >
             <div className="flex flex-col gap-3">
               {syllabus.chapters.map((chapter) => (
                 <SyllabusChapterCard
@@ -91,6 +113,7 @@ export function SubjectSyllabus({
                   onChapterDelete={syllabus.handleChapterDelete}
                   onTopicUpdate={syllabus.handleTopicUpdate}
                   onTopicDelete={syllabus.handleTopicDelete}
+                  localDate={localDate}
                 />
               ))}
             </div>
@@ -99,12 +122,20 @@ export function SubjectSyllabus({
       ) : (
         <Empty>
           <EmptyHeader>
-            <EmptyMedia variant="icon"><BookOpenIcon /></EmptyMedia>
+            <EmptyMedia variant="icon">
+              <BookOpenIcon />
+            </EmptyMedia>
             <EmptyTitle>Build this subject&apos;s syllabus</EmptyTitle>
-            <EmptyDescription>Add chapters first, then break each chapter into trackable topics.</EmptyDescription>
+            <EmptyDescription>
+              Add chapters first, then break each chapter into trackable topics.
+            </EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
-            <AddChapterDialog workspaceSlug={workspaceSlug} examId={examId} subjectId={subject.id} />
+            <AddChapterDialog
+              workspaceSlug={workspaceSlug}
+              examId={examId}
+              subjectId={subject.id}
+            />
           </EmptyContent>
         </Empty>
       )}
@@ -114,10 +145,11 @@ export function SubjectSyllabus({
           open={isSchedulePlannerOpen}
           onOpenChange={setIsSchedulePlannerOpen}
           workspaceSlug={workspaceSlug}
+          examId={examId}
           subjectId={subject.id}
           subjectName={subject.name}
           chapters={subject.chapters || []}
-          subjectTests={subject.scheduledTests || []}
+          onSuccess={upsertScheduledTest}
         />
       ) : null}
     </section>

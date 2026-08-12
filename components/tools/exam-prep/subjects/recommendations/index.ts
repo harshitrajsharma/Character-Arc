@@ -1,4 +1,7 @@
-export { RecommendationsSection, RecommendationsSkeleton } from "./recommendations-section"
+export {
+  RecommendationsSection,
+  RecommendationsSkeleton,
+} from "./recommendations-section"
 export type { RecommendationsSectionProps } from "./recommendations-section"
 export { UpNextCard } from "./up-next-card"
 export type { UpNextCardProps } from "./up-next-card"

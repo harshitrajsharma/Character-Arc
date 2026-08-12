@@ -1,33 +1,30 @@
-'use client';
+"use client"
 
-import { cn } from '@/lib/utils';
-import React, { ReactNode } from 'react';
+import { cn } from "@/lib/utils"
+import React, { ReactNode } from "react"
 
 interface CustomScrollbarProps {
-  className?: string;
-  children: ReactNode;
-  maxHeight?: string | number;
-  style?: React.CSSProperties;
+  className?: string
+  children: ReactNode
+  maxHeight?: string | number
+  style?: React.CSSProperties
 }
 
-export function CustomScrollbar({ 
-  className, 
-  children, 
-  maxHeight = '100%',
-  style
+export function CustomScrollbar({
+  className,
+  children,
+  maxHeight = "100%",
+  style,
 }: CustomScrollbarProps) {
   return (
     <div
-      className={cn(
-        "overflow-auto scrollbar-thin h-full",
-        className
-      )}
+      className={cn("h-full scrollbar-thin overflow-auto", className)}
       style={{
         maxHeight,
-        height: '100%',
-        scrollbarWidth: 'thin',
-        scrollbarColor: 'var(--scrollbar-thumb) var(--scrollbar-track)',
-        ...style
+        height: "100%",
+        scrollbarWidth: "thin",
+        scrollbarColor: "var(--scrollbar-thumb) var(--scrollbar-track)",
+        ...style,
       }}
     >
       <style jsx global>{`
@@ -71,5 +68,5 @@ export function CustomScrollbar({
       `}</style>
       {children}
     </div>
-  );
-} 
+  )
+}

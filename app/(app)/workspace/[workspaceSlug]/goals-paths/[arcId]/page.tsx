@@ -1,3 +1,4 @@
+import { createIdempotencyKey } from "@/lib/forms/idempotency-key"
 import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
@@ -14,12 +15,15 @@ import { getArcDetail } from "@/lib/tools/definitions/goals-paths/repository"
 export const metadata: Metadata = { title: "Arc" }
 
 type ArcDetailPageProps = {
-  params: Promise<{ workspaceSlug: string, arcId: string }>
+  params: Promise<{ workspaceSlug: string; arcId: string }>
 }
 
 export default async function ArcDetailPage({ params }: ArcDetailPageProps) {
   const { workspaceSlug, arcId } = await params
-  const { arc, workspace, item, issue } = await getArcDetail(workspaceSlug, arcId)
+  const { arc, workspace, item, issue } = await getArcDetail(
+    workspaceSlug,
+    arcId
+  )
 
   if (issue === "not_found") {
     notFound()
@@ -61,7 +65,7 @@ export default async function ArcDetailPage({ params }: ArcDetailPageProps) {
               workspaceId={workspace.id}
               installationId={item.installationId}
               workspaceSlug={workspaceSlug}
-              deleteIdempotencyKey={crypto.randomUUID()}
+              deleteIdempotencyKey={createIdempotencyKey()}
             />
           ) : null
         }

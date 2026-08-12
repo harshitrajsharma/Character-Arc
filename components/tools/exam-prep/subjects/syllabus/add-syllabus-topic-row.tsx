@@ -18,7 +18,13 @@ type AddSyllabusTopicRowProps = {
   onDone: () => void
 }
 
-export function AddSyllabusTopicRow({ workspaceSlug, examId, chapterId, onCreated, onDone }: AddSyllabusTopicRowProps) {
+export function AddSyllabusTopicRow({
+  workspaceSlug,
+  examId,
+  chapterId,
+  onCreated,
+  onDone,
+}: AddSyllabusTopicRowProps) {
   const [title, setTitle] = useState("")
   const [recentTopics, setRecentTopics] = useState<string[]>([])
   const [isPending, startTransition] = useTransition()
@@ -27,7 +33,12 @@ export function AddSyllabusTopicRow({ workspaceSlug, examId, chapterId, onCreate
   function submit() {
     const trimmedTitle = title.trim()
     if (!trimmedTitle) return
-    if (recentTopics.some((topic) => topic.toLocaleLowerCase() === trimmedTitle.toLocaleLowerCase())) {
+    if (
+      recentTopics.some(
+        (topic) =>
+          topic.toLocaleLowerCase() === trimmedTitle.toLocaleLowerCase()
+      )
+    ) {
       toast.error("This topic was already added.")
       return
     }
@@ -44,7 +55,9 @@ export function AddSyllabusTopicRow({ workspaceSlug, examId, chapterId, onCreate
 
       if (result.status !== "success" || !result.topicId) {
         setTitle(trimmedTitle)
-        setRecentTopics((current) => current.filter((topic) => topic !== trimmedTitle))
+        setRecentTopics((current) =>
+          current.filter((topic) => topic !== trimmedTitle)
+        )
         toast.error(result.message ?? "Could not add the topic.")
         return
       }
@@ -72,7 +85,7 @@ export function AddSyllabusTopicRow({ workspaceSlug, examId, chapterId, onCreate
   }
 
   return (
-    <div className="animate-in space-y-2 rounded-lg border border-brand-violet-line bg-brand-violet-soft p-2 fade-in-0 slide-in-from-top-2 duration-200">
+    <div className="animate-in space-y-2 rounded-lg border border-brand-violet-line bg-brand-violet-soft p-2 duration-200 fade-in-0 slide-in-from-top-2">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <Input
           ref={inputRef}
@@ -95,19 +108,34 @@ export function AddSyllabusTopicRow({ workspaceSlug, examId, chapterId, onCreate
           aria-label="New topic name"
         />
         <div className="flex gap-2">
-          <Button type="button" className="min-w-20 flex-1 sm:flex-none" onClick={submit} disabled={isPending || !title.trim()}>
+          <Button
+            type="button"
+            className="min-w-20 flex-1 sm:flex-none"
+            onClick={submit}
+            disabled={isPending || !title.trim()}
+          >
             {isPending ? <Spinner /> : <PlusIcon data-icon="inline-start" />}
             Add
           </Button>
-          <Button type="button" className="flex-1 sm:flex-none" variant="outline" onClick={onDone} disabled={isPending}>
+          <Button
+            type="button"
+            className="flex-1 sm:flex-none"
+            variant="outline"
+            onClick={onDone}
+            disabled={isPending}
+          >
             Done
           </Button>
         </div>
       </div>
       {recentTopics.length > 0 ? (
-        <p className="truncate px-1 text-xs text-muted-foreground">Added: {recentTopics.slice(-3).join(", ")}</p>
+        <p className="truncate px-1 text-xs text-muted-foreground">
+          Added: {recentTopics.slice(-3).join(", ")}
+        </p>
       ) : (
-        <p className="px-1 text-xs text-muted-foreground">Keep typing to add several topics. Escape clears, then closes.</p>
+        <p className="px-1 text-xs text-muted-foreground">
+          Keep typing to add several topics. Escape clears, then closes.
+        </p>
       )}
     </div>
   )

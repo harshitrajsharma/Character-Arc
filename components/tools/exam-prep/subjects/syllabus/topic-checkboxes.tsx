@@ -1,58 +1,76 @@
-import { memo, useCallback, useMemo } from "react";
-import { Checkbox } from "@/components/ui/checkbox";
-import type { BaseTopic } from "@/types/progressapp/domain";
-import { getRequiredRevisions, getRequiredPractices, getRequiredTests } from "@/lib/tools/exam-prep/progress/rules";
+import { memo, useCallback, useMemo } from "react"
+import { Checkbox } from "@/components/ui/checkbox"
+import type { BaseTopic } from "@/types/progressapp/domain"
+import {
+  getRequiredRevisions,
+  getRequiredPractices,
+  getRequiredTests,
+} from "@/lib/tools/exam-prep/progress/rules"
 
 type ChapterCategory = "learning" | "revision" | "practice" | "test"
 
-const progressCheckboxStyle = "data-[state=checked]:border-brand-violet data-[state=checked]:bg-brand-violet data-[state=checked]:text-brand-violet-foreground"
+const progressCheckboxStyle =
+  "data-[state=checked]:border-brand-violet data-[state=checked]:bg-brand-violet data-[state=checked]:text-brand-violet-foreground"
 
 interface TopicCheckboxesProps {
-  topic: BaseTopic;
-  category: ChapterCategory;
-  onTopicToggle: (topicId: string, checkboxIndex?: number) => void;
-  isPending?: (topicId: string) => boolean;
+  topic: BaseTopic
+  category: ChapterCategory
+  onTopicToggle: (topicId: string, checkboxIndex?: number) => void
+  isPending?: (topicId: string) => boolean
 }
 
 function TopicCheckboxesComponent({
   topic,
   category,
   onTopicToggle,
-  isPending
+  isPending,
 }: TopicCheckboxesProps) {
   const topicStatuses = useMemo(() => {
-    if (category === 'learning') {
-      return [topic.learningStatus];
+    if (category === "learning") {
+      return [topic.learningStatus]
     }
 
-    let maxCount = 1;
-    if (category === 'revision') maxCount = getRequiredRevisions({ important: topic.important });
-    if (category === 'practice') maxCount = getRequiredPractices({ important: topic.important });
-    if (category === 'test') maxCount = getRequiredTests({ important: topic.important });
+    let maxCount = 1
+    if (category === "revision")
+      maxCount = getRequiredRevisions({ important: topic.important })
+    if (category === "practice")
+      maxCount = getRequiredPractices({ important: topic.important })
+    if (category === "test")
+      maxCount = getRequiredTests({ important: topic.important })
 
     return Array.from({ length: maxCount }).map((_, index) => {
       switch (category) {
-        case 'revision':
-          return topic.revisionCount >= (index + 1);
-        case 'practice':
-          return topic.practiceCount >= (index + 1);
-        case 'test':
-          return topic.testCount >= (index + 1);
+        case "revision":
+          return topic.revisionCount >= index + 1
+        case "practice":
+          return topic.practiceCount >= index + 1
+        case "test":
+          return topic.testCount >= index + 1
         default:
-          return false;
+          return false
       }
-    });
-  }, [category, topic.learningStatus, topic.revisionCount, topic.practiceCount, topic.testCount, topic.important]);
+    })
+  }, [
+    category,
+    topic.learningStatus,
+    topic.revisionCount,
+    topic.practiceCount,
+    topic.testCount,
+    topic.important,
+  ])
 
-  const handleToggle = useCallback((index?: number) => {
-    onTopicToggle(topic.id, index);
-  }, [topic.id, onTopicToggle]);
+  const handleToggle = useCallback(
+    (index?: number) => {
+      onTopicToggle(topic.id, index)
+    },
+    [topic.id, onTopicToggle]
+  )
 
   const isDisabled = useMemo(() => {
-    return isPending?.(topic.id) ?? false;
-  }, [isPending, topic.id]);
+    return isPending?.(topic.id) ?? false
+  }, [isPending, topic.id])
 
-  if (category === 'learning') {
+  if (category === "learning") {
     return (
       <Checkbox
         id={`${topic.id}-${category}`}
@@ -62,7 +80,7 @@ function TopicCheckboxesComponent({
         className={progressCheckboxStyle}
         data-topic-id={topic.id}
       />
-    );
+    )
   }
 
   return (
@@ -79,9 +97,9 @@ function TopicCheckboxesComponent({
         />
       ))}
     </div>
-  );
+  )
 }
 
-TopicCheckboxesComponent.displayName = 'TopicCheckboxes';
-export const TopicCheckboxes = memo(TopicCheckboxesComponent);
+TopicCheckboxesComponent.displayName = "TopicCheckboxes"
+export const TopicCheckboxes = memo(TopicCheckboxesComponent)
 export type { ChapterCategory }

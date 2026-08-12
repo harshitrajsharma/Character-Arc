@@ -4,4 +4,4 @@ export type {
   Subject,
   SubjectProgress,
   SubjectWithRelations,
-} from "@/types/progressapp/domain";
+} from "@/types/progressapp/domain"

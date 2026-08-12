@@ -25,15 +25,19 @@ export const progressVariants = {
     medium: "bg-brand-amber",
     high: "bg-brand-violet",
     text: "text-brand-violet-ink",
-    badge: "bg-brand-violet-soft text-brand-violet-ink hover:bg-brand-violet-line",
+    badge:
+      "bg-brand-violet-soft text-brand-violet-ink hover:bg-brand-violet-line",
   },
 }
 
 export const stageActiveVariants = {
-  learning: "aria-pressed:!bg-brand-cyan-soft aria-pressed:!text-brand-cyan-ink",
-  revision: "aria-pressed:!bg-brand-neon-soft aria-pressed:!text-brand-neon-ink",
-  practice: "aria-pressed:!bg-brand-amber-soft aria-pressed:!text-brand-amber-ink",
-  test: "aria-pressed:!bg-brand-violet-soft aria-pressed:!text-brand-violet-ink",
+  learning:
+    "aria-pressed:!bg-brand-cyan aria-pressed:!text-brand-cyan-foreground",
+  revision:
+    "aria-pressed:!bg-brand-neon aria-pressed:!text-brand-neon-foreground",
+  practice:
+    "aria-pressed:!bg-brand-amber aria-pressed:!text-brand-amber-foreground",
+  test: "aria-pressed:!bg-brand-violet aria-pressed:!text-brand-violet-foreground",
 }
 
 export const highYieldBadgeClass =
@@ -77,23 +81,5 @@ export const categoryVariants = {
   completed: {
     badge: "bg-brand-neon-soft text-brand-neon-ink",
     cardHover: "hover:bg-brand-neon/5 bg-brand-neon/[0.02]",
-  },
-}
-
-export const statCardVariants = {
-  averageMarks: {
-    valueColor: "text-brand-neon-ink",
-    bgColor: "bg-brand-neon",
-    iconColor: "text-brand-neon-ink",
-  },
-  topicsCompleted: {
-    valueColor: "text-brand-cyan-ink",
-    bgColor: "bg-brand-cyan",
-    iconColor: "text-brand-cyan-ink",
-  },
-  chaptersCompleted: {
-    valueColor: "text-brand-neon-ink",
-    bgColor: "bg-brand-neon",
-    iconColor: "text-brand-neon-ink",
   },
 }

@@ -17,7 +17,8 @@ mock.module("@/lib/prisma", () => ({
 
 describe("executeToolActionForPrincipal", () => {
   test("rejects execution if input workspaceId does not match principal workspaceId", async () => {
-    const { executeToolActionForPrincipal, ToolActionExecutionError } = await import("@/lib/tools/execute-tool-action")
+    const { executeToolActionForPrincipal, ToolActionExecutionError } =
+      await import("@/lib/tools/execute-tool-action")
     const input: ExecuteToolActionInput = {
       workspaceId: "58a0111e-43d0-4464-83c0-a5132c6bd4f5",
       installationId: "58a0111e-43d0-4464-83c0-a5132c6bd4f5",
@@ -40,14 +41,17 @@ describe("executeToolActionForPrincipal", () => {
       expect(error).toBeInstanceOf(ToolActionExecutionError)
       if (error instanceof ToolActionExecutionError) {
         expect(error.code).toBe("FORBIDDEN")
-        expect(error.message).toBe("The principal workspace does not match the action workspace.")
+        expect(error.message).toBe(
+          "The principal workspace does not match the action workspace."
+        )
       }
     }
   })
 
   test("rejects execution if the user is not a member of the workspace", async () => {
-    const { executeToolActionForPrincipal, ToolActionExecutionError } = await import("@/lib/tools/execute-tool-action")
-    
+    const { executeToolActionForPrincipal, ToolActionExecutionError } =
+      await import("@/lib/tools/execute-tool-action")
+
     const input: ExecuteToolActionInput = {
       workspaceId: "58a0111e-43d0-4464-83c0-a5132c6bd4f5",
       installationId: "58a0111e-43d0-4464-83c0-a5132c6bd4f5",
@@ -78,22 +82,27 @@ describe("executeToolActionForPrincipal", () => {
   test("rejects execution if the user is a VIEWER and action requires blocks.write", async () => {
     // Override the mock to return VIEWER role
     const { prisma } = await import("@/lib/prisma")
-    prisma.workspaceMember.findUnique = mock(() => Promise.resolve({ role: "VIEWER" }))
+    prisma.workspaceMember.findUnique = mock(() =>
+      Promise.resolve({ role: "VIEWER" })
+    )
 
-    const { executeToolActionForPrincipal, ToolActionExecutionError } = await import("@/lib/tools/execute-tool-action")
-    
+    const { executeToolActionForPrincipal, ToolActionExecutionError } =
+      await import("@/lib/tools/execute-tool-action")
+
     // We mock the getFirstPartyToolManifest to return a manifest that requires blocks.write
     await import("@/lib/tools/registry")
     mock.module("@/lib/tools/registry", () => ({
       getFirstPartyToolManifest: mock(() => ({
         release: { version: "1.0.0" },
-        actions: [{
-          key: "arc.create",
-          requiredPermissions: ["blocks.write:some-block"],
-          inputSchema: {},
-          output: { createsBlockTypeKeys: [], writesBlockTypeKeys: [] }
-        }]
-      }))
+        actions: [
+          {
+            key: "arc.create",
+            requiredPermissions: ["blocks.write:some-block"],
+            inputSchema: {},
+            output: { createsBlockTypeKeys: [], writesBlockTypeKeys: [] },
+          },
+        ],
+      })),
     }))
 
     const input: ExecuteToolActionInput = {

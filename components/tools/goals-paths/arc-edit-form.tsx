@@ -51,7 +51,9 @@ export function ArcEditForm({
   }, [state])
 
   const [optionalOpen, setOptionalOpen] = useState(
-    Boolean(initialDraft.why || initialDraft.targetDate || initialDraft.constraints)
+    Boolean(
+      initialDraft.why || initialDraft.targetDate || initialDraft.constraints
+    )
   )
   const detailHref = workspaceRoutes.goalsPaths.arc(workspaceSlug, arcId)
 
@@ -64,8 +66,8 @@ export function ArcEditForm({
 
   const optionalHasErrors = Boolean(
     state.fieldErrors?.why ||
-      state.fieldErrors?.targetDate ||
-      state.fieldErrors?.constraints
+    state.fieldErrors?.targetDate ||
+    state.fieldErrors?.constraints
   )
 
   return (
@@ -85,9 +87,7 @@ export function ArcEditForm({
             <XIcon data-icon="inline-start" aria-hidden="true" />
             Cancel
           </Link>
-          <p className="text-xs text-muted-foreground">
-            Revision {revision}
-          </p>
+          <p className="text-xs text-muted-foreground">Revision {revision}</p>
         </div>
 
         <ArcDirectionEditor
@@ -116,8 +116,16 @@ export function ArcEditForm({
           >
             Cancel
           </Link>
-          <Button type="submit" disabled={pending} className="min-h-11 sm:min-h-9">
-            {pending ? <Spinner data-icon="inline-start" /> : <CheckIcon data-icon="inline-start" aria-hidden="true" />}
+          <Button
+            type="submit"
+            disabled={pending}
+            className="min-h-11 sm:min-h-9"
+          >
+            {pending ? (
+              <Spinner data-icon="inline-start" />
+            ) : (
+              <CheckIcon data-icon="inline-start" aria-hidden="true" />
+            )}
             {pending ? "Saving" : "Save changes"}
           </Button>
         </div>

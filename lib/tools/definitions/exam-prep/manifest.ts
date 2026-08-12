@@ -33,7 +33,6 @@ const topicPropertiesSchema = {
     /** ISO-8601 datetime when the next revision is due (spaced repetition). */
     nextRevision: optionalText(32),
     /** Whether this topic is flagged as high-importance (1.5× weight in rollup). */
-    important: { type: "boolean" },
   },
 }
 
@@ -41,26 +40,17 @@ const chapterPropertiesSchema = {
   type: "object",
   additionalProperties: false,
   required: [],
-  properties: {
-    /** Whether this chapter is high-priority. */
-    important: { type: "boolean" },
-  },
+  properties: {/** Whether this chapter is high-priority. */},
 }
 
 const subjectPropertiesSchema = {
   type: "object",
   additionalProperties: false,
-  required: ["weightage", "foundationLevel"],
+  required: [],
   properties: {
     /** Percentage weight of this subject in the exam (0–100). */
-    weightage: { type: "number", minimum: 0, maximum: 100 },
     /** User's starting knowledge level. */
-    foundationLevel: {
-      type: "string",
-      enum: ["Beginner", "Moderate", "Advanced"],
-    },
     /** Expected marks from this subject (optional, for planning). */
-    expectedMarks: { type: ["number", "null"], minimum: 0 },
     /** Progress Policy overrides for this subject */
     revisionTarget: { type: "integer", minimum: 1, maximum: 100 },
     practiceTarget: { type: "integer", minimum: 1, maximum: 100 },
@@ -77,19 +67,12 @@ const examPropertiesSchema = {
   required: [],
   properties: {
     /** Short exam code, e.g. "GATE-2027-CSIT". */
-    examCode: optionalText(80),
     /** Conducting body, e.g. "IIT Roorkee". */
-    conductingBody: optionalText(120),
     /** Total duration in minutes. */
-    durationMinutes: { type: ["integer", "null"], minimum: 1 },
     /** Total marks available. */
-    totalMarks: { type: ["number", "null"], minimum: 1 },
     /** User's target marks. */
-    targetMarks: { type: ["number", "null"], minimum: 0 },
     /** ISO-8601 date of the exam (YYYY-MM-DD). */
-    examDate: optionalText(32),
     /** Official URL for exam information. */
-    officialUrl: optionalText(512),
   },
 }
 
@@ -99,6 +82,23 @@ const topicIdInput = { topicId: { type: "string", format: "uuid" } }
 const subjectIdInput = { subjectId: { type: "string", format: "uuid" } }
 const examIdInput = { examId: { type: "string", format: "uuid" } }
 const testRecordIdInput = { testRecordId: { type: "string", format: "uuid" } }
+const scheduledTestIdInput = {
+  scheduledTestId: { type: "string", format: "uuid" },
+}
+const scheduledTestScopeInput = {
+  scope: {
+    type: "string",
+    enum: ["subject", "chapter", "multi-chapter"],
+  },
+}
+const scheduledTestTargetsInput = {
+  targetChapterIds: {
+    type: "array",
+    maxItems: 100,
+    uniqueItems: true,
+    items: { type: "string", format: "uuid" },
+  },
+}
 
 export const examPrepManifest = parseToolManifest({
   manifestVersion: 1,
@@ -111,7 +111,7 @@ export const examPrepManifest = parseToolManifest({
     category: "learn",
   },
   release: {
-    version: "1.5.0",
+    version: "1.11.0",
     schemaVersion: 1,
   },
   routes: {
@@ -229,15 +229,118 @@ export const examPrepManifest = parseToolManifest({
         required: ["title"],
         properties: {
           title: { type: "string", minLength: 1, maxLength: 120 },
-          summary: { type: "string", maxLength: 4000 },
-          examDate: optionalText(32),
-          targetMarks: { type: ["number", "null"], minimum: 0 },
+          summary: { type: ["string", "null"], maxLength: 4000 },
+          expectedStartDate: { type: ["string", "null"], maxLength: 32 },
+          targetMarks: { type: "number", minimum: 0 },
         },
       },
       output: {
         rootBlockTypeKey: "exam-prep.exam",
         createsBlockTypeKeys: ["exam-prep.exam"],
         writesBlockTypeKeys: [],
+      },
+    },
+    {
+      key: "exam.update",
+      name: "Update exam",
+      description: "Updates an exam's basic details.",
+      execution: "deterministic",
+      requiredPermissions: ["blocks.write.owned"],
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["examId", "title"],
+        properties: {
+          examId: { type: "string", format: "uuid" },
+          title: { type: "string", minLength: 1, maxLength: 120 },
+          summary: { type: ["string", "null"], maxLength: 4000 },
+          expectedStartDate: { type: ["string", "null"], maxLength: 32 },
+          targetMarks: { type: "number", minimum: 0 },
+        },
+      },
+      output: {
+        rootBlockTypeKey: "exam-prep.exam",
+        createsBlockTypeKeys: [],
+        writesBlockTypeKeys: ["exam-prep.exam"],
+      },
+    },
+    {
+      key: "exam.update-settings",
+      name: "Update exam settings",
+      description: "Updates advanced exam settings.",
+      execution: "deterministic",
+      requiredPermissions: ["blocks.write.owned"],
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["examId"],
+        properties: {
+          examId: { type: "string", format: "uuid" },
+          examCode: { type: ["string", "null"], maxLength: 80 },
+          conductingBody: { type: ["string", "null"], maxLength: 120 },
+          targetMarks: { type: ["number", "null"], minimum: 0 },
+          targetRank: { type: ["integer", "null"], minimum: 1 },
+          scheduleStatus: {
+            type: "string",
+            enum: [
+              "EXPECTED",
+              "ANNOUNCED",
+              "CONFIRMED",
+              "POSTPONED",
+              "CANCELLED",
+            ],
+          },
+          expectedStartDate: { type: ["string", "null"], maxLength: 32 },
+          expectedEndDate: { type: ["string", "null"], maxLength: 32 },
+          patternVersion: { type: "integer", minimum: 1 },
+          durationMinutes: { type: ["integer", "null"], minimum: 1 },
+          totalMarks: {
+            type: ["number", "null"],
+            minimum: 0.01,
+            maximum: 999999.99,
+          },
+          officialUrl: { type: ["string", "null"], maxLength: 512 },
+          scoringRules: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              correctMarks: { type: "number" },
+              incorrectMarks: { type: "number", maximum: 0 },
+              unansweredMarks: { type: "number" },
+            },
+          },
+        },
+      },
+      output: {
+        rootBlockTypeKey: "exam-prep.exam",
+        createsBlockTypeKeys: [],
+        writesBlockTypeKeys: ["exam-prep.exam"],
+      },
+    },
+    {
+      key: "exam.delete",
+      name: "Permanently delete exam",
+      description:
+        "Permanently deletes an exam and syllabus content that is not used by another active exam.",
+      execution: "deterministic",
+      requiredPermissions: ["blocks.write.owned"],
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["examId"],
+        properties: {
+          examId: { type: "string", format: "uuid" },
+        },
+      },
+      output: {
+        rootBlockTypeKey: "exam-prep.exam",
+        createsBlockTypeKeys: [],
+        writesBlockTypeKeys: [
+          "exam-prep.exam",
+          "exam-prep.subject",
+          "exam-prep.chapter",
+          "exam-prep.topic",
+        ],
       },
     },
     {
@@ -249,22 +352,88 @@ export const examPrepManifest = parseToolManifest({
       inputSchema: {
         type: "object",
         additionalProperties: false,
-        required: ["examId", "title", "weightage", "foundationLevel"],
+        required: ["examId", "title", "weightage"],
         properties: {
           examId: { type: "string", format: "uuid" },
           title: { type: "string", minLength: 1, maxLength: 120 },
-          summary: { type: "string", maxLength: 4000 },
+          summary: { type: "string", minLength: 1, maxLength: 4000 },
           weightage: { type: "number", minimum: 0, maximum: 100 },
-          foundationLevel: {
-            type: "string",
-            enum: ["Beginner", "Moderate", "Advanced"],
-          },
-          expectedMarks: { type: ["number", "null"], minimum: 0 },
         },
       },
       output: {
         rootBlockTypeKey: "exam-prep.subject",
         createsBlockTypeKeys: ["exam-prep.subject"],
+        writesBlockTypeKeys: ["exam-prep.exam"],
+      },
+    },
+    {
+      key: "exam.attach-subject",
+      name: "Attach subject to exam",
+      description:
+        "Links an existing subject to an exam with exam-specific settings.",
+      execution: "deterministic",
+      requiredPermissions: ["blocks.write.owned"],
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["examId", "subjectId", "weightage"],
+        properties: {
+          examId: { type: "string", format: "uuid" },
+          subjectId: { type: "string", format: "uuid" },
+          weightage: { type: "number", minimum: 0, maximum: 100 },
+        },
+      },
+      output: {
+        rootBlockTypeKey: "exam-prep.subject",
+        createsBlockTypeKeys: [],
+        writesBlockTypeKeys: ["exam-prep.exam", "exam-prep.subject"],
+      },
+    },
+    {
+      key: "exam.detach-subject",
+      name: "Detach subject from exam",
+      description:
+        "Removes an exam-subject link without deleting the shared subject syllabus.",
+      execution: "deterministic",
+      requiredPermissions: ["blocks.write.owned"],
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["examId", "subjectId"],
+        properties: {
+          examId: { type: "string", format: "uuid" },
+          subjectId: { type: "string", format: "uuid" },
+        },
+      },
+      output: {
+        rootBlockTypeKey: "exam-prep.subject",
+        createsBlockTypeKeys: [],
+        writesBlockTypeKeys: ["exam-prep.exam", "exam-prep.subject"],
+      },
+    },
+    {
+      key: "exam.reorder-subjects",
+      name: "Reorder exam subjects",
+      description: "Reorders the subjects attached to one exam.",
+      execution: "deterministic",
+      requiredPermissions: ["blocks.write.owned"],
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["examId", "subjectIds"],
+        properties: {
+          examId: { type: "string", format: "uuid" },
+          subjectIds: {
+            type: "array",
+            uniqueItems: true,
+            maxItems: 500,
+            items: { type: "string", format: "uuid" },
+          },
+        },
+      },
+      output: {
+        rootBlockTypeKey: "exam-prep.exam",
+        createsBlockTypeKeys: [],
         writesBlockTypeKeys: ["exam-prep.exam"],
       },
     },
@@ -281,7 +450,7 @@ export const examPrepManifest = parseToolManifest({
         properties: {
           subjectId: { type: "string", format: "uuid" },
           title: { type: "string", minLength: 1, maxLength: 120 },
-          summary: { type: "string", maxLength: 4000 },
+          summary: { type: "string", minLength: 1, maxLength: 4000 },
           important: { type: "boolean" },
         },
       },
@@ -304,7 +473,7 @@ export const examPrepManifest = parseToolManifest({
         properties: {
           chapterId: { type: "string", format: "uuid" },
           title: { type: "string", minLength: 1, maxLength: 120 },
-          summary: { type: "string", maxLength: 4000 },
+          summary: { type: "string", minLength: 1, maxLength: 4000 },
           important: { type: "boolean" },
         },
       },
@@ -547,7 +716,8 @@ export const examPrepManifest = parseToolManifest({
     {
       key: "topic.record-test",
       name: "Record topic test",
-      description: "[DEPRECATED – use test-record.create] Increments the legacy test count for a topic. Retained for backward compatibility only.",
+      description:
+        "[DEPRECATED – use test-record.create] Increments the legacy test count for a topic. Retained for backward compatibility only.",
       execution: "deterministic",
       requiredPermissions: ["blocks.write.owned"],
       inputSchema: {
@@ -567,6 +737,215 @@ export const examPrepManifest = parseToolManifest({
     },
 
     // ── Canonical TestRecord mutations ─────────────────────────────────────
+    // Scheduled test planning and lifecycle
+    {
+      key: "scheduled-test.create",
+      name: "Schedule test",
+      description:
+        "Creates a personal test plan scoped to one exam and subject, with optional chapter targets and date.",
+      execution: "deterministic",
+      requiredPermissions: ["blocks.write.owned"],
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["examId", "subjectId", "title", "scope", "targetChapterIds"],
+        properties: {
+          ...examIdInput,
+          ...subjectIdInput,
+          ...scheduledTestScopeInput,
+          ...scheduledTestTargetsInput,
+          title: { type: "string", minLength: 1, maxLength: 120 },
+          scheduledFor: { type: ["string", "null"], format: "date" },
+          durationMinutes: {
+            type: ["integer", "null"],
+            minimum: 1,
+            maximum: 1440,
+          },
+          totalMarks: {
+            type: ["number", "null"],
+            minimum: 0.01,
+            maximum: 999999.99,
+          },
+          notes: { type: ["string", "null"], maxLength: 2000 },
+        },
+      },
+      output: {
+        rootBlockTypeKey: "exam-prep.exam",
+        createsBlockTypeKeys: [],
+        writesBlockTypeKeys: ["exam-prep.exam"],
+      },
+    },
+    {
+      key: "scheduled-test.update",
+      name: "Update scheduled test",
+      description:
+        "Updates the plan, scope, chapter targets, date, duration, marks target, or notes for an incomplete scheduled test.",
+      execution: "deterministic",
+      requiredPermissions: ["blocks.write.owned"],
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        required: [
+          "scheduledTestId",
+          "expectedRevision",
+          "title",
+          "scope",
+          "targetChapterIds",
+        ],
+        properties: {
+          ...scheduledTestIdInput,
+          ...scheduledTestScopeInput,
+          ...scheduledTestTargetsInput,
+          expectedRevision: { type: "integer", minimum: 1 },
+          title: { type: "string", minLength: 1, maxLength: 120 },
+          scheduledFor: { type: ["string", "null"], format: "date" },
+          durationMinutes: {
+            type: ["integer", "null"],
+            minimum: 1,
+            maximum: 1440,
+          },
+          totalMarks: {
+            type: ["number", "null"],
+            minimum: 0.01,
+            maximum: 999999.99,
+          },
+          notes: { type: ["string", "null"], maxLength: 2000 },
+        },
+      },
+      output: {
+        rootBlockTypeKey: "exam-prep.exam",
+        createsBlockTypeKeys: [],
+        writesBlockTypeKeys: ["exam-prep.exam"],
+      },
+    },
+    {
+      key: "scheduled-test.cancel",
+      name: "Cancel scheduled test",
+      description:
+        "Cancels an incomplete scheduled test while retaining it in the planning history.",
+      execution: "deterministic",
+      requiredPermissions: ["blocks.write.owned"],
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["scheduledTestId", "expectedRevision"],
+        properties: {
+          ...scheduledTestIdInput,
+          expectedRevision: { type: "integer", minimum: 1 },
+          reason: { type: ["string", "null"], maxLength: 500 },
+        },
+      },
+      output: {
+        rootBlockTypeKey: "exam-prep.exam",
+        createsBlockTypeKeys: [],
+        writesBlockTypeKeys: ["exam-prep.exam"],
+      },
+    },
+    {
+      key: "scheduled-test.restore",
+      name: "Restore scheduled test",
+      description: "Restores a cancelled test to planned or scheduled status.",
+      execution: "deterministic",
+      requiredPermissions: ["blocks.write.owned"],
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["scheduledTestId", "expectedRevision"],
+        properties: {
+          ...scheduledTestIdInput,
+          expectedRevision: { type: "integer", minimum: 1 },
+        },
+      },
+      output: {
+        rootBlockTypeKey: "exam-prep.exam",
+        createsBlockTypeKeys: [],
+        writesBlockTypeKeys: ["exam-prep.exam"],
+      },
+    },
+    {
+      key: "scheduled-test.complete",
+      name: "Complete scheduled test",
+      description:
+        "Atomically records marks and evidence for a scheduled test and marks the plan completed.",
+      execution: "deterministic",
+      requiredPermissions: ["blocks.write.owned"],
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        required: [
+          "scheduledTestId",
+          "expectedRevision",
+          "marksObtained",
+          "totalMarks",
+        ],
+        properties: {
+          ...scheduledTestIdInput,
+          expectedRevision: { type: "integer", minimum: 1 },
+          marksObtained: {
+            type: "number",
+            minimum: 0,
+            maximum: 999999.99,
+          },
+          totalMarks: {
+            type: "number",
+            minimum: 0.01,
+            maximum: 999999.99,
+          },
+          summary: { type: ["string", "null"], maxLength: 4000 },
+        },
+      },
+      output: {
+        rootBlockTypeKey: "exam-prep.exam",
+        createsBlockTypeKeys: [],
+        writesBlockTypeKeys: ["exam-prep.exam"],
+      },
+    },
+    {
+      key: "scheduled-test.reopen",
+      name: "Reopen scheduled test",
+      description:
+        "Removes the linked result and reopens a completed scheduled test for correction.",
+      execution: "deterministic",
+      requiredPermissions: ["blocks.write.owned"],
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["scheduledTestId", "expectedRevision"],
+        properties: {
+          ...scheduledTestIdInput,
+          expectedRevision: { type: "integer", minimum: 1 },
+        },
+      },
+      output: {
+        rootBlockTypeKey: "exam-prep.exam",
+        createsBlockTypeKeys: [],
+        writesBlockTypeKeys: ["exam-prep.exam"],
+      },
+    },
+    {
+      key: "scheduled-test.delete",
+      name: "Delete scheduled test",
+      description:
+        "Deletes an uncompleted personal scheduled test from the exam plan.",
+      execution: "deterministic",
+      requiredPermissions: ["blocks.write.owned"],
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["scheduledTestId", "expectedRevision"],
+        properties: {
+          ...scheduledTestIdInput,
+          expectedRevision: { type: "integer", minimum: 1 },
+        },
+      },
+      output: {
+        rootBlockTypeKey: "exam-prep.exam",
+        createsBlockTypeKeys: [],
+        writesBlockTypeKeys: ["exam-prep.exam"],
+      },
+    },
+
+    // Canonical TestRecord mutations
     {
       key: "test-record.create",
       name: "Create test record",
@@ -577,15 +956,30 @@ export const examPrepManifest = parseToolManifest({
       inputSchema: {
         type: "object",
         additionalProperties: false,
-        required: ["workspaceId", "examId", "subjectId", "title", "marksObtained", "totalMarks"],
+        required: [
+          "workspaceId",
+          "examId",
+          "subjectId",
+          "title",
+          "marksObtained",
+          "totalMarks",
+        ],
         properties: {
           workspaceId: { type: "string", format: "uuid" },
           ...examIdInput,
           ...subjectIdInput,
           chapterId: { type: ["string", "null"], format: "uuid" },
           title: { type: "string", minLength: 1, maxLength: 120 },
-          marksObtained: { type: "number", minimum: 0 },
-          totalMarks: { type: "number", minimum: 1 },
+          marksObtained: {
+            type: "number",
+            minimum: 0,
+            maximum: 999999.99,
+          },
+          totalMarks: {
+            type: "number",
+            minimum: 0.01,
+            maximum: 999999.99,
+          },
           summary: { type: ["string", "null"], maxLength: 4000 },
         },
       },
@@ -605,13 +999,27 @@ export const examPrepManifest = parseToolManifest({
       inputSchema: {
         type: "object",
         additionalProperties: false,
-        required: ["workspaceId", "testRecordId", "title", "marksObtained", "totalMarks"],
+        required: [
+          "workspaceId",
+          "testRecordId",
+          "title",
+          "marksObtained",
+          "totalMarks",
+        ],
         properties: {
           workspaceId: { type: "string", format: "uuid" },
           ...testRecordIdInput,
           title: { type: "string", minLength: 1, maxLength: 120 },
-          marksObtained: { type: "number", minimum: 0 },
-          totalMarks: { type: "number", minimum: 1 },
+          marksObtained: {
+            type: "number",
+            minimum: 0,
+            maximum: 999999.99,
+          },
+          totalMarks: {
+            type: "number",
+            minimum: 0.01,
+            maximum: 999999.99,
+          },
           summary: { type: ["string", "null"], maxLength: 4000 },
         },
       },
@@ -665,6 +1073,25 @@ export const examPrepManifest = parseToolManifest({
       },
     },
     {
+      key: "exam.get-subject-recommendations",
+      name: "Get subject recommendations",
+      description:
+        "Returns deterministic exam-level recommendations for revision, priority focus, starting next, and test progress.",
+      execution: "deterministic",
+      requiredPermissions: ["blocks.read.owned"],
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["examId"],
+        properties: examIdInput,
+      },
+      output: {
+        rootBlockTypeKey: "exam-prep.exam",
+        createsBlockTypeKeys: [],
+        writesBlockTypeKeys: ["exam-prep.exam"],
+      },
+    },
+    {
       key: "subject.update-settings",
       name: "Update subject settings",
       description: "Updates the progress policy targets for a subject.",
@@ -673,13 +1100,29 @@ export const examPrepManifest = parseToolManifest({
       inputSchema: {
         type: "object",
         additionalProperties: false,
-        required: ["subjectId", "revisionTarget", "practiceTarget", "highYieldRevisionTarget", "highYieldPracticeTarget", "chapterTestTarget", "subjectTestTarget"],
+        required: [
+          "subjectId",
+          "revisionTarget",
+          "practiceTarget",
+          "highYieldRevisionTarget",
+          "highYieldPracticeTarget",
+          "chapterTestTarget",
+          "subjectTestTarget",
+        ],
         properties: {
           ...subjectIdInput,
           revisionTarget: { type: "integer", minimum: 1, maximum: 100 },
           practiceTarget: { type: "integer", minimum: 1, maximum: 100 },
-          highYieldRevisionTarget: { type: "integer", minimum: 1, maximum: 100 },
-          highYieldPracticeTarget: { type: "integer", minimum: 1, maximum: 100 },
+          highYieldRevisionTarget: {
+            type: "integer",
+            minimum: 1,
+            maximum: 100,
+          },
+          highYieldPracticeTarget: {
+            type: "integer",
+            minimum: 1,
+            maximum: 100,
+          },
           chapterTestTarget: { type: "integer", minimum: 0, maximum: 100 },
           subjectTestTarget: { type: "integer", minimum: 0, maximum: 100 },
         },

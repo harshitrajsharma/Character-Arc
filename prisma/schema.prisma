@@ -65,6 +65,42 @@ enum RelationCardinality {
   @@map("relation_cardinality")
 }
 
+enum FoundationLevel {
+  BEGINNER @map("Beginner")
+  MODERATE @map("Moderate")
+  ADVANCED @map("Advanced")
+
+  @@map("foundation_level")
+}
+
+/// Confidence and lifecycle of the schedule snapshot for a personal exam-preparation attempt.
+enum ExamScheduleStatus {
+  EXPECTED  @map("expected")
+  ANNOUNCED @map("announced")
+  CONFIRMED @map("confirmed")
+  POSTPONED @map("postponed")
+  CANCELLED @map("cancelled")
+
+  @@map("exam_schedule_status")
+}
+
+enum ScheduledTestScope {
+  SUBJECT       @map("subject")
+  CHAPTER       @map("chapter")
+  MULTI_CHAPTER @map("multi_chapter")
+
+  @@map("scheduled_test_scope")
+}
+
+enum ScheduledTestStatus {
+  PLANNED   @map("planned")
+  SCHEDULED @map("scheduled")
+  COMPLETED @map("completed")
+  CANCELLED @map("cancelled")
+
+  @@map("scheduled_test_status")
+}
+
 enum FileStatus {
   UPLOADING @map("uploading")
   READY     @map("ready")
@@ -180,6 +216,7 @@ model Profile {
   skills            UserSkill[]
   toolInstallations ToolInstallation[] @relation("ToolInstaller")
   toolRuns          ToolRun[]          @relation("ToolRunActor")
+  scheduledTests    ScheduledTest[]
   testRecords       TestRecord[]
 
   @@map("profiles")
@@ -197,36 +234,39 @@ model Workspace {
   updatedAt   DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
   archivedAt  DateTime?     @map("archived_at") @db.Timestamptz(3)
 
-  createdBy           Profile?                 @relation("WorkspaceCreator", fields: [createdById], references: [id], onDelete: SetNull)
-  members             WorkspaceMember[]
-  blocks              Block[]
-  blockRelations      BlockRelation[]
-  tags                Tag[]
-  blockTags           BlockTag[]
-  blockStates         UserBlockState[]
-  files               FileObject[]
-  examBlocks          ExamBlock[]
-  subjectBlocks       SubjectBlock[]
-  chapterBlocks       ChapterBlock[]
-  topicBlocks         TopicBlock[]
-  examSubjectConfigs  ExamSubjectConfig[]
-  assessments         Assessment[]
-  questions           Question[]
-  questionOptions     QuestionOption[]
-  questionSolutions   QuestionSolution[]
-  solutionOptions     QuestionSolutionOption[]
-  questionTargets     QuestionTarget[]
-  assessmentQuestions AssessmentQuestion[]
-  attempts            Attempt[]
-  attemptResponses    AttemptResponse[]
-  responseOptions     AttemptResponseOption[]
-  progressEvidence    ProgressEvidence[]
-  topicProgress       TopicProgress[]
-  userSkills          UserSkill[]
-  toolInstallations   ToolInstallation[]
-  toolGrants          ToolGrant[]
-  toolRuns            ToolRun[]
-  testRecords         TestRecord[]
+  createdBy            Profile?                 @relation("WorkspaceCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  members              WorkspaceMember[]
+  blocks               Block[]
+  blockRelations       BlockRelation[]
+  tags                 Tag[]
+  blockTags            BlockTag[]
+  blockStates          UserBlockState[]
+  files                FileObject[]
+  examBlocks           ExamBlock[]
+  subjectBlocks        SubjectBlock[]
+  chapterBlocks        ChapterBlock[]
+  topicBlocks          TopicBlock[]
+  examSubjectConfigs   ExamSubjectConfig[]
+  assessments          Assessment[]
+  questions            Question[]
+  questionOptions      QuestionOption[]
+  questionSolutions    QuestionSolution[]
+  solutionOptions      QuestionSolutionOption[]
+  questionTargets      QuestionTarget[]
+  assessmentQuestions  AssessmentQuestion[]
+  attempts             Attempt[]
+  attemptResponses     AttemptResponse[]
+  responseOptions      AttemptResponseOption[]
+  progressEvidence     ProgressEvidence[]
+  topicProgress        TopicProgress[]
+  userSkills           UserSkill[]
+  toolInstallations    ToolInstallation[]
+  toolGrants           ToolGrant[]
+  toolRuns             ToolRun[]
+  scheduledTests       ScheduledTest[]
+  scheduledTestTargets ScheduledTestChapter[]
+  testRecordTargets    TestRecordChapter[]
+  testRecords          TestRecord[]
 
   @@index([createdById])
   @@index([kind, archivedAt])
@@ -297,31 +337,35 @@ model Block {
   updatedAt                DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
   archivedAt               DateTime?       @map("archived_at") @db.Timestamptz(3)
 
-  workspace              Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  blockType              BlockType          @relation(fields: [blockTypeId], references: [id], onDelete: Restrict)
-  parent                 Block?             @relation("BlockHierarchy", fields: [parentBlockId], references: [id], onDelete: SetNull)
-  children               Block[]            @relation("BlockHierarchy")
-  createdBy              Profile?           @relation("BlockCreator", fields: [createdById], references: [id], onDelete: SetNull)
-  coverFile              FileObject?        @relation("BlockCover", fields: [coverFileId], references: [id], onDelete: SetNull)
-  originToolInstallation ToolInstallation?  @relation(fields: [originToolInstallationId], references: [id], onDelete: SetNull)
-  originToolRun          ToolRun?           @relation(fields: [originToolRunId], references: [id], onDelete: SetNull)
-  outgoingRelations      BlockRelation[]    @relation("BlockRelationFrom")
-  incomingRelations      BlockRelation[]    @relation("BlockRelationTo")
-  tags                   BlockTag[]
-  userStates             UserBlockState[]
-  examDetails            ExamBlock?         @relation("ExamBlockIdentity")
-  subjectDetails         SubjectBlock?      @relation("SubjectBlockIdentity")
-  chapterDetails         ChapterBlock?      @relation("ChapterBlockIdentity")
-  topicDetails           TopicBlock?        @relation("TopicBlockIdentity")
-  assessmentDetails      Assessment?        @relation("AssessmentIdentity")
-  assessmentsForExam     Assessment[]       @relation("AssessmentExam")
-  questionTargets        QuestionTarget[]
-  progressEvidence       ProgressEvidence[]
-  topicProgress          TopicProgress[]
-  userSkills             UserSkill[]
-  examTestRecords        TestRecord[]       @relation("ExamTestRecords")
-  subjectTestRecords     TestRecord[]       @relation("SubjectTestRecords")
-  chapterTestRecords     TestRecord[]       @relation("ChapterTestRecords")
+  workspace                Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  blockType                BlockType              @relation(fields: [blockTypeId], references: [id], onDelete: Restrict)
+  parent                   Block?                 @relation("BlockHierarchy", fields: [parentBlockId], references: [id], onDelete: SetNull)
+  children                 Block[]                @relation("BlockHierarchy")
+  createdBy                Profile?               @relation("BlockCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  coverFile                FileObject?            @relation("BlockCover", fields: [coverFileId], references: [id], onDelete: SetNull)
+  originToolInstallation   ToolInstallation?      @relation(fields: [originToolInstallationId], references: [id], onDelete: SetNull)
+  originToolRun            ToolRun?               @relation(fields: [originToolRunId], references: [id], onDelete: SetNull)
+  outgoingRelations        BlockRelation[]        @relation("BlockRelationFrom")
+  incomingRelations        BlockRelation[]        @relation("BlockRelationTo")
+  tags                     BlockTag[]
+  userStates               UserBlockState[]
+  examDetails              ExamBlock?             @relation("ExamBlockIdentity")
+  subjectDetails           SubjectBlock?          @relation("SubjectBlockIdentity")
+  chapterDetails           ChapterBlock?          @relation("ChapterBlockIdentity")
+  topicDetails             TopicBlock?            @relation("TopicBlockIdentity")
+  assessmentDetails        Assessment?            @relation("AssessmentIdentity")
+  assessmentsForExam       Assessment[]           @relation("AssessmentExam")
+  questionTargets          QuestionTarget[]
+  progressEvidence         ProgressEvidence[]
+  topicProgress            TopicProgress[]
+  userSkills               UserSkill[]
+  examTestRecords          TestRecord[]           @relation("ExamTestRecords")
+  subjectTestRecords       TestRecord[]           @relation("SubjectTestRecords")
+  chapterTestRecords       TestRecord[]           @relation("ChapterTestRecords")
+  scheduledTestsForExam    ScheduledTest[]        @relation("ScheduledTestExam")
+  scheduledTestsForSubject ScheduledTest[]        @relation("ScheduledTestSubject")
+  scheduledTestTargets     ScheduledTestChapter[] @relation("ScheduledTestChapterTarget")
+  testRecordTargets        TestRecordChapter[]    @relation("TestRecordChapterTarget")
 
   @@unique([workspaceId, slug])
   @@index([workspaceId, parentBlockId, position])
@@ -366,11 +410,12 @@ model BlockRelation {
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  workspace    Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  relationType BlockRelationType  @relation(fields: [relationTypeId], references: [id], onDelete: Restrict)
-  fromBlock    Block              @relation("BlockRelationFrom", fields: [fromBlockId], references: [id], onDelete: Cascade)
-  toBlock      Block              @relation("BlockRelationTo", fields: [toBlockId], references: [id], onDelete: Cascade)
-  examSubject  ExamSubjectConfig?
+  workspace      Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  relationType   BlockRelationType  @relation(fields: [relationTypeId], references: [id], onDelete: Restrict)
+  fromBlock      Block              @relation("BlockRelationFrom", fields: [fromBlockId], references: [id], onDelete: Cascade)
+  toBlock        Block              @relation("BlockRelationTo", fields: [toBlockId], references: [id], onDelete: Cascade)
+  examSubject    ExamSubjectConfig?
+  scheduledTests ScheduledTest[]
 
   @@unique([workspaceId, relationTypeId, fromBlockId, toBlockId])
   @@index([workspaceId, fromBlockId, relationTypeId, position])
@@ -466,29 +511,43 @@ model FileObject {
 }
 
 model ExamBlock {
-  blockId              String    @id @map("block_id") @db.Uuid
-  workspaceId          String    @map("workspace_id") @db.Uuid
-  examCode             String?   @map("exam_code")
-  conductingBody       String?   @map("conducting_body")
-  durationMinutes      Int?      @map("duration_minutes")
-  totalMarks           Decimal?  @map("total_marks") @db.Decimal(8, 2)
-  blueprintVersion     Int       @default(1) @map("blueprint_version")
-  negativeMarkingRules Json      @default("{}") @map("negative_marking_rules")
-  officialUrl          String?   @map("official_url")
-  verifiedAt           DateTime? @map("verified_at") @db.Timestamptz(3)
+  blockId        String    @id @map("block_id") @db.Uuid
+  workspaceId    String    @map("workspace_id") @db.Uuid
+  examCode       String?   @map("exam_code")
+  conductingBody String?   @map("conducting_body")
+  officialUrl    String?   @map("official_url")
+  verifiedAt     DateTime? @map("verified_at") @db.Timestamptz(3)
+
+  targetMarks Decimal? @map("target_marks") @db.Decimal(8, 2)
+  targetRank  Int?     @map("target_rank")
+
+  scheduleStatus    ExamScheduleStatus @default(EXPECTED) @map("schedule_status")
+  expectedStartDate DateTime?          @map("expected_start_date") @db.Date
+  expectedEndDate   DateTime?          @map("expected_end_date") @db.Date
+  officialStartAt   DateTime?          @map("official_start_at") @db.Timestamptz(3)
+  officialEndAt     DateTime?          @map("official_end_at") @db.Timestamptz(3)
+  timezone          String?
+
+  patternVersion  Int      @default(1) @map("pattern_version")
+  durationMinutes Int?     @map("duration_minutes")
+  totalMarks      Decimal? @map("total_marks") @db.Decimal(8, 2)
+  scoringRules    Json     @default("{}") @map("scoring_rules")
+  metadata        Json     @default("{}")
 
   block     Block     @relation("ExamBlockIdentity", fields: [blockId], references: [id], onDelete: Cascade)
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@index([workspaceId, examCode])
+  @@index([workspaceId, scheduleStatus, expectedStartDate])
   @@map("exam_blocks")
 }
 
 model SubjectBlock {
-  blockId       String  @id @map("block_id") @db.Uuid
-  workspaceId   String  @map("workspace_id") @db.Uuid
-  canonicalCode String? @map("canonical_code")
-  discipline    String?
+  blockId         String          @id @map("block_id") @db.Uuid
+  workspaceId     String          @map("workspace_id") @db.Uuid
+  canonicalCode   String?         @map("canonical_code")
+  discipline      String?
+  foundationLevel FoundationLevel @default(BEGINNER) @map("foundation_level")
 
   block     Block     @relation("SubjectBlockIdentity", fields: [blockId], references: [id], onDelete: Cascade)
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -498,8 +557,9 @@ model SubjectBlock {
 }
 
 model ChapterBlock {
-  blockId     String @id @map("block_id") @db.Uuid
-  workspaceId String @map("workspace_id") @db.Uuid
+  blockId     String  @id @map("block_id") @db.Uuid
+  workspaceId String  @map("workspace_id") @db.Uuid
+  isImportant Boolean @default(false) @map("is_important")
 
   block     Block     @relation("ChapterBlockIdentity", fields: [blockId], references: [id], onDelete: Cascade)
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -509,8 +569,9 @@ model ChapterBlock {
 }
 
 model TopicBlock {
-  blockId     String @id @map("block_id") @db.Uuid
-  workspaceId String @map("workspace_id") @db.Uuid
+  blockId     String  @id @map("block_id") @db.Uuid
+  workspaceId String  @map("workspace_id") @db.Uuid
+  isImportant Boolean @default(false) @map("is_important")
 
   block     Block     @relation("TopicBlockIdentity", fields: [blockId], references: [id], onDelete: Cascade)
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -521,16 +582,13 @@ model TopicBlock {
 
 /// Exam-specific metadata for an `exam --includes--> subject` relation.
 model ExamSubjectConfig {
-  relationId      String    @id @map("relation_id") @db.Uuid
-  workspaceId     String    @map("workspace_id") @db.Uuid
+  relationId      String   @id @map("relation_id") @db.Uuid
+  workspaceId     String   @map("workspace_id") @db.Uuid
   section         String?
-  weightage       Decimal?  @db.Decimal(5, 2)
-  expectedMarks   Decimal?  @map("expected_marks") @db.Decimal(8, 2)
-  isRequired      Boolean   @default(true) @map("is_required")
-  syllabusVersion String?   @map("syllabus_version")
-  sourceUrl       String?   @map("source_url")
-  validFrom       DateTime? @map("valid_from") @db.Date
-  validUntil      DateTime? @map("valid_until") @db.Date
+  weightage       Decimal? @db.Decimal(5, 2)
+  isRequired      Boolean  @default(true) @map("is_required")
+  syllabusVersion String?  @map("syllabus_version")
+  sourceUrl       String?  @map("source_url")
 
   relation  BlockRelation @relation(fields: [relationId], references: [id], onDelete: Cascade)
   workspace Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -866,13 +924,14 @@ model ToolInstallation {
   updatedAt        DateTime               @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
   disabledAt       DateTime?              @map("disabled_at") @db.Timestamptz(3)
 
-  workspace        Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  installedBy      Profile?       @relation("ToolInstaller", fields: [installedById], references: [id], onDelete: SetNull)
-  toolDefinition   ToolDefinition @relation(fields: [toolDefinitionId], references: [id], onDelete: Restrict)
-  toolRelease      ToolRelease    @relation(fields: [toolReleaseId], references: [id], onDelete: Restrict)
+  workspace        Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  installedBy      Profile?        @relation("ToolInstaller", fields: [installedById], references: [id], onDelete: SetNull)
+  toolDefinition   ToolDefinition  @relation(fields: [toolDefinitionId], references: [id], onDelete: Restrict)
+  toolRelease      ToolRelease     @relation(fields: [toolReleaseId], references: [id], onDelete: Restrict)
   grants           ToolGrant[]
   originatedBlocks Block[]
   runs             ToolRun[]
+  scheduledTests   ScheduledTest[]
 
   @@unique([workspaceId, toolDefinitionId])
   @@index([workspaceId, status])
@@ -912,10 +971,8 @@ model ToolRun {
   invocationSource String        @default("web") @map("invocation_source")
   status           ToolRunStatus @default(QUEUED)
   idempotencyKey   String        @map("idempotency_key")
-  input            Json          @default("{}")
   inputHash        String        @map("input_hash")
   manifestHash     String        @map("manifest_hash")
-  output           Json?
   errorCode        String?       @map("error_code")
   errorMessage     String?       @map("error_message")
   startedAt        DateTime?     @map("started_at") @db.Timestamptz(3)
@@ -928,6 +985,7 @@ model ToolRun {
   toolRelease  ToolRelease       @relation(fields: [toolReleaseId], references: [id], onDelete: Restrict)
   actor        Profile?          @relation("ToolRunActor", fields: [actorId], references: [id], onDelete: SetNull)
   outputBlocks Block[]
+  payload      ToolRunPayload?
 
   @@unique([installationId, idempotencyKey])
   @@index([workspaceId, status, createdAt])
@@ -936,14 +994,91 @@ model ToolRun {
   @@map("tool_runs")
 }
 
+/// Ephemeral heavy payload for a ToolRun. Can be safely deleted to reclaim space.
+model ToolRunPayload {
+  toolRunId String @id @map("tool_run_id") @db.Uuid
+  input     Json   @default("{}")
+  output    Json?
+  error     Json?
+
+  toolRun ToolRun @relation(fields: [toolRunId], references: [id], onDelete: Cascade)
+
+  @@map("tool_run_payloads")
+}
+
+/// A user's planned test within one Exam + Subject context.
+model ScheduledTest {
+  id                    String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId           String              @map("workspace_id") @db.Uuid
+  installationId        String              @map("installation_id") @db.Uuid
+  userId                String              @map("user_id") @db.Uuid
+  examId                String              @map("exam_id") @db.Uuid
+  subjectId             String              @map("subject_id") @db.Uuid
+  examSubjectRelationId String?             @map("exam_subject_relation_id") @db.Uuid
+  title                 String
+  scope                 ScheduledTestScope
+  status                ScheduledTestStatus @default(PLANNED)
+  scheduledFor          DateTime?           @map("scheduled_for") @db.Date
+  durationMinutes       Int?                @map("duration_minutes")
+  totalMarks            Decimal?            @map("total_marks") @db.Decimal(8, 2)
+  notes                 String?
+  revision              Int                 @default(1)
+  rescheduleCount       Int                 @default(0) @map("reschedule_count")
+  lastRescheduledAt     DateTime?           @map("last_rescheduled_at") @db.Timestamptz(3)
+  completedAt           DateTime?           @map("completed_at") @db.Timestamptz(3)
+  cancelledAt           DateTime?           @map("cancelled_at") @db.Timestamptz(3)
+  cancellationReason    String?             @map("cancellation_reason")
+  legacyKey             String?             @unique @map("legacy_key")
+  createdAt             DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime            @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  workspace           Workspace              @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  installation        ToolInstallation       @relation(fields: [installationId], references: [id], onDelete: Restrict)
+  user                Profile                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exam                Block                  @relation("ScheduledTestExam", fields: [examId], references: [id], onDelete: Cascade)
+  subject             Block                  @relation("ScheduledTestSubject", fields: [subjectId], references: [id], onDelete: Cascade)
+  examSubjectRelation BlockRelation?         @relation(fields: [examSubjectRelationId], references: [id], onDelete: SetNull)
+  chapters            ScheduledTestChapter[]
+  testRecord          TestRecord?
+
+  @@index([workspaceId, examId, subjectId, userId, status, scheduledFor])
+  @@index([installationId])
+  @@index([userId, status, scheduledFor])
+  @@index([examId])
+  @@index([subjectId])
+  @@index([examSubjectRelationId])
+  @@map("scheduled_tests")
+}
+
+/// Explicit chapter targets allow one scheduled test to appear in one or many chapter test sections.
+model ScheduledTestChapter {
+  scheduledTestId String @map("scheduled_test_id") @db.Uuid
+  chapterId       String @map("chapter_id") @db.Uuid
+  workspaceId     String @map("workspace_id") @db.Uuid
+  position        Int    @default(0)
+
+  scheduledTest ScheduledTest @relation(fields: [scheduledTestId], references: [id], onDelete: Cascade)
+  chapter       Block         @relation("ScheduledTestChapterTarget", fields: [chapterId], references: [id], onDelete: Cascade)
+  workspace     Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@id([scheduledTestId, chapterId])
+  @@unique([scheduledTestId, position])
+  @@index([chapterId])
+  @@index([workspaceId, chapterId])
+  @@map("scheduled_test_chapters")
+}
+
 model TestRecord {
   id          String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   workspaceId String @map("workspace_id") @db.Uuid
   userId      String @map("user_id") @db.Uuid
 
-  examId    String  @map("exam_id") @db.Uuid
-  subjectId String? @map("subject_id") @db.Uuid
-  chapterId String? @map("chapter_id") @db.Uuid
+  examId          String              @map("exam_id") @db.Uuid
+  subjectId       String?             @map("subject_id") @db.Uuid
+  chapterId       String?             @map("chapter_id") @db.Uuid
+  scheduledTestId String?             @unique @map("scheduled_test_id") @db.Uuid
+  scope           ScheduledTestScope?
+  attemptedAt     DateTime?           @map("attempted_at") @db.Timestamptz(3)
 
   title         String
   marksObtained Decimal @map("marks_obtained") @db.Decimal(8, 2)
@@ -953,14 +1088,37 @@ model TestRecord {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  user      Profile   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  exam      Block     @relation("ExamTestRecords", fields: [examId], references: [id], onDelete: Cascade)
-  subject   Block?    @relation("SubjectTestRecords", fields: [subjectId], references: [id], onDelete: Cascade)
-  chapter   Block?    @relation("ChapterTestRecords", fields: [chapterId], references: [id], onDelete: Cascade)
+  workspace      Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user           Profile             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exam           Block               @relation("ExamTestRecords", fields: [examId], references: [id], onDelete: Cascade)
+  subject        Block?              @relation("SubjectTestRecords", fields: [subjectId], references: [id], onDelete: Cascade)
+  chapter        Block?              @relation("ChapterTestRecords", fields: [chapterId], references: [id], onDelete: Cascade)
+  scheduledTest  ScheduledTest?      @relation(fields: [scheduledTestId], references: [id], onDelete: SetNull)
+  targetChapters TestRecordChapter[]
 
   @@index([workspaceId, userId, chapterId])
   @@index([workspaceId, userId, subjectId])
   @@index([workspaceId, userId, examId])
+  @@index([examId])
+  @@index([subjectId])
+  @@index([chapterId])
   @@map("test_records")
+}
+
+/// Chapter evidence targets for chapter and multi-chapter test results.
+model TestRecordChapter {
+  testRecordId String @map("test_record_id") @db.Uuid
+  chapterId    String @map("chapter_id") @db.Uuid
+  workspaceId  String @map("workspace_id") @db.Uuid
+  position     Int    @default(0)
+
+  testRecord TestRecord @relation(fields: [testRecordId], references: [id], onDelete: Cascade)
+  chapter    Block      @relation("TestRecordChapterTarget", fields: [chapterId], references: [id], onDelete: Cascade)
+  workspace  Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@id([testRecordId, chapterId])
+  @@unique([testRecordId, position])
+  @@index([chapterId])
+  @@index([workspaceId, chapterId])
+  @@map("test_record_chapters")
 }

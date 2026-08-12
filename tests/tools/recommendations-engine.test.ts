@@ -12,7 +12,9 @@ import {
 
 const NOW = new Date("2026-07-21T00:00:00.000Z")
 
-function makeTopic(overrides: Partial<RecommendationEngineInput["chapters"][0]["topics"][0]> = {}) {
+function makeTopic(
+  overrides: Partial<RecommendationEngineInput["chapters"][0]["topics"][0]> = {}
+) {
   return {
     id: overrides.id ?? "topic-1",
     name: overrides.name ?? "Topic A",
@@ -29,7 +31,9 @@ function makeTopic(overrides: Partial<RecommendationEngineInput["chapters"][0]["
 }
 
 function makeChapter(
-  overrides: Partial<RecommendationEngineInput["chapters"][0]> & { topics?: ReturnType<typeof makeTopic>[] } = {}
+  overrides: Partial<RecommendationEngineInput["chapters"][0]> & {
+    topics?: ReturnType<typeof makeTopic>[]
+  } = {}
 ) {
   return {
     id: overrides.id ?? "ch-1",
@@ -56,7 +60,6 @@ function makeInput(
 // ---------------------------------------------------------------------------
 
 describe("Recommendation engine", () => {
-
   // -------------------------------------------------------------------
   // Priority ordering
   // -------------------------------------------------------------------
@@ -138,8 +141,12 @@ describe("Recommendation engine", () => {
     })
 
     const result = generateRecommendations(input)
-    const hyRec = result.all.find((r) => r.chapterId === "ch-hy" && r.type === "revision-gap")
-    const stdRec = result.all.find((r) => r.chapterId === "ch-std" && r.type === "revision-gap")
+    const hyRec = result.all.find(
+      (r) => r.chapterId === "ch-hy" && r.type === "revision-gap"
+    )
+    const stdRec = result.all.find(
+      (r) => r.chapterId === "ch-std" && r.type === "revision-gap"
+    )
 
     expect(hyRec).toBeDefined()
     expect(stdRec).toBeDefined()
@@ -304,7 +311,12 @@ describe("Recommendation engine", () => {
         makeChapter({
           id: "ch-1",
           topics: [
-            makeTopic({ id: "t1", learningStatus: true, revisionCount: 3, practiceCount: 3 }),
+            makeTopic({
+              id: "t1",
+              learningStatus: true,
+              revisionCount: 3,
+              practiceCount: 3,
+            }),
           ],
           testRecords: [], // no tests taken
         }),
@@ -320,7 +332,9 @@ describe("Recommendation engine", () => {
     })
 
     const result = generateRecommendations(input)
-    const missingTest = result.all.find((r) => r.type === "missing-chapter-test")
+    const missingTest = result.all.find(
+      (r) => r.type === "missing-chapter-test"
+    )
     expect(missingTest).toBeDefined()
     expect(missingTest!.evidence).toBe("0/1 chapter test")
   })
@@ -330,7 +344,12 @@ describe("Recommendation engine", () => {
       chapters: [
         makeChapter({
           topics: [
-            makeTopic({ id: "t1", learningStatus: true, revisionCount: 3, practiceCount: 3 }),
+            makeTopic({
+              id: "t1",
+              learningStatus: true,
+              revisionCount: 3,
+              practiceCount: 3,
+            }),
           ],
         }),
       ],
@@ -346,7 +365,9 @@ describe("Recommendation engine", () => {
     })
 
     const result = generateRecommendations(input)
-    const missingTest = result.all.find((r) => r.type === "missing-subject-test")
+    const missingTest = result.all.find(
+      (r) => r.type === "missing-subject-test"
+    )
     expect(missingTest).toBeDefined()
     expect(missingTest!.evidence).toBe("0/2 subject tests")
   })
@@ -361,7 +382,12 @@ describe("Recommendation engine", () => {
         makeChapter({
           id: "ch-1",
           topics: [
-            makeTopic({ id: "t1", learningStatus: true, revisionCount: 3, practiceCount: 3 }),
+            makeTopic({
+              id: "t1",
+              learningStatus: true,
+              revisionCount: 3,
+              practiceCount: 3,
+            }),
           ],
           testRecords: [
             {
@@ -388,7 +414,12 @@ describe("Recommendation engine", () => {
       chapters: [
         makeChapter({
           topics: [
-            makeTopic({ id: "t1", learningStatus: true, revisionCount: 3, practiceCount: 3 }),
+            makeTopic({
+              id: "t1",
+              learningStatus: true,
+              revisionCount: 3,
+              practiceCount: 3,
+            }),
           ],
         }),
       ],
@@ -403,7 +434,9 @@ describe("Recommendation engine", () => {
     })
 
     const result = generateRecommendations(input)
-    const weakTest = result.all.find((r) => r.type === "weak-test" && !r.chapterId)
+    const weakTest = result.all.find(
+      (r) => r.type === "weak-test" && !r.chapterId
+    )
     expect(weakTest).toBeDefined()
     expect(weakTest!.evidence).toBe("Scored 20%")
   })
@@ -534,18 +567,20 @@ describe("Recommendation engine", () => {
   // -------------------------------------------------------------------
 
   test("empty chapters produce completed state", () => {
-    const result = generateRecommendations(makeInput({
-      chapters: [],
-      subjectTestRecords: [],
-      policy: {
-        revisionTarget: 3,
-        practiceTarget: 3,
-        highYieldRevisionTarget: 5,
-        highYieldPracticeTarget: 5,
-        chapterTestTarget: 0,
-        subjectTestTarget: 0,
-      },
-    }))
+    const result = generateRecommendations(
+      makeInput({
+        chapters: [],
+        subjectTestRecords: [],
+        policy: {
+          revisionTarget: 3,
+          practiceTarget: 3,
+          highYieldRevisionTarget: 5,
+          highYieldPracticeTarget: 5,
+          chapterTestTarget: 0,
+          subjectTestTarget: 0,
+        },
+      })
+    )
     expect(result.isCompleted).toBe(true)
   })
 
@@ -629,7 +664,10 @@ describe("Recommendation engine", () => {
 
     const result = generateRecommendations(input)
     for (const rec of result.all) {
-      if (rec.type === "unlearned-topic" || rec.type === "unlearned-high-yield") {
+      if (
+        rec.type === "unlearned-topic" ||
+        rec.type === "unlearned-high-yield"
+      ) {
         expect(rec.stage).toBe("learning")
       }
       if (rec.type === "overdue-revision" || rec.type === "revision-gap") {
@@ -638,7 +676,11 @@ describe("Recommendation engine", () => {
       if (rec.type === "practice-gap") {
         expect(rec.stage).toBe("practice")
       }
-      if (rec.type === "missing-chapter-test" || rec.type === "missing-subject-test" || rec.type === "weak-test") {
+      if (
+        rec.type === "missing-chapter-test" ||
+        rec.type === "missing-subject-test" ||
+        rec.type === "weak-test"
+      ) {
         expect(rec.stage).toBe("test")
       }
     }
@@ -654,15 +696,27 @@ describe("Recommendation engine", () => {
         makeChapter({
           id: "ch-1",
           topics: [
-            makeTopic({ id: "t-small-deficit", name: "Small Deficit", learningStatus: true, revisionCount: 2 }), // target 3, deficit 1
-            makeTopic({ id: "t-large-deficit", name: "Large Deficit", learningStatus: true, revisionCount: 0 }), // target 3, deficit 3
+            makeTopic({
+              id: "t-small-deficit",
+              name: "Small Deficit",
+              learningStatus: true,
+              revisionCount: 2,
+            }), // target 3, deficit 1
+            makeTopic({
+              id: "t-large-deficit",
+              name: "Large Deficit",
+              learningStatus: true,
+              revisionCount: 0,
+            }), // target 3, deficit 3
           ],
         }),
       ],
     })
 
     const result = generateRecommendations(input)
-    const revGap = result.all.find((r) => r.type === "revision-gap" && r.chapterId === "ch-1")
+    const revGap = result.all.find(
+      (r) => r.type === "revision-gap" && r.chapterId === "ch-1"
+    )
     expect(revGap).toBeDefined()
     expect(revGap!.topicId).toBe("t-large-deficit")
     expect(revGap!.subPriority).toBe(3)
@@ -674,8 +728,18 @@ describe("Recommendation engine", () => {
         makeChapter({
           id: "ch-1",
           topics: [
-            makeTopic({ id: "t-large-deficit", name: "Large Deficit", learningStatus: true, revisionCount: 0 }),
-            makeTopic({ id: "t-small-deficit", name: "Small Deficit", learningStatus: true, revisionCount: 2 }),
+            makeTopic({
+              id: "t-large-deficit",
+              name: "Large Deficit",
+              learningStatus: true,
+              revisionCount: 0,
+            }),
+            makeTopic({
+              id: "t-small-deficit",
+              name: "Small Deficit",
+              learningStatus: true,
+              revisionCount: 2,
+            }),
           ],
         }),
       ],
@@ -685,8 +749,18 @@ describe("Recommendation engine", () => {
         makeChapter({
           id: "ch-1",
           topics: [
-            makeTopic({ id: "t-small-deficit", name: "Small Deficit", learningStatus: true, revisionCount: 2 }),
-            makeTopic({ id: "t-large-deficit", name: "Large Deficit", learningStatus: true, revisionCount: 0 }),
+            makeTopic({
+              id: "t-small-deficit",
+              name: "Small Deficit",
+              learningStatus: true,
+              revisionCount: 2,
+            }),
+            makeTopic({
+              id: "t-large-deficit",
+              name: "Large Deficit",
+              learningStatus: true,
+              revisionCount: 0,
+            }),
           ],
         }),
       ],
@@ -695,8 +769,12 @@ describe("Recommendation engine", () => {
     const result1 = generateRecommendations(input1)
     const result2 = generateRecommendations(input2)
 
-    const revGap1 = result1.all.find((r) => r.type === "revision-gap" && r.chapterId === "ch-1")
-    const revGap2 = result2.all.find((r) => r.type === "revision-gap" && r.chapterId === "ch-1")
+    const revGap1 = result1.all.find(
+      (r) => r.type === "revision-gap" && r.chapterId === "ch-1"
+    )
+    const revGap2 = result2.all.find(
+      (r) => r.type === "revision-gap" && r.chapterId === "ch-1"
+    )
 
     expect(revGap1).toBeDefined()
     expect(revGap2).toBeDefined()
@@ -710,7 +788,12 @@ describe("Recommendation engine", () => {
         makeChapter({
           id: "ch-1",
           topics: [
-            makeTopic({ id: "t1", learningStatus: true, revisionCount: 3, practiceCount: 3 }),
+            makeTopic({
+              id: "t1",
+              learningStatus: true,
+              revisionCount: 3,
+              practiceCount: 3,
+            }),
           ],
           testRecords: [
             {
@@ -731,7 +814,9 @@ describe("Recommendation engine", () => {
     })
 
     const result = generateRecommendations(input)
-    const weakTest = result.all.find((r) => r.type === "weak-test" && r.chapterId === "ch-1")
+    const weakTest = result.all.find(
+      (r) => r.type === "weak-test" && r.chapterId === "ch-1"
+    )
     expect(weakTest).toBeUndefined()
   })
 
@@ -741,7 +826,12 @@ describe("Recommendation engine", () => {
         makeChapter({
           id: "ch-1",
           topics: [
-            makeTopic({ id: "t1", learningStatus: true, revisionCount: 3, practiceCount: 3 }),
+            makeTopic({
+              id: "t1",
+              learningStatus: true,
+              revisionCount: 3,
+              practiceCount: 3,
+            }),
           ],
           testRecords: [
             {
@@ -762,7 +852,9 @@ describe("Recommendation engine", () => {
     })
 
     const result = generateRecommendations(input)
-    const weakTest = result.all.find((r) => r.type === "weak-test" && r.chapterId === "ch-1")
+    const weakTest = result.all.find(
+      (r) => r.type === "weak-test" && r.chapterId === "ch-1"
+    )
     expect(weakTest).toBeDefined()
     expect(weakTest!.urgency).toBe("warning")
     expect(weakTest!.evidence).toBe("Scored 30%")
@@ -774,7 +866,12 @@ describe("Recommendation engine", () => {
         makeChapter({
           id: "ch-1",
           topics: [
-            makeTopic({ id: "t1", learningStatus: true, revisionCount: 3, practiceCount: 3 }),
+            makeTopic({
+              id: "t1",
+              learningStatus: true,
+              revisionCount: 3,
+              practiceCount: 3,
+            }),
           ],
           testRecords: [
             {
@@ -795,7 +892,9 @@ describe("Recommendation engine", () => {
     })
 
     const result = generateRecommendations(input)
-    const weakTest = result.all.find((r) => r.type === "weak-test" && r.chapterId === "ch-1")
+    const weakTest = result.all.find(
+      (r) => r.type === "weak-test" && r.chapterId === "ch-1"
+    )
     expect(weakTest).toBeDefined()
     expect(weakTest!.evidence).toBe("Scored 20%")
   })
@@ -805,10 +904,27 @@ describe("Recommendation engine", () => {
       chapters: [
         makeChapter({
           id: "ch-1",
-          topics: [makeTopic({ id: "t1", learningStatus: true, revisionCount: 3, practiceCount: 3 })],
+          topics: [
+            makeTopic({
+              id: "t1",
+              learningStatus: true,
+              revisionCount: 3,
+              practiceCount: 3,
+            }),
+          ],
           testRecords: [
-            { id: "tr-old-weak", marksObtained: 20, totalMarks: 100, createdAt: new Date("2026-07-15T00:00:00.000Z") },
-            { id: "tr-new-healthy", marksObtained: 80, totalMarks: 100, createdAt: new Date("2026-07-20T00:00:00.000Z") },
+            {
+              id: "tr-old-weak",
+              marksObtained: 20,
+              totalMarks: 100,
+              createdAt: new Date("2026-07-15T00:00:00.000Z"),
+            },
+            {
+              id: "tr-new-healthy",
+              marksObtained: 80,
+              totalMarks: 100,
+              createdAt: new Date("2026-07-20T00:00:00.000Z"),
+            },
           ],
         }),
       ],
@@ -817,20 +933,41 @@ describe("Recommendation engine", () => {
       chapters: [
         makeChapter({
           id: "ch-1",
-          topics: [makeTopic({ id: "t1", learningStatus: true, revisionCount: 3, practiceCount: 3 })],
+          topics: [
+            makeTopic({
+              id: "t1",
+              learningStatus: true,
+              revisionCount: 3,
+              practiceCount: 3,
+            }),
+          ],
         }),
       ],
       subjectTestRecords: [
-        { id: "str-old-weak", marksObtained: 20, totalMarks: 100, createdAt: new Date("2026-07-15T00:00:00.000Z") },
-        { id: "str-new-healthy", marksObtained: 80, totalMarks: 100, createdAt: new Date("2026-07-20T00:00:00.000Z") },
+        {
+          id: "str-old-weak",
+          marksObtained: 20,
+          totalMarks: 100,
+          createdAt: new Date("2026-07-15T00:00:00.000Z"),
+        },
+        {
+          id: "str-new-healthy",
+          marksObtained: 80,
+          totalMarks: 100,
+          createdAt: new Date("2026-07-20T00:00:00.000Z"),
+        },
       ],
     })
 
     const resultChapter = generateRecommendations(inputChapter)
     const resultSubject = generateRecommendations(inputSubject)
 
-    expect(resultChapter.all.find((r) => r.type === "weak-test")).toBeUndefined()
-    expect(resultSubject.all.find((r) => r.type === "weak-test")).toBeUndefined()
+    expect(
+      resultChapter.all.find((r) => r.type === "weak-test")
+    ).toBeUndefined()
+    expect(
+      resultSubject.all.find((r) => r.type === "weak-test")
+    ).toBeUndefined()
   })
 
   test("deterministic tie-breaking sorts stably by stable identifiers", () => {
@@ -883,7 +1020,9 @@ describe("Recommendation engine", () => {
     })
 
     const result = generateRecommendations(input)
-    const revGap = result.all.find((r) => r.type === "revision-gap" && r.topicId === "t-hy-override")
+    const revGap = result.all.find(
+      (r) => r.type === "revision-gap" && r.topicId === "t-hy-override"
+    )
     expect(revGap).toBeDefined()
     expect(revGap!.evidence).toBe("2/4 revisions")
     expect(revGap!.subPriority).toBe(2)
@@ -894,10 +1033,27 @@ describe("Recommendation engine", () => {
       chapters: [
         makeChapter({
           id: "ch-1",
-          topics: [makeTopic({ id: "t1", learningStatus: true, revisionCount: 3, practiceCount: 3 })],
+          topics: [
+            makeTopic({
+              id: "t1",
+              learningStatus: true,
+              revisionCount: 3,
+              practiceCount: 3,
+            }),
+          ],
           testRecords: [
-            { id: "tr-weak", marksObtained: 20, totalMarks: 100, createdAt: new Date("2026-07-20T00:00:00.000Z") },
-            { id: "tr-healthy", marksObtained: 80, totalMarks: 100, createdAt: new Date("2026-07-20T00:00:00.000Z") },
+            {
+              id: "tr-weak",
+              marksObtained: 20,
+              totalMarks: 100,
+              createdAt: new Date("2026-07-20T00:00:00.000Z"),
+            },
+            {
+              id: "tr-healthy",
+              marksObtained: 80,
+              totalMarks: 100,
+              createdAt: new Date("2026-07-20T00:00:00.000Z"),
+            },
           ],
         }),
       ],
@@ -906,10 +1062,27 @@ describe("Recommendation engine", () => {
       chapters: [
         makeChapter({
           id: "ch-1",
-          topics: [makeTopic({ id: "t1", learningStatus: true, revisionCount: 3, practiceCount: 3 })],
+          topics: [
+            makeTopic({
+              id: "t1",
+              learningStatus: true,
+              revisionCount: 3,
+              practiceCount: 3,
+            }),
+          ],
           testRecords: [
-            { id: "tr-healthy", marksObtained: 80, totalMarks: 100, createdAt: new Date("2026-07-20T00:00:00.000Z") },
-            { id: "tr-weak", marksObtained: 20, totalMarks: 100, createdAt: new Date("2026-07-20T00:00:00.000Z") },
+            {
+              id: "tr-healthy",
+              marksObtained: 80,
+              totalMarks: 100,
+              createdAt: new Date("2026-07-20T00:00:00.000Z"),
+            },
+            {
+              id: "tr-weak",
+              marksObtained: 20,
+              totalMarks: 100,
+              createdAt: new Date("2026-07-20T00:00:00.000Z"),
+            },
           ],
         }),
       ],
@@ -924,10 +1097,27 @@ describe("Recommendation engine", () => {
       chapters: [
         makeChapter({
           id: "ch-1",
-          topics: [makeTopic({ id: "t1", learningStatus: true, revisionCount: 3, practiceCount: 3 })],
+          topics: [
+            makeTopic({
+              id: "t1",
+              learningStatus: true,
+              revisionCount: 3,
+              practiceCount: 3,
+            }),
+          ],
           testRecords: [
-            { id: "a-weak", marksObtained: 20, totalMarks: 100, createdAt: new Date("2026-07-20T00:00:00.000Z") },
-            { id: "b-healthy", marksObtained: 80, totalMarks: 100, createdAt: new Date("2026-07-20T00:00:00.000Z") },
+            {
+              id: "a-weak",
+              marksObtained: 20,
+              totalMarks: 100,
+              createdAt: new Date("2026-07-20T00:00:00.000Z"),
+            },
+            {
+              id: "b-healthy",
+              marksObtained: 80,
+              totalMarks: 100,
+              createdAt: new Date("2026-07-20T00:00:00.000Z"),
+            },
           ],
         }),
       ],
@@ -936,10 +1126,27 @@ describe("Recommendation engine", () => {
       chapters: [
         makeChapter({
           id: "ch-1",
-          topics: [makeTopic({ id: "t1", learningStatus: true, revisionCount: 3, practiceCount: 3 })],
+          topics: [
+            makeTopic({
+              id: "t1",
+              learningStatus: true,
+              revisionCount: 3,
+              practiceCount: 3,
+            }),
+          ],
           testRecords: [
-            { id: "b-healthy", marksObtained: 80, totalMarks: 100, createdAt: new Date("2026-07-20T00:00:00.000Z") },
-            { id: "a-weak", marksObtained: 20, totalMarks: 100, createdAt: new Date("2026-07-20T00:00:00.000Z") },
+            {
+              id: "b-healthy",
+              marksObtained: 80,
+              totalMarks: 100,
+              createdAt: new Date("2026-07-20T00:00:00.000Z"),
+            },
+            {
+              id: "a-weak",
+              marksObtained: 20,
+              totalMarks: 100,
+              createdAt: new Date("2026-07-20T00:00:00.000Z"),
+            },
           ],
         }),
       ],

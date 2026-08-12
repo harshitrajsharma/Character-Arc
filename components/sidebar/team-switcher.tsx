@@ -8,7 +8,6 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
@@ -16,35 +15,46 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarTrigger,
 } from "@/components/ui/sidebar"
-import { ChevronDownIcon, PlusIcon } from "lucide-react"
+import { ChevronDownIcon, BuildingIcon, UserIcon } from "lucide-react"
+import { useParams, useRouter } from "next/navigation"
+import type { getAppShellData } from "@/lib/workspaces/workspace-access"
 
 export function TeamSwitcher({
-  teams,
+  workspaces,
 }: {
-  teams: {
-    name: string
-    logo: React.ReactNode
-    plan: string
-  }[]
+  workspaces: NonNullable<Awaited<ReturnType<typeof getAppShellData>>>
 }) {
-  const [activeTeam, setActiveTeam] = React.useState(teams[0])
-  if (!activeTeam) {
+  const router = useRouter()
+  const params = useParams()
+  const currentSlug = params?.workspaceSlug as string | undefined
+
+  const activeWorkspace = React.useMemo(() => {
+    if (currentSlug) {
+      const match = workspaces.find((w) => w.slug === currentSlug)
+      if (match) return match
+    }
+    return workspaces[0]
+  }, [workspaces, currentSlug])
+
+  if (!activeWorkspace) {
     return null
   }
   return (
     <SidebarMenu>
       <SidebarMenuItem>
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={<SidebarMenuButton className="w-fit px-1.5" />}
-          >
-            <div className="flex aspect-square size-5 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
-              {activeTeam.logo}
-            </div>
-            <span className="truncate font-medium">{activeTeam.name}</span>
-            <ChevronDownIcon className="opacity-50" />
-          </DropdownMenuTrigger>
+        <div className="flex items-center gap-1">
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={<SidebarMenuButton className="w-fit px-1.5" />}
+            >
+              <div className="flex aspect-square size-5 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
+                {activeWorkspace.kind === "PERSONAL" ? <UserIcon className="size-3.5" /> : <BuildingIcon className="size-3.5" />}
+              </div>
+              <span className="truncate font-medium">{activeWorkspace.name}</span>
+              <ChevronDownIcon className="opacity-50" />
+            </DropdownMenuTrigger>
           <DropdownMenuContent
             className="w-64 rounded-lg"
             align="start"
@@ -53,35 +63,26 @@ export function TeamSwitcher({
           >
             <DropdownMenuGroup>
               <DropdownMenuLabel className="text-xs text-muted-foreground">
-                Teams
+                Workspaces
               </DropdownMenuLabel>
-              {teams.map((team, index) => (
+              {workspaces.map((workspace, index) => (
                 <DropdownMenuItem
-                  key={team.name}
-                  onClick={() => setActiveTeam(team)}
+                  key={workspace.id}
+                  onClick={() => router.push(`/workspace/${workspace.slug}`)}
                   className="gap-2 p-2"
                 >
                   <div className="flex size-6 items-center justify-center rounded-xs border">
-                    {team.logo}
+                    {workspace.kind === "PERSONAL" ? <UserIcon className="size-4" /> : <BuildingIcon className="size-4" /> }
                   </div>
-                  {team.name}
+                  {workspace.name}
                   <DropdownMenuShortcut>⌘{index + 1}</DropdownMenuShortcut>
                 </DropdownMenuItem>
               ))}
             </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuItem className="gap-2 p-2">
-                <div className="flex size-6 items-center justify-center rounded-md border bg-background">
-                  <PlusIcon className="size-4" />
-                </div>
-                <div className="font-medium text-muted-foreground">
-                  Add team
-                </div>
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
           </DropdownMenuContent>
-        </DropdownMenu>
+          </DropdownMenu>
+          <SidebarTrigger className="ml-auto group-data-[collapsible=icon]:hidden" />
+        </div>
       </SidebarMenuItem>
     </SidebarMenu>
   )

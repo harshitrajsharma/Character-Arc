@@ -29,7 +29,8 @@ export type RecommendationType =
 /**
  * Non-color status values that can be communicated accessibly via icon + label.
  */
-export type RecommendationUrgency = "critical" | "warning" | "suggestion" | "completed"
+export type RecommendationUrgency =
+  "critical" | "warning" | "suggestion" | "completed"
 
 // ---------------------------------------------------------------------------
 // Core recommendation interface

@@ -17,6 +17,9 @@ export async function GET(request: NextRequest) {
   }
 
   const errorUrl = new URL("/login", request.url)
-  errorUrl.searchParams.set("error", "The sign-in link is invalid or has expired.")
+  errorUrl.searchParams.set(
+    "error",
+    "The sign-in link is invalid or has expired."
+  )
   return NextResponse.redirect(errorUrl)
 }

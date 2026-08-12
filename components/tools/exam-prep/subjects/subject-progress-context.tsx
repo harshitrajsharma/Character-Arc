@@ -4,16 +4,22 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react"
 
 import { withCalculatedSubjectProgress } from "@/lib/tools/exam-prep/progress/subject-rollup"
-import type { ChapterWithRelations, SubjectWithRelations } from "@/types/progressapp/domain"
+import type {
+  ChapterWithRelations,
+  ScheduledTest,
+  SubjectWithRelations,
+} from "@/types/progressapp/domain"
 import type { NormalizedTestRecord } from "@/lib/tools/exam-prep/actions/test-actions"
-import { upsertTestRecord as upsertTestRecordHelper, removeTestRecord as removeTestRecordHelper } from "./test-record-state"
+import {
+  upsertTestRecord as upsertTestRecordHelper,
+  removeTestRecord as removeTestRecordHelper,
+} from "./test-record-state"
 
 type ChapterUpdater =
   | ChapterWithRelations[]
@@ -24,9 +30,12 @@ type SubjectProgressContextValue = {
   updateChapters: (updater: ChapterUpdater) => void
   upsertTestRecord: (record: NormalizedTestRecord) => void
   removeTestRecord: (recordId: string) => void
+  upsertScheduledTest: (scheduledTest: ScheduledTest) => void
+  removeScheduledTest: (scheduledTestId: string) => void
 }
 
-const SubjectProgressContext = createContext<SubjectProgressContextValue | null>(null)
+const SubjectProgressContext =
+  createContext<SubjectProgressContextValue | null>(null)
 
 export function SubjectProgressProvider({
   initialSubject,
@@ -46,7 +55,8 @@ export function SubjectProgressProvider({
   const updateChapters = useCallback((updater: ChapterUpdater) => {
     setSourceSubject((current) => ({
       ...current,
-      chapters: typeof updater === "function" ? updater(current.chapters) : updater,
+      chapters:
+        typeof updater === "function" ? updater(current.chapters) : updater,
     }))
   }, [])
 
@@ -58,14 +68,54 @@ export function SubjectProgressProvider({
     setSourceSubject((current) => removeTestRecordHelper(current, recordId))
   }, [])
 
+  const upsertScheduledTest = useCallback((scheduledTest: ScheduledTest) => {
+    setSourceSubject((current) => {
+      if (scheduledTest.subjectId !== current.id) return current
+
+      const existing = current.scheduledTests ?? []
+      const scheduledTests = existing.some(
+        (candidate) => candidate.id === scheduledTest.id
+      )
+        ? existing.map((candidate) =>
+            candidate.id === scheduledTest.id ? scheduledTest : candidate
+          )
+        : [scheduledTest, ...existing]
+
+      return { ...current, scheduledTests }
+    })
+  }, [])
+
+  const removeScheduledTest = useCallback((scheduledTestId: string) => {
+    setSourceSubject((current) => ({
+      ...current,
+      scheduledTests: (current.scheduledTests ?? []).filter(
+        (scheduledTest) => scheduledTest.id !== scheduledTestId
+      ),
+    }))
+  }, [])
+
   const subject = useMemo(
     () => withCalculatedSubjectProgress(sourceSubject),
     [sourceSubject]
   )
-  
+
   const value = useMemo(
-    () => ({ subject, updateChapters, upsertTestRecord, removeTestRecord }),
-    [subject, updateChapters, upsertTestRecord, removeTestRecord]
+    () => ({
+      subject,
+      updateChapters,
+      upsertTestRecord,
+      removeTestRecord,
+      upsertScheduledTest,
+      removeScheduledTest,
+    }),
+    [
+      subject,
+      updateChapters,
+      upsertTestRecord,
+      removeTestRecord,
+      upsertScheduledTest,
+      removeScheduledTest,
+    ]
   )
 
   return (
@@ -78,7 +128,9 @@ export function SubjectProgressProvider({
 export function useSubjectProgress() {
   const context = useContext(SubjectProgressContext)
   if (!context) {
-    throw new Error("useSubjectProgress must be used within SubjectProgressProvider")
+    throw new Error(
+      "useSubjectProgress must be used within SubjectProgressProvider"
+    )
   }
   return context
 }

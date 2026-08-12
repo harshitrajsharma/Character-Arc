@@ -20,7 +20,6 @@ export function ArcFormActions({ pending, errorMessage }: ArcFormActionsProps) {
 
   return (
     <>
-
       <div className="mt-6 flex flex-col gap-3">
         <Button type="submit" size="lg" disabled={pending} className="w-full">
           {pending ? (

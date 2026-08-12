@@ -3,4 +3,4 @@ export type {
   TopicResponse,
   TopicUpdateData,
   TopicWithRelations,
-} from "@/types/progressapp/domain";
+} from "@/types/progressapp/domain"

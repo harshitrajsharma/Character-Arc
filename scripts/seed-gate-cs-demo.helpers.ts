@@ -13,7 +13,10 @@ export type GateCsDemoSeedArguments = {
   confirm: boolean
 }
 
-export function getGateCsDemoIdempotencyKey(action: string, identifier: string) {
+export function getGateCsDemoIdempotencyKey(
+  action: string,
+  identifier: string
+) {
   const prefix = `seed-gate-2027-${action}`
   const normalizedIdentifier = identifier
     .replace(/[^a-z0-9]/gi, "-")

@@ -1,6 +1,13 @@
 "use client"
+import { createIdempotencyKey } from "@/lib/forms/idempotency-key"
 
-import { createContext, useCallback, useContext, useState, type ReactNode } from "react"
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useState,
+  type ReactNode,
+} from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { GraduationCapIcon } from "lucide-react"
@@ -32,7 +39,7 @@ export function CreateExamDialogWrapper({
   const setOpen = useCallback((nextOpen: boolean) => {
     setOpenState(nextOpen)
     if (nextOpen) {
-      setIdempotencyKey(crypto.randomUUID())
+      setIdempotencyKey(createIdempotencyKey())
     } else {
       setIdempotencyKey(null)
     }
@@ -48,16 +55,18 @@ export function CreateExamDialogWrapper({
     <DialogContext.Provider value={{ setOpen }}>
       {children}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="w-full h-full max-h-dvh sm:h-auto sm:max-h-[90vh] sm:max-w-xl rounded-none sm:rounded-3xl p-6 sm:p-8 flex flex-col gap-6 overflow-y-auto">
-          <DialogHeader className="mb-2">
+        <DialogContent className="flex h-full max-h-dvh w-full flex-col gap-6 overflow-y-auto rounded-none p-6 sm:h-auto sm:max-h-[90vh] sm:max-w-xl sm:rounded-3xl sm:p-8">
+          <DialogHeader className="-mx-6 -mt-6 mb-2 px-6 py-4 pr-14 sm:-mx-8 sm:-mt-8 sm:px-8 sm:py-5">
             <div className="flex items-center gap-3">
               <span className="flex size-10 items-center justify-center rounded-lg bg-brand-neon-soft text-brand-neon-ink">
                 <GraduationCapIcon className="size-5" aria-hidden="true" />
               </span>
               <div>
-                <DialogTitle className="text-xl font-semibold">Track a new exam</DialogTitle>
+                <DialogTitle className="text-xl font-semibold">
+                  Track a new exam
+                </DialogTitle>
                 <DialogDescription>
-                  Set up the foundation to track your syllabus.
+                  All fields marked with * are compulsory to track a new exam.
                 </DialogDescription>
               </div>
             </div>

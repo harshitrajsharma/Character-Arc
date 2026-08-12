@@ -20,7 +20,7 @@ export function AuthFeedback({
       toast.error(error)
       lastShownError.current = error
     }
-    
+
     if (notice && notice !== lastShownNotice.current) {
       toast.success(notice)
       lastShownNotice.current = notice

@@ -14,12 +14,17 @@ function CategoryProgress({
   variant,
 }: {
   title: string
-  data: { value: number; completed: number; total: number; notRequired?: boolean }
+  data: {
+    value: number
+    completed: number
+    total: number
+    notRequired?: boolean
+  }
   variant: keyof typeof progressVariants
 }) {
   const theme = progressVariants[variant]
   const progressColor = cn(
-    "h-1.5 md:h-2 rounded-full shadow-sm transition-all duration-500",
+    "h-1.5 rounded-full shadow-sm transition-all duration-500 md:h-2",
     data.value < 30 && theme.low,
     data.value >= 30 && data.value < 70 && theme.medium,
     data.value >= 70 && theme.high
@@ -28,7 +33,9 @@ function CategoryProgress({
   return (
     <div className="space-y-1.5 rounded-lg p-1 md:p-2">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold text-foreground md:text-sm">{title}</span>
+        <span className="text-xs font-semibold text-foreground md:text-sm">
+          {title}
+        </span>
         <div className="flex items-center gap-1.5 md:gap-2">
           <Badge
             variant="secondary"
@@ -37,7 +44,9 @@ function CategoryProgress({
               theme.badge
             )}
           >
-            {data.notRequired ? "Not required" : `${data.completed}/${data.total}`}
+            {data.notRequired
+              ? "Not required"
+              : `${data.completed}/${data.total}`}
           </Badge>
         </div>
       </div>
@@ -46,12 +55,13 @@ function CategoryProgress({
         {[25, 50, 75].map((milestone) => (
           <div
             key={milestone}
-            className="absolute bottom-0 top-0 w-px bg-muted-foreground/20"
+            className="absolute top-0 bottom-0 w-px bg-muted-foreground/20"
             style={{ left: `${milestone}%` }}
           />
         ))}
         <div
           role="progressbar"
+          aria-label={`${title} progress`}
           aria-valuenow={data.value}
           aria-valuemin={0}
           aria-valuemax={100}
@@ -64,18 +74,31 @@ function CategoryProgress({
       </div>
 
       <div className="flex items-center justify-between text-[10px] md:text-xs">
-        <span className={cn("font-medium transition-colors", data.value >= 70 && theme.text)}>
-          {data.notRequired ? "Excluded by settings" : `${data.value}% complete`}
+        <span
+          className={cn(
+            "font-medium transition-colors",
+            data.value >= 70 && theme.text
+          )}
+        >
+          {data.notRequired
+            ? "Excluded by settings"
+            : `${data.value}% complete`}
         </span>
         {!data.notRequired && data.value < 100 && (
-          <span className="hidden text-muted-foreground md:block">{100 - data.value}% to go</span>
+          <span className="hidden text-muted-foreground md:block">
+            {100 - data.value}% to go
+          </span>
         )}
       </div>
     </div>
   )
 }
 
-export function ProgressOverview({ subject }: { subject: SubjectWithRelations }) {
+export function ProgressOverview({
+  subject,
+}: {
+  subject: SubjectWithRelations
+}) {
   const progress = calculateSubjectProgress(subject)
   const overall = Math.round(progress.overall)
 
@@ -110,21 +133,26 @@ export function ProgressOverview({ subject }: { subject: SubjectWithRelations })
       <div className="space-y-4">
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-foreground md:text-base">Overall Progress</h2>
+            <h2 className="text-sm font-semibold text-foreground md:text-base">
+              Overall Progress
+            </h2>
             <div className="flex items-center gap-1.5 md:gap-2">
-              <span className="text-xs font-medium text-foreground md:text-sm">{overall}%</span>
+              <span className="text-xs font-medium text-foreground md:text-sm">
+                {overall}%
+              </span>
             </div>
           </div>
           <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-muted md:h-2">
             {[25, 50, 75].map((milestone) => (
               <div
                 key={milestone}
-                className="absolute bottom-0 top-0 w-px bg-muted-foreground/20"
+                className="absolute top-0 bottom-0 w-px bg-muted-foreground/20"
                 style={{ left: `${milestone}%` }}
               />
             ))}
             <div
               role="progressbar"
+              aria-label="Overall progress"
               aria-valuenow={overall}
               aria-valuemin={0}
               aria-valuemax={100}
@@ -138,10 +166,26 @@ export function ProgressOverview({ subject }: { subject: SubjectWithRelations })
         </div>
 
         <div className="grid grid-cols-2 gap-2">
-          <CategoryProgress title="Learning" data={progressData.categories.learning} variant="learning" />
-          <CategoryProgress title="Revision" data={progressData.categories.revision} variant="revision" />
-          <CategoryProgress title="Practice" data={progressData.categories.practice} variant="practice" />
-          <CategoryProgress title="Test" data={progressData.categories.test} variant="test" />
+          <CategoryProgress
+            title="Learning"
+            data={progressData.categories.learning}
+            variant="learning"
+          />
+          <CategoryProgress
+            title="Revision"
+            data={progressData.categories.revision}
+            variant="revision"
+          />
+          <CategoryProgress
+            title="Practice"
+            data={progressData.categories.practice}
+            variant="practice"
+          />
+          <CategoryProgress
+            title="Test"
+            data={progressData.categories.test}
+            variant="test"
+          />
         </div>
       </div>
     </Card>

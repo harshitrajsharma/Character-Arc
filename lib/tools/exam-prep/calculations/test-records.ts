@@ -4,7 +4,10 @@ import type { SubjectProgressPolicy } from "@/lib/tools/exam-prep/progress/polic
 export type TestRecordInput = Pick<
   BaseTestRecord,
   "id" | "chapterId" | "marksObtained" | "totalMarks"
->
+> & {
+  scope?: BaseTestRecord["scope"]
+  targetChapterIds?: BaseTestRecord["targetChapterIds"]
+}
 
 export type TestProgressEvidence = {
   percentage: number
@@ -20,9 +23,9 @@ export type TestProgressEvidence = {
   }
 }
 
-export type ExpectedMarksEvidence = {
+export type TestScoreEvidence = {
   percentage: number | null
-  expectedMarks: number | null
+  weightedMarksContribution: number | null
   chapterAveragePercentage: number | null
   subjectAveragePercentage: number | null
   validChapterRecords: number
@@ -31,6 +34,15 @@ export type ExpectedMarksEvidence = {
   activeChapters: number
   chapterCoveragePercentage: number
   coverageStatus: "none" | "limited" | "developing" | "strong"
+}
+
+/**
+ * @deprecated Use TestScoreEvidence. This alias remains only for currently
+ * inactive dashboard code and will be removed when that surface is rebuilt.
+ */
+export type ExpectedMarksEvidence = TestScoreEvidence & {
+  /** @deprecated Use weightedMarksContribution. */
+  expectedMarks: number | null
 }
 
 export type WeightedAverageMarksEvidence = {
@@ -49,7 +61,10 @@ export function isValidTestRecord(record: TestRecordInput): boolean {
   )
 }
 
-export function validateTestRecordMarks(marksObtained: unknown, totalMarks: unknown): { marksObtained: number; totalMarks: number; percentage: number } {
+export function validateTestRecordMarks(
+  marksObtained: unknown,
+  totalMarks: unknown
+): { marksObtained: number; totalMarks: number; percentage: number } {
   const m = Number(marksObtained)
   const t = Number(totalMarks)
   if (!Number.isFinite(m) || !Number.isFinite(t)) {
@@ -103,7 +118,21 @@ export function calculateSubjectTestProgress({
 
   for (const record of validRecords) {
     if (record.chapterId && activeChapterIds.has(record.chapterId)) {
-      recordsByChapter.set(record.chapterId, (recordsByChapter.get(record.chapterId) ?? 0) + 1)
+      recordsByChapter.set(
+        record.chapterId,
+        (recordsByChapter.get(record.chapterId) ?? 0) + 1
+      )
+    } else if (record.scope === "multi-chapter") {
+      // A multi-chapter result counts as evidence for every covered chapter,
+      // never toward the full-subject target.
+      for (const chapterId of record.targetChapterIds ?? []) {
+        if (activeChapterIds.has(chapterId)) {
+          recordsByChapter.set(
+            chapterId,
+            (recordsByChapter.get(chapterId) ?? 0) + 1
+          )
+        }
+      }
     } else if (!record.chapterId) {
       validSubjectRecords += 1
     }
@@ -112,10 +141,14 @@ export function calculateSubjectTestProgress({
   const chapterTargetRecords = chapterIds.length * policy.chapterTestTarget
   const completedChapterRecords = chapterIds.reduce(
     (total, chapterId) =>
-      total + Math.min(recordsByChapter.get(chapterId) ?? 0, policy.chapterTestTarget),
+      total +
+      Math.min(recordsByChapter.get(chapterId) ?? 0, policy.chapterTestTarget),
     0
   )
-  const completedSubjectRecords = Math.min(validSubjectRecords, policy.subjectTestTarget)
+  const completedSubjectRecords = Math.min(
+    validSubjectRecords,
+    policy.subjectTestTarget
+  )
   const targetRecords = chapterTargetRecords + policy.subjectTestTarget
   const completedRecords = completedChapterRecords + completedSubjectRecords
 
@@ -134,7 +167,7 @@ export function calculateSubjectTestProgress({
   }
 }
 
-export function calculateExpectedMarksEvidence({
+export function calculateTestScoreEvidence({
   chapterIds,
   records,
   weightage,
@@ -155,6 +188,14 @@ export function calculateExpectedMarksEvidence({
       const percentages = chapterPercentages.get(record.chapterId) ?? []
       percentages.push(percentage)
       chapterPercentages.set(record.chapterId, percentages)
+    } else if (record.scope === "multi-chapter") {
+      for (const chapterId of record.targetChapterIds ?? []) {
+        if (activeChapterIds.has(chapterId)) {
+          const chapterPercentagesForId = chapterPercentages.get(chapterId) ?? []
+          chapterPercentagesForId.push(percentage)
+          chapterPercentages.set(chapterId, chapterPercentagesForId)
+        }
+      }
     } else if (!record.chapterId) {
       subjectPercentages.push(percentage)
     }
@@ -168,12 +209,17 @@ export function calculateExpectedMarksEvidence({
     chapterAveragePercentage,
     subjectAveragePercentage
   )
-  const normalizedWeightage = Number.isFinite(weightage) ? Math.max(0, weightage) : 0
-  const expectedMarks =
+  const normalizedWeightage = Number.isFinite(weightage)
+    ? Math.max(0, weightage)
+    : 0
+  const weightedMarksContribution =
     percentage === null
       ? null
       : roundToOneDecimal(
-          Math.min(normalizedWeightage, (normalizedWeightage * percentage) / 100)
+          Math.min(
+            normalizedWeightage,
+            (normalizedWeightage * percentage) / 100
+          )
         )
   const validChapterRecords = chapterRecordGroups.reduce(
     (total, percentages) => total + percentages.length,
@@ -196,11 +242,18 @@ export function calculateExpectedMarksEvidence({
 
   return {
     percentage: percentage === null ? null : roundToOneDecimal(percentage),
-    expectedMarks,
+    weightedMarksContribution,
+    // Compatibility for inactive dashboard/analytics consumers. Active code
+    // should use weightedMarksContribution or percentage instead.
+    expectedMarks: weightedMarksContribution,
     chapterAveragePercentage:
-      chapterAveragePercentage === null ? null : roundToOneDecimal(chapterAveragePercentage),
+      chapterAveragePercentage === null
+        ? null
+        : roundToOneDecimal(chapterAveragePercentage),
     subjectAveragePercentage:
-      subjectAveragePercentage === null ? null : roundToOneDecimal(subjectAveragePercentage),
+      subjectAveragePercentage === null
+        ? null
+        : roundToOneDecimal(subjectAveragePercentage),
     validChapterRecords,
     validSubjectRecords: subjectPercentages.length,
     testedChapters,
@@ -251,14 +304,21 @@ function getCoverageStatus({
   testedChapters: number
   validChapterRecords: number
   validSubjectRecords: number
-}): ExpectedMarksEvidence["coverageStatus"] {
+}): TestScoreEvidence["coverageStatus"] {
   if (validChapterRecords + validSubjectRecords === 0) return "none"
-  if (validSubjectRecords > 0 || (activeChapters > 0 && testedChapters === activeChapters)) {
+  if (
+    validSubjectRecords > 0 ||
+    (activeChapters > 0 && testedChapters === activeChapters)
+  ) {
     return "strong"
   }
-  if (activeChapters > 0 && testedChapters / activeChapters >= 0.5) return "developing"
+  if (activeChapters > 0 && testedChapters / activeChapters >= 0.5)
+    return "developing"
   return "limited"
 }
+
+/** @deprecated Use calculateTestScoreEvidence. */
+export const calculateExpectedMarksEvidence = calculateTestScoreEvidence
 
 function combineScopePercentages(
   chapterAverage: number | null,
@@ -271,7 +331,9 @@ function combineScopePercentages(
 }
 
 function calculateTargetPercentage(completed: number, target: number): number {
-  return target === 0 ? 100 : roundToOneDecimal(Math.min(100, (completed / target) * 100))
+  return target === 0
+    ? 100
+    : roundToOneDecimal(Math.min(100, (completed / target) * 100))
 }
 
 function average(values: readonly number[]): number {

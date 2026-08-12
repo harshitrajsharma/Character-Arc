@@ -7,7 +7,10 @@ import {
 } from "@/components/tools/exam-prep/subjects/recommendations/types"
 import { applyTopicProgress } from "@/components/tools/exam-prep/subjects/syllabus/syllabus-model"
 import { generateStudyPath } from "@/lib/tools/exam-prep/study-path"
-import type { StudyPathStep, StudyPathEngineInput } from "@/lib/tools/exam-prep/study-path/types"
+import type {
+  StudyPathStep,
+  StudyPathEngineInput,
+} from "@/lib/tools/exam-prep/study-path/types"
 import { DEFAULT_SUBJECT_PROGRESS_POLICY } from "@/lib/tools/exam-prep/progress/policy"
 
 const NOW = new Date("2026-07-23T00:00:00.000Z")
@@ -30,9 +33,15 @@ describe("Study Path UI Integration & Helpers", () => {
       updatedAt: NOW,
     }
 
-    expect(applyTopicProgress(topic, "learning", true, NOW).learningCompletedAt).toEqual(NOW)
-    expect(applyTopicProgress(topic, "revision", 1, NOW).lastRevised).toEqual(NOW)
-    expect(applyTopicProgress(topic, "practice", 1, NOW).lastPracticed).toEqual(NOW)
+    expect(
+      applyTopicProgress(topic, "learning", true, NOW).learningCompletedAt
+    ).toEqual(NOW)
+    expect(applyTopicProgress(topic, "revision", 1, NOW).lastRevised).toEqual(
+      NOW
+    )
+    expect(applyTopicProgress(topic, "practice", 1, NOW).lastPracticed).toEqual(
+      NOW
+    )
   })
 
   test("getActionLabelForStep returns required action labels", () => {
@@ -148,8 +157,12 @@ describe("Study Path UI Integration & Helpers", () => {
     }
 
     const output = generateStudyPath(input)
-    const requiredSteps = output.allSteps.filter((s) => s.evidence !== "Not required")
-    const notRequiredSteps = output.allSteps.filter((s) => s.evidence === "Not required")
+    const requiredSteps = output.allSteps.filter(
+      (s) => s.evidence !== "Not required"
+    )
+    const notRequiredSteps = output.allSteps.filter(
+      (s) => s.evidence === "Not required"
+    )
 
     // Learn step is required; revise, practice, chapter-test, subject-test are "Not required"
     expect(notRequiredSteps.length).toBe(4)
@@ -167,9 +180,36 @@ describe("Study Path UI Integration & Helpers", () => {
           important: false,
           testRecords: [],
           topics: [
-            { id: "t1", name: "Topic 1", position: 1, important: true, learningStatus: false, revisionCount: 0, practiceCount: 0, nextRevision: null },
-            { id: "t2", name: "Topic 2", position: 2, important: false, learningStatus: false, revisionCount: 0, practiceCount: 0, nextRevision: null },
-            { id: "t3", name: "Topic 3", position: 3, important: false, learningStatus: false, revisionCount: 0, practiceCount: 0, nextRevision: null },
+            {
+              id: "t1",
+              name: "Topic 1",
+              position: 1,
+              important: true,
+              learningStatus: false,
+              revisionCount: 0,
+              practiceCount: 0,
+              nextRevision: null,
+            },
+            {
+              id: "t2",
+              name: "Topic 2",
+              position: 2,
+              important: false,
+              learningStatus: false,
+              revisionCount: 0,
+              practiceCount: 0,
+              nextRevision: null,
+            },
+            {
+              id: "t3",
+              name: "Topic 3",
+              position: 3,
+              important: false,
+              learningStatus: false,
+              revisionCount: 0,
+              practiceCount: 0,
+              nextRevision: null,
+            },
           ],
         },
       ],
@@ -204,6 +244,8 @@ describe("Study Path UI Integration & Helpers", () => {
     expect(isPendingStudyPathStep(step)).toBe(true)
     expect(isPendingStudyPathStep({ ...step, status: "locked" })).toBe(true)
     expect(isPendingStudyPathStep({ ...step, status: "completed" })).toBe(false)
-    expect(isPendingStudyPathStep({ ...step, status: "overachieved" })).toBe(false)
+    expect(isPendingStudyPathStep({ ...step, status: "overachieved" })).toBe(
+      false
+    )
   })
 })

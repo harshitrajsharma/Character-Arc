@@ -2,9 +2,17 @@
 import { cache } from "react"
 import { z } from "zod"
 import { prisma } from "@/lib/prisma"
-import { SubjectWithRelations } from "@/types/progressapp/domain"
+import type {
+  ScheduledTest,
+  SubjectWithRelations,
+} from "@/types/progressapp/domain"
 import { withCalculatedSubjectProgress } from "@/lib/tools/exam-prep/progress/subject-rollup"
 import { normalizeSubjectProgressPolicy } from "@/lib/tools/exam-prep/progress/policy"
+
+// Progress/test evidence only needs the newest attempts per chapter/subject,
+// so a bounded window of recent records keeps dashboard hydration from loading
+// an unbounded history on heavily-used workspaces.
+const DASHBOARD_RECORD_WINDOW = 500
 
 // --- Module-level RelationType ID Cache ---
 // BlockRelationType records are static registry data — they only change when
@@ -20,9 +28,18 @@ async function getExamPrepRelationTypeIds() {
   if (_relTypeIds) return _relTypeIds
 
   const [t1, t2, t3] = await Promise.all([
-    prisma.blockRelationType.findUnique({ where: { key: "exam-prep.exam-has-subject" }, select: { id: true } }),
-    prisma.blockRelationType.findUnique({ where: { key: "exam-prep.subject-has-chapter" }, select: { id: true } }),
-    prisma.blockRelationType.findUnique({ where: { key: "exam-prep.chapter-has-topic" }, select: { id: true } }),
+    prisma.blockRelationType.findUnique({
+      where: { key: "exam-prep.exam-has-subject" },
+      select: { id: true },
+    }),
+    prisma.blockRelationType.findUnique({
+      where: { key: "exam-prep.subject-has-chapter" },
+      select: { id: true },
+    }),
+    prisma.blockRelationType.findUnique({
+      where: { key: "exam-prep.chapter-has-topic" },
+      select: { id: true },
+    }),
   ])
 
   if (!t1 || !t2 || !t3) return null
@@ -33,6 +50,64 @@ async function getExamPrepRelationTypeIds() {
     chapterHasTopic: t3.id,
   }
   return _relTypeIds
+}
+
+function toFoundationLevel(
+  level: "BEGINNER" | "MODERATE" | "ADVANCED" | undefined
+): "Beginner" | "Moderate" | "Advanced" {
+  if (level === "MODERATE") return "Moderate"
+  if (level === "ADVANCED") return "Advanced"
+  return "Beginner"
+}
+
+function normalizeTestRecord(record: any) {
+  const { targetChapters = [], ...rest } = record
+  return {
+    ...rest,
+    scope: record.scope
+      ? String(record.scope).toLowerCase().replace("_", "-")
+      : record.chapterId
+        ? "chapter"
+        : "subject",
+    attemptedAt: record.attemptedAt ?? record.createdAt,
+    targetChapterIds: targetChapters.map(
+      (target: { chapterId: string }) => target.chapterId
+    ),
+    marksObtained: Number(record.marksObtained),
+    totalMarks: Number(record.totalMarks),
+  }
+}
+
+function normalizeScheduledTest(record: any): ScheduledTest {
+  return {
+    id: record.id,
+    examId: record.examId,
+    subjectId: record.subjectId,
+    title: record.title,
+    scope: String(record.scope).toLowerCase().replace("_", "-") as
+      "chapter" | "multi-chapter" | "subject",
+    status: String(record.status).toLowerCase() as ScheduledTest["status"],
+    scheduledFor: record.scheduledFor
+      ? record.scheduledFor.toISOString().slice(0, 10)
+      : null,
+    durationMinutes: record.durationMinutes,
+    totalMarks:
+      record.totalMarks === null || record.totalMarks === undefined
+        ? null
+        : Number(record.totalMarks),
+    notes: record.notes,
+    revision: record.revision,
+    rescheduleCount: record.rescheduleCount,
+    completedAt: record.completedAt?.toISOString() ?? null,
+    cancelledAt: record.cancelledAt?.toISOString() ?? null,
+    cancellationReason: record.cancellationReason,
+    targetChapterIds: record.chapters.map(
+      (target: { chapterId: string }) => target.chapterId
+    ),
+    testRecordId: record.testRecord?.id ?? null,
+    createdAt: record.createdAt.toISOString(),
+    updatedAt: record.updatedAt.toISOString(),
+  }
 }
 
 // --- Pure Eligibility Helpers ---
@@ -105,10 +180,12 @@ export function checkSubjectEligibility({
   relation,
 }: CheckSubjectEligibilityInput): boolean {
   if (!checkExamEligibility(workspaceId, installationId, exam)) return false
-  if (!checkSubjectOnlyEligibility(workspaceId, installationId, subject)) return false
+  if (!checkSubjectOnlyEligibility(workspaceId, installationId, subject))
+    return false
   if (!relation) return false
   if (relation.workspaceId !== workspaceId) return false
-  if (relation.fromBlockId !== exam!.id || relation.toBlockId !== subject!.id) return false
+  if (relation.fromBlockId !== exam!.id || relation.toBlockId !== subject!.id)
+    return false
   return true
 }
 
@@ -136,18 +213,31 @@ export async function getExamDashboardData(
 
   const examData = await prisma.block.findFirst({
     where: { id: examId },
-    select: { workspaceId: true, status: true, archivedAt: true, originToolInstallationId: true }
+    select: {
+      workspaceId: true,
+      status: true,
+      archivedAt: true,
+      originToolInstallationId: true,
+    },
   })
   if (!checkExamEligibility(workspaceId, installationId, examData)) {
     return []
   }
 
   const subjectsRels = await prisma.blockRelation.findMany({
-    where: { workspaceId, fromBlockId: examId, relationTypeId: relTypeIds.examHasSubject },
-    select: { toBlockId: true, position: true },
+    where: {
+      workspaceId,
+      fromBlockId: examId,
+      relationTypeId: relTypeIds.examHasSubject,
+    },
+    select: {
+      toBlockId: true,
+      position: true,
+      examSubject: { select: { weightage: true, isRequired: true } },
+    },
     orderBy: { position: "asc" },
   })
-  const subjectIds = subjectsRels.map(r => r.toBlockId)
+  const subjectIds = subjectsRels.map((r) => r.toBlockId)
   if (subjectIds.length === 0) return []
 
   const subjectsData = await prisma.block.findMany({
@@ -159,64 +249,140 @@ export async function getExamDashboardData(
       blockType: { key: "exam-prep.subject" },
       originToolInstallationId: installationId,
     },
-    select: { id: true, title: true, properties: true, status: true, archivedAt: true, originToolInstallationId: true, workspaceId: true, createdAt: true, updatedAt: true }
+    select: {
+      id: true,
+      title: true,
+      properties: true,
+      status: true,
+      archivedAt: true,
+      originToolInstallationId: true,
+      workspaceId: true,
+      createdAt: true,
+      updatedAt: true,
+      subjectDetails: { select: { foundationLevel: true } },
+    },
   })
 
-  // Filter out any subjects that do not match the eligibility criteria
-  const subjects = subjectsData.filter(subj =>
-    checkSubjectOnlyEligibility(workspaceId, installationId, subj)
+  // Prisma does not preserve the order of an `in` filter. Rebuild the array
+  // from the already-positioned exam-subject relations so a saved reorder is
+  // reflected consistently after a Server Action revalidation or page load.
+  const eligibleSubjectById = new Map(
+    subjectsData
+      .filter((subject) =>
+        checkSubjectOnlyEligibility(workspaceId, installationId, subject)
+      )
+      .map((subject) => [subject.id, subject])
   )
+  const subjects = subjectsRels.flatMap((relation) => {
+    const subject = eligibleSubjectById.get(relation.toBlockId)
+    return subject ? [subject] : []
+  })
 
   const chaptersRels = await prisma.blockRelation.findMany({
-    where: { workspaceId, fromBlockId: { in: subjectIds }, relationTypeId: relTypeIds.subjectHasChapter },
+    where: {
+      workspaceId,
+      fromBlockId: { in: subjectIds },
+      relationTypeId: relTypeIds.subjectHasChapter,
+    },
     select: { fromBlockId: true, toBlockId: true, position: true },
     orderBy: [{ fromBlockId: "asc" }, { position: "asc" }],
   })
-  const chapterIds = chaptersRels.map(r => r.toBlockId)
-  const chapters = chapterIds.length > 0 ? await prisma.block.findMany({
-    where: {
-      id: { in: chapterIds },
-      workspaceId,
-      status: "ACTIVE",
-      archivedAt: null,
-      blockType: { key: "exam-prep.chapter" },
-      originToolInstallationId: installationId,
-    },
-    select: { id: true, title: true, properties: true, createdAt: true, updatedAt: true }
-  }) : []
+  const chapterIds = chaptersRels.map((r) => r.toBlockId)
+  const chapters =
+    chapterIds.length > 0
+      ? await prisma.block.findMany({
+          where: {
+            id: { in: chapterIds },
+            workspaceId,
+            status: "ACTIVE",
+            archivedAt: null,
+            blockType: { key: "exam-prep.chapter" },
+            originToolInstallationId: installationId,
+          },
+          select: {
+            id: true,
+            title: true,
+            properties: true,
+            createdAt: true,
+            updatedAt: true,
+            chapterDetails: { select: { isImportant: true } },
+          },
+        })
+      : []
 
   const topicsRels = await prisma.blockRelation.findMany({
-    where: { workspaceId, fromBlockId: { in: chapterIds }, relationTypeId: relTypeIds.chapterHasTopic },
+    where: {
+      workspaceId,
+      fromBlockId: { in: chapterIds },
+      relationTypeId: relTypeIds.chapterHasTopic,
+    },
     select: { fromBlockId: true, toBlockId: true, position: true },
     orderBy: [{ fromBlockId: "asc" }, { position: "asc" }],
   })
-  const topicIds = topicsRels.map(r => r.toBlockId)
-  const topics = topicIds.length > 0 ? await prisma.block.findMany({
-    where: {
-      id: { in: topicIds },
-      workspaceId,
-      status: "ACTIVE",
-      archivedAt: null,
-      blockType: { key: "exam-prep.topic" },
-      originToolInstallationId: installationId,
-    },
-    select: { id: true, title: true, properties: true, createdAt: true, updatedAt: true }
-  }) : []
+  const topicIds = topicsRels.map((r) => r.toBlockId)
+  const topics =
+    topicIds.length > 0
+      ? await prisma.block.findMany({
+          where: {
+            id: { in: topicIds },
+            workspaceId,
+            status: "ACTIVE",
+            archivedAt: null,
+            blockType: { key: "exam-prep.topic" },
+            originToolInstallationId: installationId,
+          },
+          select: {
+            id: true,
+            title: true,
+            properties: true,
+            createdAt: true,
+            updatedAt: true,
+            topicDetails: { select: { isImportant: true } },
+          },
+        })
+      : []
 
-  const testRecords = await prisma.testRecord.findMany({
-    where: {
-      workspaceId,
-      userId,
-      examId,
-      subjectId: { in: subjectIds },
-    },
-    orderBy: { createdAt: "desc" },
-  })
+  const [testRecords, scheduledTests] = await Promise.all([
+    prisma.testRecord.findMany({
+      where: {
+        workspaceId,
+        userId,
+        examId,
+        subjectId: { in: subjectIds },
+      },
+      take: DASHBOARD_RECORD_WINDOW,
+      include: {
+        targetChapters: {
+          select: { chapterId: true },
+          orderBy: { position: "asc" },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.scheduledTest.findMany({
+      where: {
+        workspaceId,
+        installationId,
+        userId,
+        examId,
+        subjectId: { in: subjectIds },
+      },
+      take: DASHBOARD_RECORD_WINDOW,
+      include: {
+        chapters: {
+          select: { chapterId: true },
+          orderBy: { position: "asc" },
+        },
+        testRecord: { select: { id: true } },
+      },
+      orderBy: [{ scheduledFor: "asc" }, { createdAt: "desc" }],
+    }),
+  ])
 
   const chaptersBySubject = new Map<string, typeof chapters>()
   for (const rel of chaptersRels) {
     const arr = chaptersBySubject.get(rel.fromBlockId) || []
-    const chapter = chapters.find(c => c.id === rel.toBlockId)
+    const chapter = chapters.find((c) => c.id === rel.toBlockId)
     if (chapter) arr.push(chapter)
     chaptersBySubject.set(rel.fromBlockId, arr)
   }
@@ -224,82 +390,106 @@ export async function getExamDashboardData(
   const topicsByChapter = new Map<string, typeof topics>()
   for (const rel of topicsRels) {
     const arr = topicsByChapter.get(rel.fromBlockId) || []
-    const topic = topics.find(t => t.id === rel.toBlockId)
+    const topic = topics.find((t) => t.id === rel.toBlockId)
     if (topic) arr.push(topic)
     topicsByChapter.set(rel.fromBlockId, arr)
   }
+
+  const subjectRelationById = new Map(
+    subjectsRels.map((relation) => [relation.toBlockId, relation])
+  )
 
   return subjects.map((subj, index) => {
     const subjectProps = subj.properties as any
     const subjChapters = chaptersBySubject.get(subj.id) || []
     const subjectTestRecords = testRecords
       .filter((record) => record.subjectId === subj.id)
-      .map((record) => ({
-        ...record,
-        marksObtained: Number(record.marksObtained),
-        totalMarks: Number(record.totalMarks),
-      }))
-    
+      .map(normalizeTestRecord)
+    const subjectScheduledTests = scheduledTests
+      .filter((scheduledTest) => scheduledTest.subjectId === subj.id)
+      .map(normalizeScheduledTest)
+
     return withCalculatedSubjectProgress({
       id: subj.id,
       name: subj.title,
-      weightage: subjectProps.weightage ?? 0,
-      expectedMarks: subjectProps.expectedMarks ?? 0,
-      foundationLevel: subjectProps.foundationLevel ?? "Beginner",
+      weightage: Number(
+        subjectRelationById.get(subj.id)?.examSubject?.weightage ?? 0
+      ),
+      isRequired:
+        subjectRelationById.get(subj.id)?.examSubject?.isRequired ?? true,
+      expectedMarks: null,
+      foundationLevel: toFoundationLevel(subj.subjectDetails?.foundationLevel),
       overallProgress: 0,
       learningProgress: 0,
       revisionProgress: 0,
       practiceProgress: 0,
       testProgress: 0,
-      position: subjectsRels.find((relation) => relation.toBlockId === subj.id)?.position ?? index,
+      position:
+        subjectsRels.find((relation) => relation.toBlockId === subj.id)
+          ?.position ?? index,
       userId: "",
       createdAt: subj.createdAt,
       updatedAt: subj.updatedAt,
       tests: [],
       mockTests: [],
       testRecords: subjectTestRecords,
-      scheduledTests: Array.isArray(subjectProps.scheduledTests) ? subjectProps.scheduledTests : [],
+      scheduledTests: subjectScheduledTests,
       progressPolicy: normalizeSubjectProgressPolicy(subjectProps),
       chapters: subjChapters.map((chap, cIndex) => {
-        const chapProps = chap.properties as any
         const chapTopics = topicsByChapter.get(chap.id) || []
         return {
           id: chap.id,
           name: chap.title,
-          important: chapProps.important ?? false,
+          important: chap.chapterDetails?.isImportant ?? false,
           overallProgress: 0,
           learningProgress: 0,
           revisionProgress: 0,
           practiceProgress: 0,
           testProgress: 0,
-          position: chaptersRels.find((relation) => relation.toBlockId === chap.id)?.position ?? cIndex,
+          position:
+            chaptersRels.find((relation) => relation.toBlockId === chap.id)
+              ?.position ?? cIndex,
           subjectId: subj.id,
           createdAt: chap.createdAt,
           updatedAt: chap.updatedAt,
-          testRecords: subjectTestRecords.filter((record) => record.chapterId === chap.id),
+          testRecords: subjectTestRecords.filter(
+            (record) =>
+              record.chapterId === chap.id ||
+              record.targetChapterIds.includes(chap.id)
+          ),
           subject: null as any,
           topics: chapTopics.map((top, tIndex) => {
             const topProps = top.properties as any
             return {
               id: top.id,
               name: top.title,
-              important: topProps.important ?? false,
+              important: top.topicDetails?.isImportant ?? false,
               learningStatus: topProps.learningStatus ?? false,
               revisionCount: topProps.revisionCount ?? 0,
               practiceCount: topProps.practiceCount ?? 0,
               testCount: topProps.testCount ?? 0,
-              position: topicsRels.find((relation) => relation.toBlockId === top.id)?.position ?? tIndex,
-              learningCompletedAt: topProps.learningCompletedAt ? new Date(topProps.learningCompletedAt) : null,
-              lastRevised: topProps.lastRevised ? new Date(topProps.lastRevised) : null,
-              lastPracticed: topProps.lastPracticed ? new Date(topProps.lastPracticed) : null,
-              nextRevision: topProps.nextRevision ? new Date(topProps.nextRevision) : null,
+              position:
+                topicsRels.find((relation) => relation.toBlockId === top.id)
+                  ?.position ?? tIndex,
+              learningCompletedAt: topProps.learningCompletedAt
+                ? new Date(topProps.learningCompletedAt)
+                : null,
+              lastRevised: topProps.lastRevised
+                ? new Date(topProps.lastRevised)
+                : null,
+              lastPracticed: topProps.lastPracticed
+                ? new Date(topProps.lastPracticed)
+                : null,
+              nextRevision: topProps.nextRevision
+                ? new Date(topProps.nextRevision)
+                : null,
               chapterId: chap.id,
               createdAt: top.createdAt,
               updatedAt: top.updatedAt,
             }
-          })
+          }),
         }
-      })
+      }),
     })
   })
 }
@@ -334,60 +524,114 @@ export async function getSubjectDashboardData(
       archivedAt: null,
       blockType: { key: "exam-prep.subject" },
       ...(installationId ? { originToolInstallationId: installationId } : {}),
-    }
+    },
+    select: {
+      id: true,
+      title: true,
+      properties: true,
+      position: true,
+      createdAt: true,
+      updatedAt: true,
+      subjectDetails: { select: { foundationLevel: true } },
+    },
   })
   if (!subject) {
     return null
   }
 
   const chaptersRels = await prisma.blockRelation.findMany({
-    where: { workspaceId, fromBlockId: subjectId, relationTypeId: relTypeIds.subjectHasChapter },
+    where: {
+      workspaceId,
+      fromBlockId: subjectId,
+      relationTypeId: relTypeIds.subjectHasChapter,
+    },
     select: { toBlockId: true, position: true },
     orderBy: { position: "asc" },
   })
-  const chapterIds = chaptersRels.map(r => r.toBlockId)
-  const chapters = chapterIds.length > 0 ? await prisma.block.findMany({
-    where: {
-      id: { in: chapterIds },
-      workspaceId,
-      status: "ACTIVE",
-      archivedAt: null,
-      blockType: { key: "exam-prep.chapter" },
-      ...(installationId ? { originToolInstallationId: installationId } : {}),
-    },
-    select: { id: true, title: true, properties: true, createdAt: true, updatedAt: true }
-  }) : []
+  const chapterIds = chaptersRels.map((r) => r.toBlockId)
+  const chapters =
+    chapterIds.length > 0
+      ? await prisma.block.findMany({
+          where: {
+            id: { in: chapterIds },
+            workspaceId,
+            status: "ACTIVE",
+            archivedAt: null,
+            blockType: { key: "exam-prep.chapter" },
+            ...(installationId
+              ? { originToolInstallationId: installationId }
+              : {}),
+          },
+          select: {
+            id: true,
+            title: true,
+            properties: true,
+            createdAt: true,
+            updatedAt: true,
+            chapterDetails: { select: { isImportant: true } },
+          },
+        })
+      : []
 
-  const topicsRels = chapterIds.length > 0 ? await prisma.blockRelation.findMany({
-    where: { workspaceId, fromBlockId: { in: chapterIds }, relationTypeId: relTypeIds.chapterHasTopic },
-    select: { fromBlockId: true, toBlockId: true, position: true },
-    orderBy: [{ fromBlockId: "asc" }, { position: "asc" }],
-  }) : []
-  const topicIds = topicsRels.map(r => r.toBlockId)
-  const topics = topicIds.length > 0 ? await prisma.block.findMany({
-    where: {
-      id: { in: topicIds },
-      workspaceId,
-      status: "ACTIVE",
-      archivedAt: null,
-      blockType: { key: "exam-prep.topic" },
-      ...(installationId ? { originToolInstallationId: installationId } : {}),
-    },
-    select: { id: true, title: true, properties: true, createdAt: true, updatedAt: true }
-  }) : []
+  const topicsRels =
+    chapterIds.length > 0
+      ? await prisma.blockRelation.findMany({
+          where: {
+            workspaceId,
+            fromBlockId: { in: chapterIds },
+            relationTypeId: relTypeIds.chapterHasTopic,
+          },
+          select: { fromBlockId: true, toBlockId: true, position: true },
+          orderBy: [{ fromBlockId: "asc" }, { position: "asc" }],
+        })
+      : []
+  const topicIds = topicsRels.map((r) => r.toBlockId)
+  const topics =
+    topicIds.length > 0
+      ? await prisma.block.findMany({
+          where: {
+            id: { in: topicIds },
+            workspaceId,
+            status: "ACTIVE",
+            archivedAt: null,
+            blockType: { key: "exam-prep.topic" },
+            ...(installationId
+              ? { originToolInstallationId: installationId }
+              : {}),
+          },
+          select: {
+            id: true,
+            title: true,
+            properties: true,
+            createdAt: true,
+            updatedAt: true,
+            topicDetails: { select: { isImportant: true } },
+          },
+        })
+      : []
 
   const testRecords = await prisma.testRecord.findMany({
     where: { subjectId, workspaceId, userId },
+    take: DASHBOARD_RECORD_WINDOW,
+    include: {
+      targetChapters: {
+        select: { chapterId: true },
+        orderBy: { position: "asc" },
+      },
+    },
     orderBy: { createdAt: "desc" },
   })
-  const subProps = subject.properties as any || {}
-  
+  const normalizedTestRecords = testRecords.map(normalizeTestRecord)
+  const subProps = (subject.properties as any) || {}
+
   return withCalculatedSubjectProgress({
     id: subject.id,
     name: subject.title,
-    weightage: subProps.weightage ?? 0,
-    expectedMarks: subProps.expectedMarks ?? 0,
-    foundationLevel: subProps.foundationLevel ?? "Beginner",
+    // This legacy non-exam-scoped query cannot choose a relation-specific
+    // weightage. Exam-scoped routes use getExamSubjectDashboardData instead.
+    weightage: 0,
+    expectedMarks: null,
+    foundationLevel: toFoundationLevel(subject.subjectDetails?.foundationLevel),
     overallProgress: subProps.overallProgress ?? 0,
     learningProgress: subProps.learningProgress ?? 0,
     revisionProgress: subProps.revisionProgress ?? 0,
@@ -401,73 +645,90 @@ export async function getSubjectDashboardData(
     topicCount: topics.length,
     tests: [],
     mockTests: [],
-    testRecords: testRecords.map((record) => ({
-      ...record,
-      marksObtained: Number(record.marksObtained),
-      totalMarks: Number(record.totalMarks),
-    })),
-    scheduledTests: Array.isArray(subProps.scheduledTests) ? subProps.scheduledTests : [],
+    testRecords: normalizedTestRecords,
+    scheduledTests: [],
     progressPolicy: normalizeSubjectProgressPolicy(subProps),
     chapters: chapters
       .sort((left, right) => {
-        const leftPosition = chaptersRels.find((relation) => relation.toBlockId === left.id)?.position ?? 0
-        const rightPosition = chaptersRels.find((relation) => relation.toBlockId === right.id)?.position ?? 0
+        const leftPosition =
+          chaptersRels.find((relation) => relation.toBlockId === left.id)
+            ?.position ?? 0
+        const rightPosition =
+          chaptersRels.find((relation) => relation.toBlockId === right.id)
+            ?.position ?? 0
         return leftPosition - rightPosition
       })
-      .map(chap => {
-        const chapProps = chap.properties as any || {}
-        const chapTopics = topics.filter(t => topicsRels.find(r => r.toBlockId === t.id && r.fromBlockId === chap.id))
+      .map((chap) => {
+        const chapProps = (chap.properties as any) || {}
+        const chapTopics = topics.filter((t) =>
+          topicsRels.find(
+            (r) => r.toBlockId === t.id && r.fromBlockId === chap.id
+          )
+        )
         return {
           id: chap.id,
           name: chap.title,
-          important: chapProps.important ?? false,
+          important: chap.chapterDetails?.isImportant ?? false,
           overallProgress: chapProps.overallProgress ?? 0,
           learningProgress: chapProps.learningProgress ?? 0,
           revisionProgress: chapProps.revisionProgress ?? 0,
           practiceProgress: chapProps.practiceProgress ?? 0,
           testProgress: chapProps.testProgress ?? 0,
-          position: chaptersRels.find((relation) => relation.toBlockId === chap.id)?.position ?? 0,
+          position:
+            chaptersRels.find((relation) => relation.toBlockId === chap.id)
+              ?.position ?? 0,
           subjectId: subject.id,
           createdAt: chap.createdAt,
           updatedAt: chap.updatedAt,
           topicCount: chapTopics.length,
-          scheduledTests: Array.isArray(chapProps.scheduledTests) ? chapProps.scheduledTests : [],
-          testRecords: testRecords
-            .filter((record) => record.chapterId === chap.id)
-            .map((record) => ({
-              ...record,
-              marksObtained: Number(record.marksObtained),
-              totalMarks: Number(record.totalMarks),
-            })),
+          testRecords: normalizedTestRecords.filter(
+            (record) =>
+              record.chapterId === chap.id ||
+              record.targetChapterIds.includes(chap.id)
+          ),
           subject: null as any,
           topics: chapTopics
             .sort((left, right) => {
-              const leftPosition = topicsRels.find((relation) => relation.toBlockId === left.id)?.position ?? 0
-              const rightPosition = topicsRels.find((relation) => relation.toBlockId === right.id)?.position ?? 0
+              const leftPosition =
+                topicsRels.find((relation) => relation.toBlockId === left.id)
+                  ?.position ?? 0
+              const rightPosition =
+                topicsRels.find((relation) => relation.toBlockId === right.id)
+                  ?.position ?? 0
               return leftPosition - rightPosition
             })
-            .map(top => {
-              const topProps = top.properties as any || {}
+            .map((top) => {
+              const topProps = (top.properties as any) || {}
               return {
                 id: top.id,
                 name: top.title,
-                important: topProps.important ?? false,
+                important: top.topicDetails?.isImportant ?? false,
                 learningStatus: topProps.learningStatus ?? false,
                 revisionCount: topProps.revisionCount ?? 0,
                 practiceCount: topProps.practiceCount ?? 0,
                 testCount: topProps.testCount ?? 0,
-                position: topicsRels.find((relation) => relation.toBlockId === top.id)?.position ?? 0,
-                learningCompletedAt: topProps.learningCompletedAt ? new Date(topProps.learningCompletedAt) : null,
-                lastRevised: topProps.lastRevised ? new Date(topProps.lastRevised) : null,
-                lastPracticed: topProps.lastPracticed ? new Date(topProps.lastPracticed) : null,
-                nextRevision: topProps.nextRevision ? new Date(topProps.nextRevision) : null,
+                position:
+                  topicsRels.find((relation) => relation.toBlockId === top.id)
+                    ?.position ?? 0,
+                learningCompletedAt: topProps.learningCompletedAt
+                  ? new Date(topProps.learningCompletedAt)
+                  : null,
+                lastRevised: topProps.lastRevised
+                  ? new Date(topProps.lastRevised)
+                  : null,
+                lastPracticed: topProps.lastPracticed
+                  ? new Date(topProps.lastPracticed)
+                  : null,
+                nextRevision: topProps.nextRevision
+                  ? new Date(topProps.nextRevision)
+                  : null,
                 chapterId: chap.id,
                 createdAt: top.createdAt,
                 updatedAt: top.updatedAt,
               }
-            })
+            }),
         }
-      })
+      }),
   })
 }
 
@@ -496,41 +757,99 @@ export async function getExamSubjectDashboardData(
   // Step 2: Fetch ALL independent data in parallel.
   // We know examId, subjectId upfront so we prefetch chaptersRels and testRecords
   // alongside the eligibility check, without waiting for it to complete first.
-  const [exam, subject, relation, chaptersRels, testRecords] = await Promise.all([
-    prisma.block.findFirst({
-      where: { id: examId },
-      select: { id: true, workspaceId: true, status: true, archivedAt: true, originToolInstallationId: true },
-    }),
-    prisma.block.findFirst({
-      where: { id: subjectId },
-      select: {
-        id: true, title: true, properties: true, position: true,
-        workspaceId: true, status: true, archivedAt: true,
-        originToolInstallationId: true, createdAt: true, updatedAt: true,
-      },
-    }),
-    prisma.blockRelation.findFirst({
-      where: {
-        workspaceId,
-        fromBlockId: examId,
-        toBlockId: subjectId,
-        relationTypeId: relTypeIds.examHasSubject,
-      },
-      select: { id: true, workspaceId: true, fromBlockId: true, toBlockId: true },
-    }),
-    prisma.blockRelation.findMany({
-      where: { workspaceId, fromBlockId: subjectId, relationTypeId: relTypeIds.subjectHasChapter },
-      select: { toBlockId: true, position: true },
-      orderBy: { position: "asc" },
-    }),
-    prisma.testRecord.findMany({
-      where: { subjectId, workspaceId, userId },
-      orderBy: { createdAt: "desc" },
-    }),
-  ])
+  const [exam, subject, relation, chaptersRels, testRecords, scheduledTests] =
+    await Promise.all([
+      prisma.block.findFirst({
+        where: { id: examId },
+        select: {
+          id: true,
+          workspaceId: true,
+          status: true,
+          archivedAt: true,
+          originToolInstallationId: true,
+        },
+      }),
+      prisma.block.findFirst({
+        where: { id: subjectId },
+        select: {
+          id: true,
+          title: true,
+          properties: true,
+          position: true,
+          workspaceId: true,
+          status: true,
+          archivedAt: true,
+          originToolInstallationId: true,
+          createdAt: true,
+          updatedAt: true,
+          subjectDetails: { select: { foundationLevel: true } },
+        },
+      }),
+      prisma.blockRelation.findFirst({
+        where: {
+          workspaceId,
+          fromBlockId: examId,
+          toBlockId: subjectId,
+          relationTypeId: relTypeIds.examHasSubject,
+        },
+        select: {
+          id: true,
+          workspaceId: true,
+          fromBlockId: true,
+          toBlockId: true,
+          examSubject: {
+            select: { weightage: true, isRequired: true },
+          },
+        },
+      }),
+      prisma.blockRelation.findMany({
+        where: {
+          workspaceId,
+          fromBlockId: subjectId,
+          relationTypeId: relTypeIds.subjectHasChapter,
+        },
+        select: { toBlockId: true, position: true },
+        orderBy: { position: "asc" },
+      }),
+      prisma.testRecord.findMany({
+        where: { subjectId, workspaceId, userId, examId },
+        take: DASHBOARD_RECORD_WINDOW,
+        include: {
+          targetChapters: {
+            select: { chapterId: true },
+            orderBy: { position: "asc" },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.scheduledTest.findMany({
+        where: {
+          subjectId,
+          workspaceId,
+          installationId,
+          userId,
+          examId,
+        },
+        take: DASHBOARD_RECORD_WINDOW,
+        include: {
+          chapters: {
+            select: { chapterId: true },
+            orderBy: { position: "asc" },
+          },
+          testRecord: { select: { id: true } },
+        },
+        orderBy: [{ scheduledFor: "asc" }, { createdAt: "desc" }],
+      }),
+    ])
 
   // Eligibility check (in-memory — no extra DB calls)
-  const eligible = checkSubjectEligibility({ workspaceId, installationId, exam, subject, relation })
+  const eligible = checkSubjectEligibility({
+    workspaceId,
+    installationId,
+    exam,
+    subject,
+    relation,
+  })
   if (!eligible || !subject) return null
 
   const chapterIds = chaptersRels.map((r) => r.toBlockId)
@@ -547,12 +866,23 @@ export async function getExamSubjectDashboardData(
             blockType: { key: "exam-prep.chapter" },
             originToolInstallationId: installationId,
           },
-          select: { id: true, title: true, properties: true, createdAt: true, updatedAt: true },
+          select: {
+            id: true,
+            title: true,
+            properties: true,
+            createdAt: true,
+            updatedAt: true,
+            chapterDetails: { select: { isImportant: true } },
+          },
         })
       : Promise.resolve([]),
     chapterIds.length > 0
       ? prisma.blockRelation.findMany({
-          where: { workspaceId, fromBlockId: { in: chapterIds }, relationTypeId: relTypeIds.chapterHasTopic },
+          where: {
+            workspaceId,
+            fromBlockId: { in: chapterIds },
+            relationTypeId: relTypeIds.chapterHasTopic,
+          },
           select: { fromBlockId: true, toBlockId: true, position: true },
           orderBy: [{ fromBlockId: "asc" }, { position: "asc" }],
         })
@@ -572,24 +902,35 @@ export async function getExamSubjectDashboardData(
             blockType: { key: "exam-prep.topic" },
             originToolInstallationId: installationId,
           },
-          select: { id: true, title: true, properties: true, createdAt: true, updatedAt: true },
+          select: {
+            id: true,
+            title: true,
+            properties: true,
+            createdAt: true,
+            updatedAt: true,
+            topicDetails: { select: { isImportant: true } },
+          },
         })
       : []
 
   // Build and return the SubjectWithRelations
-  const subProps = subject.properties as any || {}
-  const subjectTestRecords = testRecords.map((r) => ({
-    ...r,
-    marksObtained: Number(r.marksObtained),
-    totalMarks: Number(r.totalMarks),
-  }))
+  const subProps = (subject.properties as any) || {}
+  const relationConfig = relation?.examSubject
+  const subjectTestRecords = testRecords.map(normalizeTestRecord)
+  const subjectScheduledTests = scheduledTests.map(normalizeScheduledTest)
 
   return withCalculatedSubjectProgress({
     id: subject.id,
     name: subject.title,
-    weightage: subProps.weightage ?? 0,
-    expectedMarks: subProps.expectedMarks ?? null,
-    foundationLevel: subProps.foundationLevel ?? "Beginner",
+    weightage: relationConfig?.weightage ? Number(relationConfig.weightage) : 0,
+    isRequired: relationConfig?.isRequired ?? true,
+    expectedMarks: null,
+    foundationLevel:
+      subject.subjectDetails?.foundationLevel === "MODERATE"
+        ? "Moderate"
+        : subject.subjectDetails?.foundationLevel === "ADVANCED"
+          ? "Advanced"
+          : "Beginner",
     overallProgress: 0,
     learningProgress: 0,
     revisionProgress: 0,
@@ -602,16 +943,17 @@ export async function getExamSubjectDashboardData(
     tests: [],
     mockTests: [],
     testRecords: subjectTestRecords,
-    scheduledTests: Array.isArray(subProps.scheduledTests) ? subProps.scheduledTests : [],
+    scheduledTests: subjectScheduledTests,
     progressPolicy: normalizeSubjectProgressPolicy(subProps),
     chapters: chapters
       .sort((a, b) => {
-        const aPos = chaptersRels.find((r) => r.toBlockId === a.id)?.position ?? 0
-        const bPos = chaptersRels.find((r) => r.toBlockId === b.id)?.position ?? 0
+        const aPos =
+          chaptersRels.find((r) => r.toBlockId === a.id)?.position ?? 0
+        const bPos =
+          chaptersRels.find((r) => r.toBlockId === b.id)?.position ?? 0
         return aPos - bPos
       })
       .map((chap) => {
-        const chapProps = chap.properties as any || {}
         const chapTopicRels = topicsRels
           .filter((r) => r.fromBlockId === chap.id)
           .sort((a, b) => a.position - b.position)
@@ -622,35 +964,47 @@ export async function getExamSubjectDashboardData(
         return {
           id: chap.id,
           name: chap.title,
-          important: chapProps.important ?? false,
+          important: chap.chapterDetails?.isImportant ?? false,
           overallProgress: 0,
           learningProgress: 0,
           revisionProgress: 0,
           practiceProgress: 0,
           testProgress: 0,
-          position: chaptersRels.find((r) => r.toBlockId === chap.id)?.position ?? 0,
+          position:
+            chaptersRels.find((r) => r.toBlockId === chap.id)?.position ?? 0,
           subjectId: subject.id,
           createdAt: chap.createdAt,
           updatedAt: chap.updatedAt,
-          scheduledTests: Array.isArray(chapProps.scheduledTests) ? chapProps.scheduledTests : [],
-          testRecords: subjectTestRecords.filter((r) => r.chapterId === chap.id),
+          testRecords: subjectTestRecords.filter(
+            (record) =>
+              record.chapterId === chap.id ||
+              record.targetChapterIds.includes(chap.id)
+          ),
           subject: null as any,
           topics: chapTopics.map((top) => {
             const topicRel = chapTopicRels.find((r) => r.toBlockId === top.id)
-            const topProps = top.properties as any || {}
+            const topProps = (top.properties as any) || {}
             return {
               id: top.id,
               name: top.title,
-              important: topProps.important ?? false,
+              important: top.topicDetails?.isImportant ?? false,
               learningStatus: topProps.learningStatus ?? false,
               revisionCount: topProps.revisionCount ?? 0,
               practiceCount: topProps.practiceCount ?? 0,
               testCount: topProps.testCount ?? 0,
               position: topicRel?.position ?? 0,
-              learningCompletedAt: topProps.learningCompletedAt ? new Date(topProps.learningCompletedAt) : null,
-              lastRevised: topProps.lastRevised ? new Date(topProps.lastRevised) : null,
-              lastPracticed: topProps.lastPracticed ? new Date(topProps.lastPracticed) : null,
-              nextRevision: topProps.nextRevision ? new Date(topProps.nextRevision) : null,
+              learningCompletedAt: topProps.learningCompletedAt
+                ? new Date(topProps.learningCompletedAt)
+                : null,
+              lastRevised: topProps.lastRevised
+                ? new Date(topProps.lastRevised)
+                : null,
+              lastPracticed: topProps.lastPracticed
+                ? new Date(topProps.lastPracticed)
+                : null,
+              nextRevision: topProps.nextRevision
+                ? new Date(topProps.nextRevision)
+                : null,
               chapterId: chap.id,
               createdAt: top.createdAt,
               updatedAt: top.updatedAt,
@@ -666,31 +1020,34 @@ export async function getExamSubjectDashboardData(
  * React cache()-wrapped so it deduplicates within a single render pass.
  * Cost: 1 Prisma query.
  */
-export const getSubjectTitle = cache(async (
-  workspaceId: string,
-  installationId: string,
-  subjectId: string,
-): Promise<string | null> => {
-  const uuid = z.string().uuid()
-  if (
-    !uuid.safeParse(workspaceId).success ||
-    !uuid.safeParse(installationId).success ||
-    !uuid.safeParse(subjectId).success
-  ) return null
+export const getSubjectTitle = cache(
+  async (
+    workspaceId: string,
+    installationId: string,
+    subjectId: string
+  ): Promise<string | null> => {
+    const uuid = z.string().uuid()
+    if (
+      !uuid.safeParse(workspaceId).success ||
+      !uuid.safeParse(installationId).success ||
+      !uuid.safeParse(subjectId).success
+    )
+      return null
 
-  const block = await prisma.block.findFirst({
-    where: {
-      id: subjectId,
-      workspaceId,
-      status: "ACTIVE",
-      archivedAt: null,
-      blockType: { key: "exam-prep.subject" },
-      originToolInstallationId: installationId,
-    },
-    select: { title: true },
-  })
-  return block?.title ?? null
-})
+    const block = await prisma.block.findFirst({
+      where: {
+        id: subjectId,
+        workspaceId,
+        status: "ACTIVE",
+        archivedAt: null,
+        blockType: { key: "exam-prep.subject" },
+        originToolInstallationId: installationId,
+      },
+      select: { title: true },
+    })
+    return block?.title ?? null
+  }
+)
 
 /**
  * Lightweight subject query for the settings page. Returns a SubjectWithRelations-
@@ -703,14 +1060,15 @@ export const getSubjectTitle = cache(async (
 export async function getSubjectForSettings(
   workspaceId: string,
   installationId: string,
-  subjectId: string,
+  subjectId: string
 ): Promise<SubjectWithRelations | null> {
   const uuid = z.string().uuid()
   if (
     !uuid.safeParse(workspaceId).success ||
     !uuid.safeParse(installationId).success ||
     !uuid.safeParse(subjectId).success
-  ) return null
+  )
+    return null
 
   const relTypeIds = await getExamPrepRelationTypeIds()
   if (!relTypeIds) return null
@@ -725,13 +1083,25 @@ export async function getSubjectForSettings(
       blockType: { key: "exam-prep.subject" },
       originToolInstallationId: installationId,
     },
-    select: { id: true, title: true, properties: true, position: true, createdAt: true, updatedAt: true },
+    select: {
+      id: true,
+      title: true,
+      properties: true,
+      position: true,
+      createdAt: true,
+      updatedAt: true,
+      subjectDetails: { select: { foundationLevel: true } },
+    },
   })
   if (!subject) return null
 
   // Step 2: Get chapter IDs (for counts shown in SubjectHeader)
   const chaptersRels = await prisma.blockRelation.findMany({
-    where: { workspaceId, fromBlockId: subjectId, relationTypeId: relTypeIds.subjectHasChapter },
+    where: {
+      workspaceId,
+      fromBlockId: subjectId,
+      relationTypeId: relTypeIds.subjectHasChapter,
+    },
     select: { toBlockId: true },
   })
   const chapterIds = chaptersRels.map((r) => r.toBlockId)
@@ -748,14 +1118,16 @@ export async function getSubjectForSettings(
         })
       : 0
 
-  const subProps = subject.properties as any || {}
+  const subProps = (subject.properties as any) || {}
 
   return {
     id: subject.id,
     name: subject.title,
-    weightage: subProps.weightage ?? 0,
-    expectedMarks: subProps.expectedMarks ?? null,
-    foundationLevel: subProps.foundationLevel ?? "Beginner",
+    // Subject settings are shared across exams, so they deliberately do not
+    // expose a relation-specific weightage.
+    weightage: 0,
+    expectedMarks: null,
+    foundationLevel: toFoundationLevel(subject.subjectDetails?.foundationLevel),
     overallProgress: 0,
     learningProgress: 0,
     revisionProgress: 0,

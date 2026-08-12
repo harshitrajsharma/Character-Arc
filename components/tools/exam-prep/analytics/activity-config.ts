@@ -1,21 +1,24 @@
-import { BookOpen, RefreshCw, PenTool, GraduationCap } from "lucide-react";
-import { LucideIcon } from "lucide-react";
-import type { ProgressMode } from "@/types/progressapp/domain";
+import { BookOpen, RefreshCw, PenTool, GraduationCap } from "lucide-react"
+import { LucideIcon } from "lucide-react"
+import type { ProgressMode } from "@/types/progressapp/domain"
 
-export type ActivityType = ProgressMode;
+export type ActivityType = ProgressMode
 
-export const ACTIVITIES: Record<ActivityType, { 
-  icon: LucideIcon;
-  label: string;
-  color: string;
-  bgColor: string;
-  bgColorFaded: string;
-  lightBg: string;
-  darkBg: string;
-  lightBorder: string;
-  darkBorder: string;
-  description: string;
-}> = {
+export const ACTIVITIES: Record<
+  ActivityType,
+  {
+    icon: LucideIcon
+    label: string
+    color: string
+    bgColor: string
+    bgColorFaded: string
+    lightBg: string
+    darkBg: string
+    lightBorder: string
+    darkBorder: string
+    description: string
+  }
+> = {
   learning: {
     icon: BookOpen,
     label: "Learning",
@@ -26,7 +29,7 @@ export const ACTIVITIES: Record<ActivityType, {
     darkBg: "dark:bg-emerald-950/50",
     lightBorder: "border-emerald-200",
     darkBorder: "dark:border-emerald-800",
-    description: "First-time study of a topic"
+    description: "First-time study of a topic",
   },
   revision: {
     icon: RefreshCw,
@@ -38,7 +41,7 @@ export const ACTIVITIES: Record<ActivityType, {
     darkBg: "dark:bg-blue-950/50",
     lightBorder: "border-blue-200",
     darkBorder: "dark:border-blue-800",
-    description: "Reinforcing previously learned material"
+    description: "Reinforcing previously learned material",
   },
   practice: {
     icon: PenTool,
@@ -50,7 +53,7 @@ export const ACTIVITIES: Record<ActivityType, {
     darkBg: "dark:bg-amber-950/50",
     lightBorder: "border-amber-200",
     darkBorder: "dark:border-amber-800",
-    description: "Applying knowledge to problems"
+    description: "Applying knowledge to problems",
   },
   test: {
     icon: GraduationCap,
@@ -62,6 +65,6 @@ export const ACTIVITIES: Record<ActivityType, {
     darkBg: "dark:bg-purple-950/50",
     lightBorder: "border-purple-200",
     darkBorder: "dark:border-purple-800",
-    description: "Testing knowledge and skills"
-  }
-}; 
+    description: "Testing knowledge and skills",
+  },
+}

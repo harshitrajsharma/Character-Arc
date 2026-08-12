@@ -13,7 +13,9 @@ export function parseIsoLocalDate(value?: string | null) {
   const year = Number(match[1])
   const month = Number(match[2])
   const day = Number(match[3])
-  const date = new Date(year, month - 1, day)
+  const date = new Date(0)
+  date.setHours(0, 0, 0, 0)
+  date.setFullYear(year, month - 1, day)
 
   if (
     date.getFullYear() !== year ||
@@ -36,4 +38,30 @@ export function formatIsoLocalDate(date: Date) {
   const day = String(date.getDate()).padStart(2, "0")
 
   return `${year}-${month}-${day}`
+}
+
+export function formatDateInTimeZone(
+  date: Date,
+  timeZone: string,
+  fallbackTimeZone = "UTC"
+) {
+  const format = (zone: string) => {
+    const parts = new Intl.DateTimeFormat("en", {
+      timeZone: zone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(date)
+    const values = Object.fromEntries(
+      parts.map((part) => [part.type, part.value])
+    )
+    return `${values.year}-${values.month}-${values.day}`
+  }
+
+  if (Number.isNaN(date.getTime())) return ""
+  try {
+    return format(timeZone)
+  } catch {
+    return format(fallbackTimeZone)
+  }
 }

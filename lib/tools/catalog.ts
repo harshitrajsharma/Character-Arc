@@ -82,7 +82,7 @@ function unavailableItems(manifests: ToolManifest[]): ToolCatalogItem[] {
 export async function getToolCatalog(): Promise<ToolCatalog> {
   const claims = await requireVerifiedClaims("/tools")
   const manifests = listFirstPartyToolManifests()
-  
+
   const workspaceData = await prisma.workspace.findFirst({
     where: {
       createdById: claims.sub,
@@ -90,7 +90,7 @@ export async function getToolCatalog(): Promise<ToolCatalog> {
       archivedAt: null,
     },
     select: { id: true, name: true, slug: true },
-    orderBy: { createdAt: "asc" }
+    orderBy: { createdAt: "asc" },
   })
 
   const workspace = workspaceSchema.safeParse(workspaceData)
@@ -104,35 +104,41 @@ export async function getToolCatalog(): Promise<ToolCatalog> {
   }
 
   const toolKeys = manifests.map((manifest) => manifest.tool.key)
-  const [definitionsData, releasesData, installationsData] =
-    await Promise.all([
-      prisma.toolDefinition.findMany({
-        where: { key: { in: toolKeys } },
-        select: { id: true, key: true }
-      }),
-      prisma.toolRelease.findMany({
-        where: { status: "PUBLISHED" },
-        select: { id: true, toolDefinitionId: true, version: true }
-      }),
-      prisma.toolInstallation.findMany({
-        where: { workspaceId: workspace.data.id },
-        select: { id: true, toolDefinitionId: true, toolReleaseId: true, status: true, installedAt: true }
-      }),
-    ])
+  const [definitionsData, releasesData, installationsData] = await Promise.all([
+    prisma.toolDefinition.findMany({
+      where: { key: { in: toolKeys } },
+      select: { id: true, key: true },
+    }),
+    prisma.toolRelease.findMany({
+      where: { status: "PUBLISHED" },
+      select: { id: true, toolDefinitionId: true, version: true },
+    }),
+    prisma.toolInstallation.findMany({
+      where: { workspaceId: workspace.data.id },
+      select: {
+        id: true,
+        toolDefinitionId: true,
+        toolReleaseId: true,
+        status: true,
+        installedAt: true,
+      },
+    }),
+  ])
 
   const definitions = toolDefinitionsSchema.safeParse(definitionsData)
   const releases = toolReleasesSchema.safeParse(releasesData)
   const installations = toolInstallationsSchema.safeParse(installationsData)
 
   const catalogFailed =
-    !definitions.success ||
-    !releases.success ||
-    !installations.success
+    !definitions.success || !releases.success || !installations.success
 
   if (catalogFailed) {
-    if (!definitions.success) console.error("Definitions parse error:", definitions.error)
-    if (!releases.success) console.error("Releases parse error:", releases.error)
-    if (!installations.success) console.error("Installations parse error:", installations.error)
+    if (!definitions.success)
+      console.error("Definitions parse error:", definitions.error)
+    if (!releases.success)
+      console.error("Releases parse error:", releases.error)
+    if (!installations.success)
+      console.error("Installations parse error:", installations.error)
     return {
       workspace: workspace.data,
       items: unavailableItems(manifests),
@@ -164,7 +170,9 @@ export async function getToolCatalog(): Promise<ToolCatalog> {
       ? installationByDefinition.get(definition.id)
       : undefined
 
-    const installationStatus = (installation?.status.toLowerCase() as ToolCatalogItem["installationStatus"]) ?? "not_installed"
+    const installationStatus =
+      (installation?.status.toLowerCase() as ToolCatalogItem["installationStatus"]) ??
+      "not_installed"
 
     return {
       key: manifest.tool.key,
@@ -177,7 +185,9 @@ export async function getToolCatalog(): Promise<ToolCatalog> {
       blockTypeNames: manifest.blockTypes.map((blockType) => blockType.name),
       installationStatus,
       installationId: installation?.id ?? null,
-      installedAt: installation?.installedAt ? installation.installedAt.toISOString() : null,
+      installedAt: installation?.installedAt
+        ? installation.installedAt.toISOString()
+        : null,
       installable: releaseAvailable && installationStatus !== "active",
     }
   })

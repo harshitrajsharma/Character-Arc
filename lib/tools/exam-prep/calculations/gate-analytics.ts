@@ -2,30 +2,30 @@
 const GATE_CUTOFFS = {
   // Score ranges for different rank brackets (based on normalized marks)
   RANKS: {
-    TOP_100: { min: 74.3, typical: 78.5 },    // Ranks 1-100
-    TOP_500: { min: 65.2, typical: 69.8 },    // Ranks 101-500
-    TOP_1000: { min: 58.7, typical: 62.4 },   // Ranks 501-1000
-    TOP_2000: { min: 52.1, typical: 55.9 },   // Ranks 1001-2000
-    TOP_5000: { min: 45.3, typical: 48.7 },   // Ranks 2001-5000
+    TOP_100: { min: 74.3, typical: 78.5 }, // Ranks 1-100
+    TOP_500: { min: 65.2, typical: 69.8 }, // Ranks 101-500
+    TOP_1000: { min: 58.7, typical: 62.4 }, // Ranks 501-1000
+    TOP_2000: { min: 52.1, typical: 55.9 }, // Ranks 1001-2000
+    TOP_5000: { min: 45.3, typical: 48.7 }, // Ranks 2001-5000
   },
-  
+
   // Percentile to score mapping (approximate)
   PERCENTILES: {
     99.99: 82.5, // Top 0.01%
-    99.9: 75.2,  // Top 0.1%
-    99.5: 68.4,  // Top 0.5%
-    99.0: 63.7,  // Top 1%
-    98.0: 58.2,  // Top 2%
-    95.0: 51.4,  // Top 5%
-    90.0: 43.8,  // Top 10%
-  }
+    99.9: 75.2, // Top 0.1%
+    99.5: 68.4, // Top 0.5%
+    99.0: 63.7, // Top 1%
+    98.0: 58.2, // Top 2%
+    95.0: 51.4, // Top 5%
+    90.0: 43.8, // Top 10%
+  },
 }
 
 interface RankPrediction {
   minRank: number
   maxRank: number
   percentile: number
-  confidence: 'high' | 'medium' | 'low'
+  confidence: "high" | "medium" | "low"
   qualifyingScore: boolean
 }
 
@@ -34,39 +34,41 @@ export function predictGateRank(normalizedScore: number): RankPrediction {
   let minRank = 10000
   let maxRank = 15000
   let percentile = 85.0
-  let confidence: 'high' | 'medium' | 'low' = 'medium'
+  let confidence: "high" | "medium" | "low" = "medium"
   let qualifyingScore = false
 
   // Calculate rank range based on score
   if (normalizedScore >= GATE_CUTOFFS.RANKS.TOP_100.min) {
     minRank = 1
     maxRank = normalizedScore >= GATE_CUTOFFS.RANKS.TOP_100.typical ? 50 : 100
-    confidence = 'high'
+    confidence = "high"
     qualifyingScore = true
   } else if (normalizedScore >= GATE_CUTOFFS.RANKS.TOP_500.min) {
     minRank = 101
     maxRank = 500
-    confidence = 'high'
+    confidence = "high"
     qualifyingScore = true
   } else if (normalizedScore >= GATE_CUTOFFS.RANKS.TOP_1000.min) {
     minRank = 501
     maxRank = 1000
-    confidence = 'high'
+    confidence = "high"
     qualifyingScore = true
   } else if (normalizedScore >= GATE_CUTOFFS.RANKS.TOP_2000.min) {
     minRank = 1001
     maxRank = 2000
-    confidence = 'medium'
+    confidence = "medium"
     qualifyingScore = true
   } else if (normalizedScore >= GATE_CUTOFFS.RANKS.TOP_5000.min) {
     minRank = 2001
     maxRank = 5000
-    confidence = 'medium'
+    confidence = "medium"
     qualifyingScore = true
   }
 
   // Calculate percentile
-  for (const [percentileStr, score] of Object.entries(GATE_CUTOFFS.PERCENTILES)) {
+  for (const [percentileStr, score] of Object.entries(
+    GATE_CUTOFFS.PERCENTILES
+  )) {
     if (normalizedScore >= score) {
       percentile = parseFloat(percentileStr)
       break
@@ -75,9 +77,9 @@ export function predictGateRank(normalizedScore: number): RankPrediction {
 
   // Adjust confidence based on score volatility
   if (normalizedScore > 80) {
-    confidence = 'low' // High scores have more volatility
+    confidence = "low" // High scores have more volatility
   } else if (normalizedScore < 30) {
-    confidence = 'low' // Low scores have more volatility
+    confidence = "low" // Low scores have more volatility
   }
 
   return {
@@ -85,7 +87,7 @@ export function predictGateRank(normalizedScore: number): RankPrediction {
     maxRank,
     percentile,
     confidence,
-    qualifyingScore
+    qualifyingScore,
   }
 }
 
@@ -118,7 +120,10 @@ export function getScoreInsights(normalizedScore: number) {
   return insights
 }
 
-export function getImprovementSuggestions(normalizedScore: number, targetScore: number) {
+export function getImprovementSuggestions(
+  normalizedScore: number,
+  targetScore: number
+) {
   const suggestions = []
   const gap = targetScore - normalizedScore
 
@@ -152,4 +157,4 @@ export function getImprovementSuggestions(normalizedScore: number, targetScore: 
   }
 
   return suggestions
-} 
+}

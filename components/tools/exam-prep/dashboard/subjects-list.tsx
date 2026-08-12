@@ -1,4 +1,4 @@
-'use client';
+"use client"
 
 import { Card } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
@@ -15,27 +15,35 @@ interface SubjectsListProps {
 }
 
 export function SubjectsList({ subjects }: SubjectsListProps) {
-  const [selectedCategory, setSelectedCategory] = useState<Category>('overall');
+  const [selectedCategory, setSelectedCategory] = useState<Category>("overall")
 
   // Sort subjects by weightage and calculate progress
   const sortedSubjects = useMemo(() => {
     return subjects
-      .map(subject => ({
+      .map((subject) => ({
         ...subject,
-        progress: getProgressSummary(subject)
+        progress: getProgressSummary(subject),
       }))
-      .sort((a, b) => b.weightage - a.weightage);
-  }, [subjects]);
+      .sort((a, b) => b.weightage - a.weightage)
+  }, [subjects])
 
-  const getProgressValue = (progress: ReturnType<typeof getProgressSummary>, category: Category) => {
+  const getProgressValue = (
+    progress: ReturnType<typeof getProgressSummary>,
+    category: Category
+  ) => {
     switch (category) {
-      case 'learning': return progress.learning;
-      case 'revision': return progress.revision;
-      case 'practice': return progress.practice;
-      case 'test': return progress.test;
-      default: return progress.overall;
+      case "learning":
+        return progress.learning
+      case "revision":
+        return progress.revision
+      case "practice":
+        return progress.practice
+      case "test":
+        return progress.test
+      default:
+        return progress.overall
     }
-  };
+  }
 
   return (
     <Card className="p-4">
@@ -59,20 +67,25 @@ export function SubjectsList({ subjects }: SubjectsListProps) {
               )}
               onClick={() => setSelectedCategory(key as Category)}
             >
-              <div className={cn("w-2 h-2 rounded-full mr-2", config.progressColor)} />
+              <div
+                className={cn(
+                  "mr-2 h-2 w-2 rounded-full",
+                  config.progressColor
+                )}
+              />
               <span className="text-xs">{config.label}</span>
             </Button>
           ))}
         </div>
-        
+
         {/* Subjects List */}
         <div className="space-y-6">
           {sortedSubjects.map(({ progress, ...subject }) => (
             <div key={subject.id} className="space-y-3">
-              <div className="flex justify-between items-start">
+              <div className="flex items-start justify-between">
                 <div>
                   <h4 className="font-medium">{subject.name}</h4>
-                  <div className="flex items-center gap-2 mt-1">
+                  <div className="mt-1 flex items-center gap-2">
                     <span className="text-sm text-muted-foreground">
                       {subject.weightage}% weightage
                     </span>
@@ -84,7 +97,9 @@ export function SubjectsList({ subjects }: SubjectsListProps) {
                   </div>
                 </div>
                 <div className="flex items-center gap-1 text-sm font-medium">
-                  <span>{Math.round(getProgressValue(progress, selectedCategory))}%</span>
+                  <span>
+                    {Math.round(getProgressValue(progress, selectedCategory))}%
+                  </span>
                   {progress.overall >= 100 && (
                     <CheckCircle2 className="h-4 w-4 text-green-500" />
                   )}
@@ -92,7 +107,7 @@ export function SubjectsList({ subjects }: SubjectsListProps) {
               </div>
 
               {/* Progress Bar */}
-              <Progress 
+              <Progress
                 value={getProgressValue(progress, selectedCategory)}
                 className="h-2 bg-secondary/50"
                 indicatorClassName={cn(
@@ -106,4 +121,4 @@ export function SubjectsList({ subjects }: SubjectsListProps) {
       </div>
     </Card>
   )
-} 
+}

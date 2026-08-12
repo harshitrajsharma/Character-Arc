@@ -82,9 +82,7 @@ export function NavbarAccountMenu({ user, onSelect }: NavbarAccountMenuProps) {
             Dashboard
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onClick={() => setTheme(isDark ? "light" : "dark")}
-          >
+          <DropdownMenuItem onClick={() => setTheme(isDark ? "light" : "dark")}>
             {isDark ? (
               <SunIcon aria-hidden="true" />
             ) : (

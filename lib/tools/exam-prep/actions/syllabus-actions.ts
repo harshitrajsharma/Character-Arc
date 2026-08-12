@@ -1,5 +1,6 @@
 "use server"
 
+import { createIdempotencyKey } from "@/lib/forms/idempotency-key"
 import { revalidatePath } from "next/cache"
 import { z } from "zod"
 
@@ -9,10 +10,8 @@ import {
   getExamPrepActionContext,
 } from "@/lib/tools/definitions/exam-prep/action-context"
 
-import {
-  executeToolAction,
-  ToolActionExecutionError,
-} from "@/lib/tools/execute-tool-action"
+import { executeToolAction } from "@/lib/tools/execute-tool-action"
+import { ToolActionExecutionError } from "@/lib/tools/errors"
 import { workspaceSlugSchema } from "@/lib/tools/exam-prep/actions/common"
 
 export type TopicProgressActionState = {
@@ -32,7 +31,9 @@ const createChapterSchema = z.object({
 export type CreateChapterState = {
   status: "idle" | "success" | "error"
   message?: string
-  fieldErrors?: Partial<Record<keyof z.infer<typeof createChapterSchema>, string[]>>
+  fieldErrors?: Partial<
+    Record<keyof z.infer<typeof createChapterSchema>, string[]>
+  >
   chapterId?: string
 }
 
@@ -47,7 +48,9 @@ const createTopicSchema = z.object({
 export type CreateTopicState = {
   status: "idle" | "success" | "error"
   message?: string
-  fieldErrors?: Partial<Record<keyof z.infer<typeof createTopicSchema>, string[]>>
+  fieldErrors?: Partial<
+    Record<keyof z.infer<typeof createTopicSchema>, string[]>
+  >
   topicId?: string
 }
 
@@ -57,13 +60,22 @@ const topicMutationContextSchema = z.object({
   idempotencyKey: z.string().uuid(),
 })
 
-function revalidateExamPrep(workspaceSlug: string, examId?: string, subjectId?: string) {
+function revalidateExamPrep(
+  workspaceSlug: string,
+  examId?: string,
+  subjectId?: string
+) {
   revalidatePath("/dashboard")
   revalidatePath(workspaceRoutes.examPrep.home(workspaceSlug), "layout")
   if (examId) {
-    revalidatePath(workspaceRoutes.examPrep.exam(workspaceSlug, examId), "layout")
+    revalidatePath(
+      workspaceRoutes.examPrep.exam(workspaceSlug, examId),
+      "layout"
+    )
     if (subjectId) {
-      revalidatePath(workspaceRoutes.examPrep.subject(workspaceSlug, examId, subjectId))
+      revalidatePath(
+        workspaceRoutes.examPrep.subject(workspaceSlug, examId, subjectId)
+      )
     }
   }
 }
@@ -106,7 +118,7 @@ async function executeExamPrepMutation(
     workspaceId: context.workspaceId,
     installationId: context.installationId,
     input,
-    idempotencyKey: crypto.randomUUID(),
+    idempotencyKey: createIdempotencyKey(),
   })
 }
 
@@ -132,13 +144,21 @@ export async function createChapterAction(
   }
 
   try {
-    const result = await executeExamPrepMutation(parsed.data.workspaceSlug, "chapter.create", {
-      subjectId: parsed.data.subjectId,
-      title: parsed.data.title,
-      important: parsed.data.important,
-      ...(parsed.data.summary ? { summary: parsed.data.summary } : {}),
-    })
-    revalidatePath(workspaceRoutes.examPrep.subject(parsed.data.workspaceSlug, parsed.data.examId, parsed.data.subjectId))
+    const result = await executeExamPrepMutation(
+      parsed.data.workspaceSlug,
+      "chapter.create",
+      {
+        subjectId: parsed.data.subjectId,
+        title: parsed.data.title,
+        important: parsed.data.important,
+        ...(parsed.data.summary ? { summary: parsed.data.summary } : {}),
+      }
+    )
+    revalidateExamPrep(
+      parsed.data.workspaceSlug,
+      parsed.data.examId,
+      parsed.data.subjectId
+    )
     return {
       status: "success",
       message: "Chapter created.",
@@ -176,12 +196,22 @@ export async function createTopicAction(
   }
 
   try {
-    const result = await executeExamPrepMutation(parsed.data.workspaceSlug, "topic.create", {
-      chapterId: parsed.data.chapterId,
-      title: parsed.data.title,
-      important: parsed.data.important,
-    })
-    revalidatePath(workspaceRoutes.examPrep.exam(parsed.data.workspaceSlug, parsed.data.examId), "layout")
+    const result = await executeExamPrepMutation(
+      parsed.data.workspaceSlug,
+      "topic.create",
+      {
+        chapterId: parsed.data.chapterId,
+        title: parsed.data.title,
+        important: parsed.data.important,
+      }
+    )
+    revalidatePath(
+      workspaceRoutes.examPrep.exam(
+        parsed.data.workspaceSlug,
+        parsed.data.examId
+      ),
+      "layout"
+    )
     return {
       status: "success",
       message: "Topic created.",
@@ -198,7 +228,9 @@ export async function createTopicAction(
   }
 }
 
-export async function reorderChaptersAction(input: z.input<typeof reorderChaptersSchema>) {
+export async function reorderChaptersAction(
+  input: z.input<typeof reorderChaptersSchema>
+) {
   const parsed = reorderChaptersSchema.parse(input)
   await executeExamPrepMutation(parsed.workspaceSlug, "chapter.reorder", {
     subjectId: parsed.subjectId,
@@ -207,7 +239,9 @@ export async function reorderChaptersAction(input: z.input<typeof reorderChapter
   revalidateExamPrep(parsed.workspaceSlug)
 }
 
-export async function reorderTopicsAction(input: z.input<typeof reorderTopicsSchema>) {
+export async function reorderTopicsAction(
+  input: z.input<typeof reorderTopicsSchema>
+) {
   const parsed = reorderTopicsSchema.parse(input)
   await executeExamPrepMutation(parsed.workspaceSlug, "topic.reorder", {
     chapterId: parsed.chapterId,
@@ -216,7 +250,9 @@ export async function reorderTopicsAction(input: z.input<typeof reorderTopicsSch
   revalidateExamPrep(parsed.workspaceSlug)
 }
 
-export async function updateSyllabusItemAction(input: z.input<typeof syllabusItemUpdateSchema>) {
+export async function updateSyllabusItemAction(
+  input: z.input<typeof syllabusItemUpdateSchema>
+) {
   const parsed = syllabusItemUpdateSchema.parse(input)
   const idKey = parsed.kind === "chapter" ? "chapterId" : "topicId"
   await executeExamPrepMutation(parsed.workspaceSlug, `${parsed.kind}.update`, {
@@ -227,10 +263,14 @@ export async function updateSyllabusItemAction(input: z.input<typeof syllabusIte
   revalidateExamPrep(parsed.workspaceSlug)
 }
 
-export async function deleteSyllabusItemAction(input: z.input<typeof syllabusItemDeleteSchema>) {
+export async function deleteSyllabusItemAction(
+  input: z.input<typeof syllabusItemDeleteSchema>
+) {
   const parsed = syllabusItemDeleteSchema.parse(input)
   const idKey = parsed.kind === "chapter" ? "chapterId" : "topicId"
-  await executeExamPrepMutation(parsed.workspaceSlug, `${parsed.kind}.delete`, { [idKey]: parsed.id })
+  await executeExamPrepMutation(parsed.workspaceSlug, `${parsed.kind}.delete`, {
+    [idKey]: parsed.id,
+  })
   revalidateExamPrep(parsed.workspaceSlug)
 }
 
@@ -241,11 +281,14 @@ const topicStageSchema = z.object({
   learned: z.boolean().optional(),
 })
 
-export async function updateTopicStageAction(input: z.input<typeof topicStageSchema>) {
+export async function updateTopicStageAction(
+  input: z.input<typeof topicStageSchema>
+) {
   const parsed = topicStageSchema.parse(input)
-  const actionKey = parsed.stage === "learning"
-    ? "topic.set-learning"
-    : `topic.record-${parsed.stage}`
+  const actionKey =
+    parsed.stage === "learning"
+      ? "topic.set-learning"
+      : `topic.record-${parsed.stage}`
   await executeExamPrepMutation(
     parsed.workspaceSlug,
     actionKey,
@@ -263,7 +306,9 @@ const topicProgressSchema = z.object({
   count: z.number().int().min(0).max(100),
 })
 
-export async function setTopicProgressAction(input: z.input<typeof topicProgressSchema>) {
+export async function setTopicProgressAction(
+  input: z.input<typeof topicProgressSchema>
+) {
   const parsed = topicProgressSchema.parse(input)
   await executeExamPrepMutation(parsed.workspaceSlug, "topic.set-progress", {
     topicId: parsed.topicId,

@@ -1,3 +1,4 @@
+import { createIdempotencyKey } from "@/lib/forms/idempotency-key"
 import type { Metadata } from "next"
 import { notFound, redirect } from "next/navigation"
 import { workspaceRoutes } from "@/lib/routes/workspace-tools"
@@ -7,7 +8,9 @@ import { getGoalsPathsOverview } from "@/lib/tools/definitions/goals-paths/repos
 
 export const metadata: Metadata = { title: "Create an Arc" }
 
-export default async function NewArcPage(props: { params: Promise<{ workspaceSlug: string }> }) {
+export default async function NewArcPage(props: {
+  params: Promise<{ workspaceSlug: string }>
+}) {
   const params = await props.params
   const overview = await getGoalsPathsOverview(params.workspaceSlug)
 
@@ -29,7 +32,7 @@ export default async function NewArcPage(props: { params: Promise<{ workspaceSlu
         workspaceId={overview.workspace.id}
         installationId={overview.item.installationId}
         workspaceSlug={params.workspaceSlug}
-        idempotencyKey={crypto.randomUUID()}
+        idempotencyKey={createIdempotencyKey()}
       />
     </main>
   )

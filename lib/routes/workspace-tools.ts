@@ -6,14 +6,22 @@ export const workspaceRoutes = {
   },
   toolHome: (slug: string, toolKey: string): string | null => {
     if (toolKey === "core.exam-prep") return workspaceRoutes.examPrep.home(slug)
-    if (toolKey === "core.goals-paths") return workspaceRoutes.goalsPaths.home(slug)
+    if (toolKey === "core.goals-paths")
+      return workspaceRoutes.goalsPaths.home(slug)
+    if (toolKey === "core.mock-tests")
+      return workspaceRoutes.mockTests.home(slug)
     return null
   },
   examPrep: {
     home: (slug: string) => `/workspace/${encodeURIComponent(slug)}/exam-prep`,
-    new: (slug: string) => `/workspace/${encodeURIComponent(slug)}/exam-prep/new`,
+    new: (slug: string) =>
+      `/workspace/${encodeURIComponent(slug)}/exam-prep/new`,
     exam: (slug: string, examId: string) =>
       `/workspace/${encodeURIComponent(slug)}/exam-prep/${encodeURIComponent(examId)}`,
+    examSettings: (slug: string, examId: string) =>
+      `/workspace/${encodeURIComponent(slug)}/exam-prep/${encodeURIComponent(examId)}/settings`,
+    settings: (slug: string, examId: string) =>
+      `/workspace/${encodeURIComponent(slug)}/exam-prep/${encodeURIComponent(examId)}/settings`,
     subject: (slug: string, examId: string, subjectId: string) =>
       `/workspace/${encodeURIComponent(slug)}/exam-prep/${encodeURIComponent(examId)}/subjects/${encodeURIComponent(subjectId)}`,
     subjectSettings: (slug: string, subjectId: string, fromExamId?: string) => {
@@ -24,12 +32,36 @@ export const workspaceRoutes = {
     },
   },
   goalsPaths: {
-    home: (slug: string) => `/workspace/${encodeURIComponent(slug)}/goals-paths`,
-    new: (slug: string) => `/workspace/${encodeURIComponent(slug)}/goals-paths/new`,
+    home: (slug: string) =>
+      `/workspace/${encodeURIComponent(slug)}/goals-paths`,
+    new: (slug: string) =>
+      `/workspace/${encodeURIComponent(slug)}/goals-paths/new`,
     arc: (slug: string, arcId: string) =>
       `/workspace/${encodeURIComponent(slug)}/goals-paths/${encodeURIComponent(arcId)}`,
     arcEdit: (slug: string, arcId: string) =>
       `/workspace/${encodeURIComponent(slug)}/goals-paths/${encodeURIComponent(arcId)}/edit`,
+  },
+  mockTests: {
+    home: (slug: string) =>
+      `/workspace/${encodeURIComponent(slug)}/mock-tests`,
+    new: (slug: string) =>
+      `/workspace/${encodeURIComponent(slug)}/mock-tests/new`,
+    detail: (slug: string, assessmentId: string) =>
+      `/workspace/${encodeURIComponent(slug)}/mock-tests/${encodeURIComponent(assessmentId)}`,
+    edit: (slug: string, assessmentId: string) =>
+      `/workspace/${encodeURIComponent(slug)}/mock-tests/${encodeURIComponent(assessmentId)}/edit`,
+    attemptNew: (slug: string, assessmentId: string) =>
+      `/workspace/${encodeURIComponent(slug)}/mock-tests/${encodeURIComponent(assessmentId)}/attempts/new`,
+    attempt: (slug: string, attemptId: string) =>
+      `/workspace/${encodeURIComponent(slug)}/mock-tests/attempts/${encodeURIComponent(attemptId)}`,
+    analysis: (slug: string, attemptId: string) =>
+      `/workspace/${encodeURIComponent(slug)}/mock-tests/attempts/${encodeURIComponent(attemptId)}/analysis`,
+    questions: (slug: string) =>
+      `/workspace/${encodeURIComponent(slug)}/mock-tests/questions`,
+    questionNew: (slug: string) =>
+      `/workspace/${encodeURIComponent(slug)}/mock-tests/questions/new`,
+    questionEdit: (slug: string, questionId: string) =>
+      `/workspace/${encodeURIComponent(slug)}/mock-tests/questions/${encodeURIComponent(questionId)}/edit`,
   },
 }
 

@@ -1,3 +1,4 @@
+import { createIdempotencyKey } from "@/lib/forms/idempotency-key"
 import type { Metadata } from "next"
 
 import { CreateExamForm } from "@/components/tools/exam-prep/create-exam-form"
@@ -5,7 +6,11 @@ import { requireActiveToolInstallation } from "@/lib/workspaces/workspace-access
 
 export const metadata: Metadata = { title: "Track New Exam" }
 
-export default async function NewExamPage({ params }: { params: Promise<{ workspaceSlug: string }> }) {
+export default async function NewExamPage({
+  params,
+}: {
+  params: Promise<{ workspaceSlug: string }>
+}) {
   const { workspaceSlug } = await params
   await requireActiveToolInstallation(workspaceSlug, "core.exam-prep")
 
@@ -13,7 +18,7 @@ export default async function NewExamPage({ params }: { params: Promise<{ worksp
     <main>
       <CreateExamForm
         workspaceSlug={workspaceSlug}
-        idempotencyKey={crypto.randomUUID()}
+        idempotencyKey={createIdempotencyKey()}
       />
     </main>
   )

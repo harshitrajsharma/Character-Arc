@@ -30,4 +30,4 @@ export function clampPercentage(value: number): number {
 // Helper to format percentage for display
 export function formatPercentage(value: number): string {
   return `${roundPercentage(clampPercentage(value))}%`
-} 
+}

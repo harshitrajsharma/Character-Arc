@@ -43,7 +43,7 @@ export function SegmentedSelector<Value extends string>({
       spacing={0}
       aria-label={ariaLabel}
       className={cn(
-        "w-full max-w-full overflow-x-auto sm:w-fit scrollbar-none [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden",
+        "w-full max-w-full scrollbar-none overflow-x-auto [-ms-overflow-style:none] sm:w-fit [&::-webkit-scrollbar]:hidden",
         className
       )}
     >
@@ -58,17 +58,26 @@ export function SegmentedSelector<Value extends string>({
             disabled={option.disabled}
             aria-label={option.label}
             className={cn(
-              "justify-center sm:flex-none transition-all",
+              "justify-center transition-all sm:flex-none",
               collapsedLabelsOnMobile
                 ? isSelected
                   ? "max-sm:flex-1"
-                  : "max-sm:flex-none max-sm:w-14"
+                  : "max-sm:w-14 max-sm:flex-none"
                 : "max-sm:flex-1",
-              option.activeClassName,
+              isSelected && option.activeClassName,
               itemClassName
             )}
           >
-            {Icon ? <Icon data-icon="inline-start" aria-hidden="true" className={cn("shrink-0", collapsedLabelsOnMobile && !isSelected && "max-sm:mr-0")} /> : null}
+            {Icon ? (
+              <Icon
+                data-icon="inline-start"
+                aria-hidden="true"
+                className={cn(
+                  "shrink-0",
+                  collapsedLabelsOnMobile && !isSelected && "max-sm:mr-0"
+                )}
+              />
+            ) : null}
             <span
               className={cn(
                 collapsedLabelsOnMobile && Icon && !isSelected

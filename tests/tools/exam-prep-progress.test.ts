@@ -8,7 +8,9 @@ import type {
   SubjectWithRelations,
 } from "@/types/progressapp/domain"
 
-function topic(overrides: Partial<BaseTopic> & Pick<BaseTopic, "id">): BaseTopic {
+function topic(
+  overrides: Partial<BaseTopic> & Pick<BaseTopic, "id">
+): BaseTopic {
   const now = new Date("2026-07-19T00:00:00.000Z")
   return {
     id: overrides.id,
@@ -69,10 +71,12 @@ function subject(topics: BaseTopic[]): SubjectWithRelations {
 
 describe("Exam Prep subject progress rollups", () => {
   test("updates subject and chapter learning progress from topic state", () => {
-    const result = withCalculatedSubjectProgress(subject([
-      topic({ id: "topic-1", learningStatus: true }),
-      topic({ id: "topic-2" }),
-    ]))
+    const result = withCalculatedSubjectProgress(
+      subject([
+        topic({ id: "topic-1", learningStatus: true }),
+        topic({ id: "topic-2" }),
+      ])
+    )
 
     expect(result.learningProgress).toBe(50)
     expect(result.overallProgress).toBe(12.5)
@@ -82,23 +86,25 @@ describe("Exam Prep subject progress rollups", () => {
   })
 
   test("uses three steps normally and five for high-yield topics", () => {
-    const result = withCalculatedSubjectProgress(subject([
-      topic({
-        id: "topic-1",
-        learningStatus: true,
-        revisionCount: 3,
-        practiceCount: 3,
-        testCount: 3,
-      }),
-      topic({
-        id: "topic-2",
-        important: true,
-        learningStatus: true,
-        revisionCount: 3,
-        practiceCount: 3,
-        testCount: 3,
-      }),
-    ]))
+    const result = withCalculatedSubjectProgress(
+      subject([
+        topic({
+          id: "topic-1",
+          learningStatus: true,
+          revisionCount: 3,
+          practiceCount: 3,
+          testCount: 3,
+        }),
+        topic({
+          id: "topic-2",
+          important: true,
+          learningStatus: true,
+          revisionCount: 3,
+          practiceCount: 3,
+          testCount: 3,
+        }),
+      ])
+    )
 
     expect(result.learningProgress).toBe(100)
     expect(result.revisionProgress).toBe(80)

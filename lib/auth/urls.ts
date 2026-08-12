@@ -1,7 +1,13 @@
 import { headers } from "next/headers"
 
-export function safeNextPath(value: FormDataEntryValue | string | null | undefined) {
-  if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//")) {
+export function safeNextPath(
+  value: FormDataEntryValue | string | null | undefined
+) {
+  if (
+    typeof value !== "string" ||
+    !value.startsWith("/") ||
+    value.startsWith("//")
+  ) {
     return "/dashboard"
   }
 
@@ -14,7 +20,8 @@ export async function getApplicationOrigin() {
   }
 
   const requestHeaders = await headers()
-  const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host")
+  const host =
+    requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host")
   const protocol = requestHeaders.get("x-forwarded-proto") ?? "http"
 
   return host ? `${protocol}://${host}` : "http://localhost:3000"
@@ -24,7 +31,7 @@ export function feedbackPath(
   pathname: string,
   kind: "error" | "notice",
   message: string,
-  next?: string,
+  next?: string
 ) {
   const params = new URLSearchParams({ [kind]: message })
 

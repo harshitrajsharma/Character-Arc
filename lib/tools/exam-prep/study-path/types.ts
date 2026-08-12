@@ -9,11 +9,7 @@ export type StudyPathStepKind =
   | "remediation"
 
 export type StudyPathStepStatus =
-  | "completed"
-  | "ready"
-  | "due"
-  | "locked"
-  | "overachieved"
+  "completed" | "ready" | "due" | "locked" | "overachieved"
 
 export interface StudyPathStep {
   id: string

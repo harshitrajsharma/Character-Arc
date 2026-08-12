@@ -143,10 +143,8 @@ export const appSurfaceVariants = cva("transition-all", {
         "rounded-xl border border-black/20 bg-background/80 shadow-2xl backdrop-blur-md supports-[backdrop-filter]:bg-background/60 dark:border-white/20",
       glass:
         "border border-white/20 bg-white/10 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-black/10",
-      panel:
-        "rounded-xl border bg-background/95 shadow-lg backdrop-blur-sm",
-      tile:
-        "rounded-lg border bg-muted/30 transition-colors hover:bg-muted/50",
+      panel: "rounded-xl border bg-background/95 shadow-lg backdrop-blur-sm",
+      tile: "rounded-lg border bg-muted/30 transition-colors hover:bg-muted/50",
     },
     padding: {
       none: "",
@@ -170,9 +168,9 @@ export const metricTileVariants = cva(
         neutral: "border border-border bg-muted/30 text-foreground",
         subtle: "bg-black/5 text-foreground dark:bg-white/5",
         success:
-          "border border-emerald-500/10 bg-emerald-500/5 text-emerald-600 hover:bg-emerald-500/10 dark:text-emerald-400 dark:bg-emerald-500/10",
+          "border border-emerald-500/10 bg-emerald-500/5 text-emerald-600 hover:bg-emerald-500/10 dark:bg-emerald-500/10 dark:text-emerald-400",
         warning:
-          "border border-amber-500/10 bg-amber-500/5 text-amber-600 hover:bg-amber-500/10 dark:text-amber-400 dark:bg-amber-500/10",
+          "border border-amber-500/10 bg-amber-500/5 text-amber-600 hover:bg-amber-500/10 dark:bg-amber-500/10 dark:text-amber-400",
         learning: `${progressModeTokens.learning.bgSoft} ${progressModeTokens.learning.textStrong} ${progressModeTokens.learning.border}`,
         revision: `${progressModeTokens.revision.bgSoft} ${progressModeTokens.revision.textStrong} ${progressModeTokens.revision.border}`,
         practice: `${progressModeTokens.practice.bgSoft} ${progressModeTokens.practice.textStrong} ${progressModeTokens.practice.border}`,
@@ -377,9 +375,7 @@ export type ProgressTrackVariants = VariantProps<typeof progressTrackVariants>
 export type ProgressIndicatorVariants = VariantProps<
   typeof progressIndicatorVariants
 >
-export type SectionHeadingVariants = VariantProps<
-  typeof sectionHeadingVariants
->
+export type SectionHeadingVariants = VariantProps<typeof sectionHeadingVariants>
 export type SectionHeadingTitleVariants = VariantProps<
   typeof sectionHeadingTitleVariants
 >

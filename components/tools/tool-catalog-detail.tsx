@@ -3,6 +3,7 @@ import {
   ArrowRightIcon,
   CheckCircle2Icon,
   Layers3Icon,
+  ListChecksIcon,
   RouteIcon,
   SparklesIcon,
   type LucideIcon,
@@ -19,6 +20,7 @@ import { cn } from "@/lib/utils"
 
 const iconByKey: Record<string, LucideIcon> = {
   route: RouteIcon,
+  "list-checks": ListChecksIcon,
 }
 
 const categoryLabel = {
@@ -64,14 +66,16 @@ export function ToolCatalogDetail({
     ) : null
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 pb-12 pt-24 md:px-6 xl:px-10">
+    <main className="mx-auto w-full max-w-6xl px-4 md:px-6 xl:px-12 pt-24 pb-12">
       <ToolPageHeader
         eyebrow="Tool catalog"
         title={item.name}
         description={item.description}
         icon={<Icon aria-hidden="true" />}
         iconClassName="bg-brand-violet-soft text-brand-violet-ink"
-        badge={<Badge variant="secondary">{categoryLabel[item.category]}</Badge>}
+        badge={
+          <Badge variant="secondary">{categoryLabel[item.category]}</Badge>
+        }
         metadata={
           installed ? (
             <Badge variant="outline">
@@ -120,11 +124,17 @@ export function ToolCatalogDetail({
           </div>
         </section>
 
-        <aside aria-labelledby="organized-title" className="lg:border-l lg:pl-8">
+        <aside
+          aria-labelledby="organized-title"
+          className="lg:border-l lg:pl-8"
+        >
           <span className="flex size-10 items-center justify-center rounded-md bg-muted text-muted-foreground">
             <Layers3Icon className="size-5" aria-hidden="true" />
           </span>
-          <h2 id="organized-title" className="mt-4 font-heading text-lg font-semibold">
+          <h2
+            id="organized-title"
+            className="mt-4 font-heading text-lg font-semibold"
+          >
             What stays organized
           </h2>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">

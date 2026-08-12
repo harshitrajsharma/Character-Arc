@@ -1,18 +1,22 @@
 import type { Metadata } from "next"
 import { notFound, redirect } from "next/navigation"
-import Link from "next/link"
-import { ArrowLeftIcon, GraduationCapIcon } from "lucide-react"
 
 import { getExamDetail } from "@/lib/tools/definitions/exam-prep/repository"
 import { getExamDashboardData } from "@/lib/tools/definitions/exam-prep/dashboard-queries"
 import { SubjectsView } from "@/components/tools/exam-prep/subjects/subjects-view"
-import { getWorkspaceIdentity, requireActiveToolInstallation } from "@/lib/workspaces/workspace-access"
+import { ExamSubjectRecommendations } from "@/components/tools/exam-prep/subjects/exam-recommendations"
+import { ExamDetailHeader } from "@/components/tools/exam-prep/exam-detail-header"
+import { generateExamSubjectRecommendations } from "@/lib/tools/exam-prep/recommendations"
+import {
+  getWorkspaceIdentity,
+  requireActiveToolInstallation,
+} from "@/lib/workspaces/workspace-access"
 import { workspaceRoutes } from "@/lib/routes/workspace-tools"
 
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ workspaceSlug: string, id: string }>
+  params: Promise<{ workspaceSlug: string; id: string }>
 }): Promise<Metadata> {
   const { workspaceSlug, id } = await params
   const workspace = await getWorkspaceIdentity(workspaceSlug)
@@ -25,14 +29,21 @@ export async function generateMetadata({
 export default async function ExamDetailPage({
   params,
 }: {
-  params: Promise<{ workspaceSlug: string, id: string }>
+  params: Promise<{ workspaceSlug: string; id: string }>
 }) {
   const { workspaceSlug, id } = await params
   const workspace = await getWorkspaceIdentity(workspaceSlug)
-  const installation = await requireActiveToolInstallation(workspaceSlug, "core.exam-prep")
+  const installation = await requireActiveToolInstallation(
+    workspaceSlug,
+    "core.exam-prep"
+  )
   const { exam, issue } = await getExamDetail(workspace.id, workspaceSlug, id)
 
-  if (issue === "not_found" || !exam || exam.originToolInstallationId !== installation.id) {
+  if (
+    issue === "not_found" ||
+    !exam ||
+    exam.originToolInstallationId !== installation.id
+  ) {
     notFound()
   }
 
@@ -46,37 +57,40 @@ export default async function ExamDetailPage({
     installation.id,
     workspace.userId
   )
-
-
+  const recommendationAsOf = new Date()
+  const recommendations = generateExamSubjectRecommendations({
+    subjects: subjectsWithRelations,
+    now: recommendationAsOf,
+  })
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 md:px-6 xl:px-10 pt-24 pb-8 sm:pb-10">
-      <header className="mb-8 flex items-start gap-4 border-b border-border pb-6">
-        <Link
-          href={workspaceRoutes.examPrep.home(workspaceSlug)}
-          className="mt-1 hidden md:flex size-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-        >
-          <ArrowLeftIcon className="size-5" aria-hidden="true" />
-          <span className="sr-only">Back to exams</span>
-        </Link>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 text-sm font-medium text-brand-violet-ink">
-            <GraduationCapIcon className="size-4" aria-hidden="true" />
-            <span>Exam Prep</span>
-          </div>
-          <h1 className="mt-1 truncate font-heading text-3xl font-semibold tracking-normal">
-            {exam.title}
-          </h1>
-          {exam.summary ? (
-            <p className="mt-2 max-w-3xl text-base leading-relaxed text-muted-foreground">
-              {exam.summary}
-            </p>
-          ) : null}
-        </div>
-      </header>
+    <main className="mx-auto w-full max-w-6xl px-4 pt-20 pb-8 sm:pt-24 sm:pb-10 md:px-6 xl:px-10">
+      <ExamDetailHeader
+        workspaceSlug={workspaceSlug}
+        exam={exam}
+        settingsHref={workspaceRoutes.examPrep.examSettings(
+          workspaceSlug,
+          exam.id
+        )}
+      />
+
+      <div className="mt-6 md:px-4">
+        <ExamSubjectRecommendations
+          workspaceSlug={workspaceSlug}
+          examId={exam.id}
+          output={{
+            ...recommendations,
+            asOf: recommendationAsOf.toISOString(),
+          }}
+        />
+      </div>
 
       {/* Subjects View */}
-      <SubjectsView workspaceSlug={workspaceSlug} examId={exam.id} subjects={subjectsWithRelations} />
+      <SubjectsView
+        workspaceSlug={workspaceSlug}
+        examId={exam.id}
+        subjects={subjectsWithRelations}
+      />
     </main>
   )
 }

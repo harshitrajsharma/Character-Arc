@@ -35,7 +35,10 @@ export async function installToolAction(
 
   const workspace = await getWorkspaceIdentity(parsed.data.workspaceSlug)
   if (workspace.id !== parsed.data.workspaceId) {
-    return { status: "error", message: "The selected workspace does not match this page." }
+    return {
+      status: "error",
+      message: "The selected workspace does not match this page.",
+    }
   }
 
   const destination = workspaceRoutes.toolHome(
@@ -43,7 +46,10 @@ export async function installToolAction(
     parsed.data.toolKey
   )
   if (!destination) {
-    return { status: "error", message: "This tool does not have a workspace destination yet." }
+    return {
+      status: "error",
+      message: "This tool does not have a workspace destination yet.",
+    }
   }
 
   try {

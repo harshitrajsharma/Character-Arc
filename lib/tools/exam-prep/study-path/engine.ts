@@ -1,6 +1,6 @@
-import { getRequiredRevisions, getRequiredPractices } from "../progress/rules";
-import { normalizeSubjectProgressPolicy } from "../progress/policy";
-import type { SubjectWithRelations } from "@/types/progressapp/domain/curriculum";
+import { getRequiredRevisions, getRequiredPractices } from "../progress/rules"
+import { normalizeSubjectProgressPolicy } from "../progress/policy"
+import type { SubjectWithRelations } from "@/types/progressapp/domain/curriculum"
 import {
   StudyPathEngineInput,
   StudyPathOutput,
@@ -8,54 +8,60 @@ import {
   StudyPathStep,
   StudyPathEngineInputTestRecord,
   StudyPathStepStatus,
-} from "./types";
+} from "./types"
 
 function getValidDate(d: Date | string | null | undefined): Date | null {
-  if (!d) return null;
-  const date = typeof d === "string" ? new Date(d) : d;
-  return Number.isNaN(date.getTime()) ? null : date;
+  if (!d) return null
+  const date = typeof d === "string" ? new Date(d) : d
+  return Number.isNaN(date.getTime()) ? null : date
 }
 
-function getCompletionDate(value: Date | string | null | undefined): string | null {
-  return getValidDate(value)?.toISOString() ?? null;
+function getCompletionDate(
+  value: Date | string | null | undefined
+): string | null {
+  return getValidDate(value)?.toISOString() ?? null
 }
 
 function getTestTargetCompletionDate(
   records: StudyPathEngineInputTestRecord[],
   target: number
 ): string | null {
-  if (target <= 0) return null;
+  if (target <= 0) return null
   const validDates = records
-    .filter((record) =>
-      Number.isFinite(record.marksObtained) &&
-      Number.isFinite(record.totalMarks) &&
-      record.totalMarks > 0 &&
-      record.marksObtained >= 0 &&
-      record.marksObtained <= record.totalMarks &&
-      getValidDate(record.createdAt) !== null
+    .filter(
+      (record) =>
+        Number.isFinite(record.marksObtained) &&
+        Number.isFinite(record.totalMarks) &&
+        record.totalMarks > 0 &&
+        record.marksObtained >= 0 &&
+        record.marksObtained <= record.totalMarks &&
+        getValidDate(record.createdAt) !== null
     )
     .map((record) => getValidDate(record.createdAt)!)
-    .sort((left, right) => left.getTime() - right.getTime());
+    .sort((left, right) => left.getTime() - right.getTime())
 
-  return validDates.length >= target ? validDates[target - 1].toISOString() : null;
+  return validDates.length >= target
+    ? validDates[target - 1].toISOString()
+    : null
 }
 
 function getLatestValidTest(records: StudyPathEngineInputTestRecord[]) {
-  const valid = records.filter((r) =>
-    Number.isFinite(r.marksObtained) &&
-    Number.isFinite(r.totalMarks) &&
-    r.totalMarks > 0 &&
-    r.marksObtained >= 0 &&
-    r.marksObtained <= r.totalMarks &&
-    getValidDate(r.createdAt) !== null
-  );
-  if (valid.length === 0) return null;
+  const valid = records.filter(
+    (r) =>
+      Number.isFinite(r.marksObtained) &&
+      Number.isFinite(r.totalMarks) &&
+      r.totalMarks > 0 &&
+      r.marksObtained >= 0 &&
+      r.marksObtained <= r.totalMarks &&
+      getValidDate(r.createdAt) !== null
+  )
+  if (valid.length === 0) return null
   return valid.sort((a, b) => {
-    const timeA = getValidDate(a.createdAt)!.getTime();
-    const timeB = getValidDate(b.createdAt)!.getTime();
-    if (timeA !== timeB) return timeB - timeA; // Newer first
-    return a.id.localeCompare(b.id); // Tie breaker ID ascending
-  })[0];
+    const timeA = getValidDate(a.createdAt)!.getTime()
+    const timeB = getValidDate(b.createdAt)!.getTime()
+    if (timeA !== timeB) return timeB - timeA // Newer first
+    return a.id.localeCompare(b.id) // Tie breaker ID ascending
+  })[0]
 }
 
 export function subjectToStudyPathInput(
@@ -64,26 +70,32 @@ export function subjectToStudyPathInput(
 ): StudyPathEngineInput {
   const allTestRecords = [
     ...(subject.testRecords || []),
-    ...(subject.chapters || []).flatMap(ch => ch.testRecords || [])
-  ];
-  
+    ...(subject.chapters || []).flatMap((ch) => ch.testRecords || []),
+  ]
+
   // avoid duplicate TestRecords by stable record ID
   const deduplicatedRecords = Array.from(
-    new Map(allTestRecords.map(r => [r.id, r])).values()
-  );
+    new Map(allTestRecords.map((r) => [r.id, r])).values()
+  )
 
-  const subjectTestRecords = deduplicatedRecords.filter(r => !r.chapterId);
-  
-  const chapters = (subject.chapters || []).map(ch => {
-    const chapterRecords = deduplicatedRecords.filter(r => r.chapterId === ch.id);
-    
+  const subjectTestRecords = deduplicatedRecords.filter(
+    (r) => !r.chapterId && r.scope !== "multi-chapter"
+  )
+
+  const chapters = (subject.chapters || []).map((ch) => {
+    const chapterRecords = deduplicatedRecords.filter(
+      (r) =>
+        r.chapterId === ch.id ||
+        (r.scope === "multi-chapter" && r.targetChapterIds?.includes(ch.id))
+    )
+
     return {
       id: ch.id,
       name: ch.name,
       position: ch.position,
       important: ch.important,
       testRecords: chapterRecords,
-      topics: (ch.topics || []).map(t => ({
+      topics: (ch.topics || []).map((t) => ({
         id: t.id,
         name: t.name,
         position: t.position,
@@ -97,64 +109,71 @@ export function subjectToStudyPathInput(
         lastPracticed: t.lastPracticed,
         targetRevisions: t.targetRevisions,
         targetPractices: t.targetPractices,
-      }))
-    };
-  });
+      })),
+    }
+  })
 
   return {
     chapters,
     subjectTestRecords,
     policy: subject.progressPolicy,
     now,
-  };
+  }
 }
 
-export function generateStudyPath(input: StudyPathEngineInput): StudyPathOutput {
-  const policy = normalizeSubjectProgressPolicy(input.policy);
-  let orderCounter = 0;
+export function generateStudyPath(
+  input: StudyPathEngineInput
+): StudyPathOutput {
+  const policy = normalizeSubjectProgressPolicy(input.policy)
+  let orderCounter = 0
 
   const sortedChapters = [...input.chapters].sort((a, b) => {
-    if (a.position !== b.position) return a.position - b.position;
-    return a.id.localeCompare(b.id);
-  });
+    if (a.position !== b.position) return a.position - b.position
+    return a.id.localeCompare(b.id)
+  })
 
-  let firstIncompleteLearnFound = false;
-  let previousLearnStepId: string | null = null;
+  let firstIncompleteLearnFound = false
+  let previousLearnStepId: string | null = null
 
-  const chapters: StudyPathChapter[] = [];
-  const subjectSteps: StudyPathStep[] = [];
-  const allSteps: StudyPathStep[] = [];
+  const chapters: StudyPathChapter[] = []
+  const subjectSteps: StudyPathStep[] = []
+  const allSteps: StudyPathStep[] = []
 
   for (const chapter of sortedChapters) {
     const sortedTopics = [...chapter.topics].sort((a, b) => {
-      if (a.position !== b.position) return a.position - b.position;
-      return a.id.localeCompare(b.id);
-    });
+      if (a.position !== b.position) return a.position - b.position
+      return a.id.localeCompare(b.id)
+    })
 
-    const chapterSteps: StudyPathStep[] = [];
+    const chapterSteps: StudyPathStep[] = []
 
     for (const topic of sortedTopics) {
       // 1. Learn Step
-      let learnStatus: StudyPathStepStatus;
+      let learnStatus: StudyPathStepStatus
       if (topic.learningStatus) {
-        learnStatus = "completed";
+        learnStatus = "completed"
       } else {
         if (firstIncompleteLearnFound) {
-          learnStatus = "locked";
+          learnStatus = "locked"
         } else {
-          learnStatus = "ready";
-          firstIncompleteLearnFound = true; // Lock subsequent learn steps
+          learnStatus = "ready"
+          firstIncompleteLearnFound = true // Lock subsequent learn steps
         }
       }
 
-      const learnStepId = `learn::${chapter.id}::${topic.id}`;
+      const learnStepId = `learn::${chapter.id}::${topic.id}`
       const learnStep: StudyPathStep = {
         id: learnStepId,
         kind: "learn",
         status: learnStatus,
         stage: "learning",
         title: `Learn ${topic.name}`,
-        reason: learnStatus === "completed" ? "Topic learned" : (learnStatus === "locked" ? "Prerequisites incomplete" : "Curriculum requirement"),
+        reason:
+          learnStatus === "completed"
+            ? "Topic learned"
+            : learnStatus === "locked"
+              ? "Prerequisites incomplete"
+              : "Curriculum requirement",
         evidence: topic.learningStatus ? "Completed" : "Not learned",
         chapterId: chapter.id,
         chapterName: chapter.name,
@@ -163,13 +182,17 @@ export function generateStudyPath(input: StudyPathEngineInput): StudyPathOutput 
         isHighYield: topic.important,
         order: ++orderCounter,
         dependencyIds: previousLearnStepId ? [previousLearnStepId] : [],
-        urgencyScore: learnStatus === "ready" ? 80 + (topic.important ? 5 : 0) : 0,
-        completedAt: learnStatus === "completed" ? getCompletionDate(topic.learningCompletedAt) : null,
-      };
+        urgencyScore:
+          learnStatus === "ready" ? 80 + (topic.important ? 5 : 0) : 0,
+        completedAt:
+          learnStatus === "completed"
+            ? getCompletionDate(topic.learningCompletedAt)
+            : null,
+      }
 
-      chapterSteps.push(learnStep);
-      allSteps.push(learnStep);
-      previousLearnStepId = learnStep.id;
+      chapterSteps.push(learnStep)
+      allSteps.push(learnStep)
+      previousLearnStepId = learnStep.id
 
       // 2. Revise Step
       const reqRev = getRequiredRevisions(
@@ -178,20 +201,23 @@ export function generateStudyPath(input: StudyPathEngineInput): StudyPathOutput 
           targetRevisions: topic.targetRevisions ?? undefined,
         },
         policy
-      );
+      )
 
-      let revStatus: StudyPathStepStatus;
-      const validNextRev = getValidDate(topic.nextRevision);
+      let revStatus: StudyPathStepStatus
+      const validNextRev = getValidDate(topic.nextRevision)
       if (!topic.learningStatus) {
-        revStatus = "locked";
+        revStatus = "locked"
       } else if (topic.revisionCount > reqRev) {
-        revStatus = "overachieved";
+        revStatus = "overachieved"
       } else if (topic.revisionCount === reqRev) {
-        revStatus = "completed";
-      } else if (validNextRev && validNextRev.getTime() <= input.now.getTime()) {
-        revStatus = "due";
+        revStatus = "completed"
+      } else if (
+        validNextRev &&
+        validNextRev.getTime() <= input.now.getTime()
+      ) {
+        revStatus = "due"
       } else {
-        revStatus = "ready";
+        revStatus = "ready"
       }
 
       const reviseStep: StudyPathStep = {
@@ -200,10 +226,20 @@ export function generateStudyPath(input: StudyPathEngineInput): StudyPathOutput 
         status: revStatus,
         stage: "revision",
         title: `Revise ${topic.name}`,
-        reason: revStatus === "completed" || revStatus === "overachieved"
-          ? (reqRev === 0 ? "Excluded from requirements" : "Met revision targets")
-          : (revStatus === "locked" ? "Prerequisites incomplete" : (revStatus === "due" ? "Overdue for revision" : "Revision gap")),
-        evidence: reqRev === 0 ? "Not required" : `${topic.revisionCount}/${reqRev} revisions`,
+        reason:
+          revStatus === "completed" || revStatus === "overachieved"
+            ? reqRev === 0
+              ? "Excluded from requirements"
+              : "Met revision targets"
+            : revStatus === "locked"
+              ? "Prerequisites incomplete"
+              : revStatus === "due"
+                ? "Overdue for revision"
+                : "Revision gap",
+        evidence:
+          reqRev === 0
+            ? "Not required"
+            : `${topic.revisionCount}/${reqRev} revisions`,
         chapterId: chapter.id,
         chapterName: chapter.name,
         topicId: topic.id,
@@ -213,15 +249,17 @@ export function generateStudyPath(input: StudyPathEngineInput): StudyPathOutput 
         dependencyIds: !topic.learningStatus ? [learnStep.id] : [],
         urgencyScore:
           (revStatus === "due" ? 100 : revStatus === "ready" ? 70 : 0) +
-          ((revStatus === "ready" || revStatus === "due") && topic.important ? 5 : 0),
+          ((revStatus === "ready" || revStatus === "due") && topic.important
+            ? 5
+            : 0),
         completedAt:
           revStatus === "completed" || revStatus === "overachieved"
             ? getCompletionDate(topic.lastRevised)
             : null,
-      };
+      }
 
-      chapterSteps.push(reviseStep);
-      allSteps.push(reviseStep);
+      chapterSteps.push(reviseStep)
+      allSteps.push(reviseStep)
 
       // 3. Practice Step
       const reqPrac = getRequiredPractices(
@@ -230,17 +268,17 @@ export function generateStudyPath(input: StudyPathEngineInput): StudyPathOutput 
           targetPractices: topic.targetPractices ?? undefined,
         },
         policy
-      );
+      )
 
-      let pracStatus: StudyPathStepStatus;
+      let pracStatus: StudyPathStepStatus
       if (!topic.learningStatus) {
-        pracStatus = "locked";
+        pracStatus = "locked"
       } else if (topic.practiceCount > reqPrac) {
-        pracStatus = "overachieved";
+        pracStatus = "overachieved"
       } else if (topic.practiceCount === reqPrac) {
-        pracStatus = "completed";
+        pracStatus = "completed"
       } else {
-        pracStatus = "ready";
+        pracStatus = "ready"
       }
 
       const practiceStep: StudyPathStep = {
@@ -249,10 +287,18 @@ export function generateStudyPath(input: StudyPathEngineInput): StudyPathOutput 
         status: pracStatus,
         stage: "practice",
         title: `Practice ${topic.name}`,
-        reason: pracStatus === "completed" || pracStatus === "overachieved"
-          ? (reqPrac === 0 ? "Excluded from requirements" : "Met practice targets")
-          : (pracStatus === "locked" ? "Prerequisites incomplete" : "Practice gap"),
-        evidence: reqPrac === 0 ? "Not required" : `${topic.practiceCount}/${reqPrac} practice`,
+        reason:
+          pracStatus === "completed" || pracStatus === "overachieved"
+            ? reqPrac === 0
+              ? "Excluded from requirements"
+              : "Met practice targets"
+            : pracStatus === "locked"
+              ? "Prerequisites incomplete"
+              : "Practice gap",
+        evidence:
+          reqPrac === 0
+            ? "Not required"
+            : `${topic.practiceCount}/${reqPrac} practice`,
         chapterId: chapter.id,
         chapterName: chapter.name,
         topicId: topic.id,
@@ -260,19 +306,20 @@ export function generateStudyPath(input: StudyPathEngineInput): StudyPathOutput 
         isHighYield: topic.important,
         order: ++orderCounter,
         dependencyIds: !topic.learningStatus ? [learnStep.id] : [],
-        urgencyScore: pracStatus === "ready" ? 70 + (topic.important ? 5 : 0) : 0,
+        urgencyScore:
+          pracStatus === "ready" ? 70 + (topic.important ? 5 : 0) : 0,
         completedAt:
           pracStatus === "completed" || pracStatus === "overachieved"
             ? getCompletionDate(topic.lastPracticed)
             : null,
-      };
+      }
 
-      chapterSteps.push(practiceStep);
-      allSteps.push(practiceStep);
+      chapterSteps.push(practiceStep)
+      allSteps.push(practiceStep)
     }
 
     // 4. Chapter Test Step
-    const target = policy.chapterTestTarget;
+    const target = policy.chapterTestTarget
     const validTests = chapter.testRecords.filter(
       (r) =>
         Number.isFinite(r.marksObtained) &&
@@ -281,25 +328,35 @@ export function generateStudyPath(input: StudyPathEngineInput): StudyPathOutput 
         r.marksObtained >= 0 &&
         r.marksObtained <= r.totalMarks &&
         getValidDate(r.createdAt) !== null
-    );
+    )
 
-    const incompleteChapterSteps = chapterSteps.filter(s => 
-      (s.kind === "learn" && s.status !== "completed" && s.status !== "overachieved") ||
-      (s.kind === "revise" && s.status !== "completed" && s.status !== "overachieved") ||
-      (s.kind === "practice" && s.status !== "completed" && s.status !== "overachieved")
-    );
+    const incompleteChapterSteps = chapterSteps.filter(
+      (s) =>
+        (s.kind === "learn" &&
+          s.status !== "completed" &&
+          s.status !== "overachieved") ||
+        (s.kind === "revise" &&
+          s.status !== "completed" &&
+          s.status !== "overachieved") ||
+        (s.kind === "practice" &&
+          s.status !== "completed" &&
+          s.status !== "overachieved")
+    )
 
-    let testStatus: StudyPathStepStatus;
+    let testStatus: StudyPathStepStatus
     if (target === 0) {
-      testStatus = "completed";
-    } else if (incompleteChapterSteps.length > 0) {
-      testStatus = "locked";
+      testStatus = "completed"
+    } else if (
+      chapter.topics.length === 0 ||
+      incompleteChapterSteps.length > 0
+    ) {
+      testStatus = "locked"
     } else if (validTests.length > target) {
-      testStatus = "overachieved";
+      testStatus = "overachieved"
     } else if (validTests.length === target) {
-      testStatus = "completed";
+      testStatus = "completed"
     } else {
-      testStatus = "ready";
+      testStatus = "ready"
     }
 
     const chapterTestStep: StudyPathStep = {
@@ -308,29 +365,39 @@ export function generateStudyPath(input: StudyPathEngineInput): StudyPathOutput 
       status: testStatus,
       stage: "test",
       title: `Take ${chapter.name} Test`,
-      reason: testStatus === "completed" || testStatus === "overachieved"
-        ? (target === 0 ? "Excluded from requirements" : "Met test requirements")
-        : (testStatus === "locked" ? "Prerequisites incomplete" : "Missing chapter test"),
-      evidence: target === 0 ? "Not required" : `${validTests.length}/${target} chapter test${target === 1 ? "" : "s"}`,
+      reason:
+        testStatus === "completed" || testStatus === "overachieved"
+          ? target === 0
+            ? "Excluded from requirements"
+            : "Met test requirements"
+          : testStatus === "locked"
+            ? "Prerequisites incomplete"
+            : "Missing chapter test",
+      evidence:
+        target === 0
+          ? "Not required"
+          : `${validTests.length}/${target} chapter test${target === 1 ? "" : "s"}`,
       chapterId: chapter.id,
       chapterName: chapter.name,
       isHighYield: chapter.important,
       order: ++orderCounter,
-      dependencyIds: testStatus === "locked" ? incompleteChapterSteps.map(s => s.id) : [],
-      urgencyScore: testStatus === "ready" ? 60 + (chapter.important ? 5 : 0) : 0,
+      dependencyIds:
+        testStatus === "locked" ? incompleteChapterSteps.map((s) => s.id) : [],
+      urgencyScore:
+        testStatus === "ready" ? 60 + (chapter.important ? 5 : 0) : 0,
       completedAt:
         testStatus === "completed" || testStatus === "overachieved"
           ? getTestTargetCompletionDate(validTests, target)
           : null,
-    };
+    }
 
-    chapterSteps.push(chapterTestStep);
-    allSteps.push(chapterTestStep);
+    chapterSteps.push(chapterTestStep)
+    allSteps.push(chapterTestStep)
 
     // 5. Chapter Remediation
-    const latestValidTest = getLatestValidTest(chapter.testRecords);
+    const latestValidTest = getLatestValidTest(chapter.testRecords)
     if (latestValidTest) {
-      const score = latestValidTest.marksObtained / latestValidTest.totalMarks;
+      const score = latestValidTest.marksObtained / latestValidTest.totalMarks
       if (score < 0.5) {
         const remediationStep: StudyPathStep = {
           id: `remediation::${chapter.id}::${latestValidTest.id}`,
@@ -346,9 +413,9 @@ export function generateStudyPath(input: StudyPathEngineInput): StudyPathOutput 
           order: ++orderCounter,
           dependencyIds: [],
           urgencyScore: 90 + (chapter.important ? 5 : 0),
-        };
-        chapterSteps.push(remediationStep);
-        allSteps.push(remediationStep);
+        }
+        chapterSteps.push(remediationStep)
+        allSteps.push(remediationStep)
       }
     }
 
@@ -358,16 +425,21 @@ export function generateStudyPath(input: StudyPathEngineInput): StudyPathOutput 
       position: chapter.position,
       isHighYield: chapter.important,
       steps: chapterSteps,
-    });
+    })
   }
 
   // 6. Subject Test
   const incompleteSubjectDependencies = allSteps.filter(
-    (s) => (s.kind === "learn" || s.kind === "revise" || s.kind === "practice" || s.kind === "chapter-test") &&
-           s.status !== "completed" && s.status !== "overachieved"
-  );
+    (s) =>
+      (s.kind === "learn" ||
+        s.kind === "revise" ||
+        s.kind === "practice" ||
+        s.kind === "chapter-test") &&
+      s.status !== "completed" &&
+      s.status !== "overachieved"
+  )
 
-  const subjTarget = policy.subjectTestTarget;
+  const subjTarget = policy.subjectTestTarget
   const validSubjTests = input.subjectTestRecords.filter(
     (r) =>
       Number.isFinite(r.marksObtained) &&
@@ -376,19 +448,20 @@ export function generateStudyPath(input: StudyPathEngineInput): StudyPathOutput 
       r.marksObtained >= 0 &&
       r.marksObtained <= r.totalMarks &&
       getValidDate(r.createdAt) !== null
-  );
+  )
 
-  let subjTestStatus: StudyPathStepStatus;
+  let subjTestStatus: StudyPathStepStatus
+  const hasTopics = input.chapters.some((c) => c.topics && c.topics.length > 0)
   if (subjTarget === 0) {
-    subjTestStatus = "completed";
-  } else if (incompleteSubjectDependencies.length > 0) {
-    subjTestStatus = "locked";
+    subjTestStatus = "completed"
+  } else if (!hasTopics || incompleteSubjectDependencies.length > 0) {
+    subjTestStatus = "locked"
   } else if (validSubjTests.length > subjTarget) {
-    subjTestStatus = "overachieved";
+    subjTestStatus = "overachieved"
   } else if (validSubjTests.length === subjTarget) {
-    subjTestStatus = "completed";
+    subjTestStatus = "completed"
   } else {
-    subjTestStatus = "ready";
+    subjTestStatus = "ready"
   }
 
   const subjectTestStep: StudyPathStep = {
@@ -397,27 +470,39 @@ export function generateStudyPath(input: StudyPathEngineInput): StudyPathOutput 
     status: subjTestStatus,
     stage: "test",
     title: `Take Subject Test`,
-    reason: subjTestStatus === "completed" || subjTestStatus === "overachieved"
-      ? (subjTarget === 0 ? "Excluded from requirements" : "Met test requirements")
-      : (subjTestStatus === "locked" ? "Prerequisites incomplete" : "Missing subject test"),
-    evidence: subjTarget === 0 ? "Not required" : `${validSubjTests.length}/${subjTarget} subject test${subjTarget === 1 ? "" : "s"}`,
+    reason:
+      subjTestStatus === "completed" || subjTestStatus === "overachieved"
+        ? subjTarget === 0
+          ? "Excluded from requirements"
+          : "Met test requirements"
+        : subjTestStatus === "locked"
+          ? "Prerequisites incomplete"
+          : "Missing subject test",
+    evidence:
+      subjTarget === 0
+        ? "Not required"
+        : `${validSubjTests.length}/${subjTarget} subject test${subjTarget === 1 ? "" : "s"}`,
     isHighYield: false,
     order: ++orderCounter,
-    dependencyIds: subjTestStatus === "locked" ? incompleteSubjectDependencies.map(s => s.id) : [],
+    dependencyIds:
+      subjTestStatus === "locked"
+        ? incompleteSubjectDependencies.map((s) => s.id)
+        : [],
     urgencyScore: subjTestStatus === "ready" ? 50 : 0,
     completedAt:
       subjTestStatus === "completed" || subjTestStatus === "overachieved"
         ? getTestTargetCompletionDate(validSubjTests, subjTarget)
         : null,
-  };
+  }
 
-  subjectSteps.push(subjectTestStep);
-  allSteps.push(subjectTestStep);
+  subjectSteps.push(subjectTestStep)
+  allSteps.push(subjectTestStep)
 
   // 7. Subject Remediation
-  const latestValidSubjTest = getLatestValidTest(input.subjectTestRecords);
+  const latestValidSubjTest = getLatestValidTest(input.subjectTestRecords)
   if (latestValidSubjTest) {
-    const score = latestValidSubjTest.marksObtained / latestValidSubjTest.totalMarks;
+    const score =
+      latestValidSubjTest.marksObtained / latestValidSubjTest.totalMarks
     if (score < 0.5) {
       const subjRemediationStep: StudyPathStep = {
         id: `subject-remediation::${latestValidSubjTest.id}`,
@@ -431,29 +516,31 @@ export function generateStudyPath(input: StudyPathEngineInput): StudyPathOutput 
         order: ++orderCounter,
         dependencyIds: [],
         urgencyScore: 90,
-      };
-      subjectSteps.push(subjRemediationStep);
-      allSteps.push(subjRemediationStep);
+      }
+      subjectSteps.push(subjRemediationStep)
+      allSteps.push(subjRemediationStep)
     }
   }
 
-  const actionableSteps = allSteps.filter((s) => s.status === "ready" || s.status === "due");
+  const actionableSteps = allSteps.filter(
+    (s) => s.status === "ready" || s.status === "due"
+  )
 
   const nextSteps = [...actionableSteps]
     .sort((a, b) => {
       if (a.urgencyScore !== b.urgencyScore) {
-        return b.urgencyScore - a.urgencyScore; // Descending urgency
+        return b.urgencyScore - a.urgencyScore // Descending urgency
       }
       if (a.order !== b.order) {
-        return a.order - b.order; // Ascending canonical curriculum order
+        return a.order - b.order // Ascending canonical curriculum order
       }
-      return a.id.localeCompare(b.id); // Stable ID
+      return a.id.localeCompare(b.id) // Stable ID
     })
-    .slice(0, 3);
+    .slice(0, 3)
 
   const isCompleted = allSteps.every(
     (s) => s.status === "completed" || s.status === "overachieved"
-  );
+  )
 
   return {
     chapters,
@@ -462,5 +549,5 @@ export function generateStudyPath(input: StudyPathEngineInput): StudyPathOutput 
     actionableSteps,
     nextSteps,
     isCompleted,
-  };
+  }
 }

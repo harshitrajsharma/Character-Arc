@@ -61,8 +61,8 @@ export function ArcDeleteDialog({
           </AlertDialogMedia>
           <AlertDialogTitle>Delete this Arc?</AlertDialogTitle>
           <AlertDialogDescription>
-            <strong className="font-medium text-foreground">{title}</strong> will
-            disappear from your workspace. Its {checkInCount} check-in
+            <strong className="font-medium text-foreground">{title}</strong>{" "}
+            will disappear from your workspace. Its {checkInCount} check-in
             {checkInCount === 1 ? "" : "s"} and audit history are retained for
             data integrity.
           </AlertDialogDescription>

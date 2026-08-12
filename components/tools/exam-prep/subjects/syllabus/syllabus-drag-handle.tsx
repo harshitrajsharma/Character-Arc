@@ -9,11 +9,15 @@ type SyllabusDragHandleProps = {
   label: string
 }
 
-export function SyllabusDragHandle({ listeners, attributes, label }: SyllabusDragHandleProps) {
+export function SyllabusDragHandle({
+  listeners,
+  attributes,
+  label,
+}: SyllabusDragHandleProps) {
   return (
     <button
       type="button"
-      className="flex size-8 shrink-0 cursor-grab items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground active:cursor-grabbing"
+      className="flex size-11 shrink-0 cursor-grab items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground active:cursor-grabbing sm:size-8"
       aria-label={label}
       {...attributes}
       {...listeners}

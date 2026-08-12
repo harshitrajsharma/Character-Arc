@@ -1,6 +1,12 @@
 "use client"
 
-import { useEffect, useState, useRef, useCallback } from "react"
+import {
+  useState,
+  useRef,
+  useCallback,
+  useEffect,
+  useSyncExternalStore,
+} from "react"
 import type { NavigationTarget } from "../recommendations"
 import {
   DndContext,
@@ -19,26 +25,44 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { CalendarIcon, ChevronDownIcon, CircleCheckIcon, PlusIcon, StarIcon } from "lucide-react"
+import {
+  CalendarIcon,
+  ChevronDownIcon,
+  CircleCheckIcon,
+  PlusIcon,
+  StarIcon,
+} from "lucide-react"
 import { toast } from "sonner"
 
 import { reorderTopicsAction } from "@/lib/tools/exam-prep/actions/syllabus-actions"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
-import type { BaseTopic, ChapterWithRelations } from "@/types/progressapp/domain"
+import type {
+  BaseTopic,
+  ChapterWithRelations,
+} from "@/types/progressapp/domain"
 import type { SubjectProgressPolicy } from "@/lib/tools/exam-prep/progress/policy"
 
 import { AddSyllabusTopicRow } from "./add-syllabus-topic-row"
 import { highYieldBadgeClass } from "../shared-styles"
 import { SyllabusDragHandle } from "./syllabus-drag-handle"
 import { SyllabusItemActions } from "./syllabus-item-actions"
-import { getChapterStageProgress, type SyllabusItemUpdate, type SyllabusStage } from "./syllabus-model"
+import {
+  getChapterStageProgress,
+  type SyllabusItemUpdate,
+  type SyllabusStage,
+} from "./syllabus-model"
 import { SyllabusTopicRow } from "./syllabus-topic-row"
 import { ChapterTestView } from "../tests/chapter-test-view"
-import { SchedulePlannerDialog } from "../dialogs/schedule-planner-dialog"
+import { SubjectTestPlannerDialog } from "../tests/subject-test-planner-dialog"
+import { useSubjectProgress } from "../subject-progress-context"
 
 type SyllabusChapterCardProps = {
   workspaceSlug: string
@@ -51,11 +75,23 @@ type SyllabusChapterCardProps = {
   navigationTarget?: NavigationTarget | null
   onNavigationComplete?: () => void
   onTopicsChange: (chapterId: string, topics: BaseTopic[]) => void
-  onTopicProgress: (chapterId: string, topic: BaseTopic, value: boolean | number) => void
-  onChapterUpdate: (chapterId: string, update: SyllabusItemUpdate) => Promise<void>
+  onTopicProgress: (
+    chapterId: string,
+    topic: BaseTopic,
+    value: boolean | number
+  ) => void
+  onChapterUpdate: (
+    chapterId: string,
+    update: SyllabusItemUpdate
+  ) => Promise<void>
   onChapterDelete: (chapterId: string) => Promise<void>
-  onTopicUpdate: (chapterId: string, topicId: string, update: SyllabusItemUpdate) => Promise<void>
+  onTopicUpdate: (
+    chapterId: string,
+    topicId: string,
+    update: SyllabusItemUpdate
+  ) => Promise<void>
   onTopicDelete: (chapterId: string, topicId: string) => Promise<void>
+  localDate?: string
 }
 
 export function SyllabusChapterCard({
@@ -74,29 +110,42 @@ export function SyllabusChapterCard({
   onChapterDelete,
   onTopicUpdate,
   onTopicDelete,
+  localDate,
 }: SyllabusChapterCardProps) {
-  const [expanded, setExpanded] = useState(false)
+  const { subject, upsertScheduledTest } = useSubjectProgress()
   const [isAddingTopic, setIsAddingTopic] = useState(false)
   const [isSchedulePlannerOpen, setIsSchedulePlannerOpen] = useState(false)
   const collapseKey = `exam-prep:chapter:${chapter.id}:collapsed`
 
+  // Hydration-safe, effect-free collapse restore: the server snapshot is
+  // always collapsed, then React re-renders from localStorage before paint.
+  const subscribeToCollapse = useCallback(
+    (onStoreChange: () => void) => {
+      window.addEventListener("storage", onStoreChange)
+      return () => window.removeEventListener("storage", onStoreChange)
+    },
+    []
+  )
+  const readCollapseSnapshot = useCallback(
+    () => window.localStorage.getItem(collapseKey),
+    [collapseKey]
+  )
+  const collapseServerSnapshot = useCallback(() => null, [])
+  const storedCollapsed = useSyncExternalStore(
+    subscribeToCollapse,
+    readCollapseSnapshot,
+    collapseServerSnapshot
+  )
+  const [expandedOverride, setExpandedOverride] = useState<boolean | null>(null)
+  const expanded =
+    expandedOverride ??
+    (storedCollapsed === null ? false : storedCollapsed !== "true")
+
   const handleToggleExpand = useCallback(() => {
     const nextExpanded = !expanded
-    setExpanded(nextExpanded)
+    setExpandedOverride(nextExpanded)
     window.localStorage.setItem(collapseKey, String(!nextExpanded))
   }, [expanded, collapseKey])
-
-  // Hydration-safe restore collapse state after mount
-  useEffect(() => {
-    const savedValue = window.localStorage.getItem(collapseKey)
-    if (savedValue !== null) {
-      const nextExpanded = savedValue !== "true"
-      const timer = setTimeout(() => {
-        setExpanded(nextExpanded)
-      }, 0)
-      return () => clearTimeout(timer)
-    }
-  }, [collapseKey])
 
   const {
     attributes,
@@ -116,16 +165,19 @@ export function SyllabusChapterCard({
   const [highlighted, setHighlighted] = useState(false)
   const localRef = useRef<HTMLDivElement | null>(null)
 
-  const setCombinedRef = useCallback((node: HTMLDivElement | null) => {
-    localRef.current = node
-    setNodeRef(node)
-  }, [setNodeRef])
+  const setCombinedRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      localRef.current = node
+      setNodeRef(node)
+    },
+    [setNodeRef]
+  )
 
   // Safe auto-expansion via useEffect with a timer to avoid render side effects or set-state-in-effect errors
   useEffect(() => {
     if (isTargetChapter && !expanded) {
       const timer = setTimeout(() => {
-        setExpanded(true)
+        setExpandedOverride(true)
       }, 50)
       return () => clearTimeout(timer)
     }
@@ -136,11 +188,18 @@ export function SyllabusChapterCard({
     let delayTimer: ReturnType<typeof setTimeout> | undefined
     let highlightTimer: ReturnType<typeof setTimeout> | undefined
 
-    if (isTargetChapter && navigationTarget && !navigationTarget.topicId && expanded) {
+    if (
+      isTargetChapter &&
+      navigationTarget &&
+      !navigationTarget.topicId &&
+      expanded
+    ) {
       delayTimer = setTimeout(() => {
         const element = localRef.current
         if (element) {
-          const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+          const prefersReducedMotion = window.matchMedia(
+            "(prefers-reduced-motion: reduce)"
+          ).matches
           element.scrollIntoView({
             behavior: prefersReducedMotion ? "auto" : "smooth",
             block: "center",
@@ -161,23 +220,35 @@ export function SyllabusChapterCard({
     }
   }, [isTargetChapter, navigationTarget, expanded, onNavigationComplete])
 
-
-
   async function handleTopicDragEnd(event: DragEndEvent) {
     if (!event.over || event.active.id === event.over.id) return
-    const oldIndex = chapter.topics.findIndex((topic) => topic.id === event.active.id)
-    const newIndex = chapter.topics.findIndex((topic) => topic.id === event.over?.id)
+    const oldIndex = chapter.topics.findIndex(
+      (topic) => topic.id === event.active.id
+    )
+    const newIndex = chapter.topics.findIndex(
+      (topic) => topic.id === event.over?.id
+    )
     if (oldIndex < 0 || newIndex < 0) return
 
     const previousTopics = chapter.topics
-    const nextTopics = arrayMove(previousTopics, oldIndex, newIndex).map((topic, position) => ({ ...topic, position }))
+    const nextTopics = arrayMove(previousTopics, oldIndex, newIndex).map(
+      (topic, position) => ({ ...topic, position })
+    )
     onTopicsChange(chapter.id, nextTopics)
 
     try {
-      await reorderTopicsAction({ workspaceSlug, chapterId: chapter.id, topicIds: nextTopics.map((topic) => topic.id) })
+      await reorderTopicsAction({
+        workspaceSlug,
+        chapterId: chapter.id,
+        topicIds: nextTopics.map((topic) => topic.id),
+      })
     } catch (error) {
       onTopicsChange(chapter.id, previousTopics)
-      toast.error(error instanceof Error ? error.message : "Could not save the topic order.")
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Could not save the topic order."
+      )
     }
   }
 
@@ -187,30 +258,57 @@ export function SyllabusChapterCard({
       style={{ transform: CSS.Transform.toString(transform), transition }}
       size="sm"
       className={cn(
-        "group/chapter overflow-hidden transition-[border-color,box-shadow] duration-200 hover:border-brand-violet-line scroll-mt-24",
+        "group/chapter scroll-mt-24 overflow-hidden transition-[border-color,box-shadow] duration-200 hover:border-brand-violet-line",
         isDragging && "opacity-60 shadow-lg",
-        highlighted && "ring-2 ring-brand-violet-line ring-offset-2 shadow-lg"
+        highlighted && "shadow-lg ring-2 ring-brand-violet-line ring-offset-2"
       )}
     >
       <CardHeader className="grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1 sm:gap-2">
-        <SyllabusDragHandle listeners={listeners} attributes={attributes} label={`Reorder ${chapter.name}`} />
-        <button type="button" className="min-w-0 py-1 text-left" onClick={handleToggleExpand} aria-expanded={expanded}>
+        <SyllabusDragHandle
+          listeners={listeners}
+          attributes={attributes}
+          label={`Reorder ${chapter.name}`}
+        />
+        <button
+          type="button"
+          className="min-w-0 py-1 text-left"
+          onClick={handleToggleExpand}
+          aria-expanded={expanded}
+        >
           <CardTitle className="flex items-center gap-2">
-            <ChevronDownIcon className={cn("transition-transform duration-200", !expanded && "-rotate-90")} aria-hidden="true" />
+            <ChevronDownIcon
+              className={cn(
+                "transition-transform duration-200",
+                !expanded && "-rotate-90"
+              )}
+              aria-hidden="true"
+            />
             <span className="truncate">{chapter.name}</span>
           </CardTitle>
         </button>
         <div className="flex items-center gap-1">
           <Badge
             variant={progress === 100 ? "outline" : "secondary"}
-            className={cn(progress === 100 && "border-success-line bg-success-soft text-success-ink")}
+            className={cn(
+              progress === 100 &&
+                "border-success-line bg-success-soft text-success-ink"
+            )}
           >
             {progress === 100 ? <CircleCheckIcon /> : null}
             {progress}%
           </Badge>
           {chapter.important ? (
-            <Badge variant="outline" className={cn("inline-flex px-1.5 sm:px-2.5", highYieldBadgeClass)} title="High yield">
+            <Badge
+              variant="outline"
+              className={cn(
+                "inline-flex px-1.5 sm:px-2.5",
+                highYieldBadgeClass
+              )}
+              title="High yield"
+              aria-label="High yield"
+            >
               <StarIcon className="fill-current" />
+              <span className="sr-only">High yield</span>
               <span className="hidden sm:inline">High yield</span>
             </Badge>
           ) : null}
@@ -240,7 +338,7 @@ export function SyllabusChapterCard({
                     size="icon"
                     variant="ghost"
                     onClick={() => {
-                      setExpanded(true)
+                      setExpandedOverride(true)
                       window.localStorage.setItem(collapseKey, "false")
                       setIsAddingTopic(true)
                     }}
@@ -265,7 +363,7 @@ export function SyllabusChapterCard({
         </div>
       </CardHeader>
       {expanded ? (
-        <CardContent className="animate-in flex flex-col gap-3 fade-in-0 slide-in-from-top-2 duration-200">
+        <CardContent className="flex animate-in flex-col gap-3 duration-200 fade-in-0 slide-in-from-top-2">
           {stage === "test" ? (
             <ChapterTestView
               workspaceSlug={workspaceSlug}
@@ -273,6 +371,7 @@ export function SyllabusChapterCard({
               subjectId={subjectId}
               chapterId={chapter.id}
               targetTests={progressPolicy?.chapterTestTarget ?? 1}
+              localDate={localDate}
             />
           ) : (
             <>
@@ -282,12 +381,25 @@ export function SyllabusChapterCard({
                   examId={examId}
                   chapterId={chapter.id}
                   onDone={() => setIsAddingTopic(false)}
-                  onCreated={(topic) => onTopicsChange(chapter.id, [...chapter.topics, { ...topic, position: chapter.topics.length }])}
+                  onCreated={(topic) =>
+                    onTopicsChange(chapter.id, [
+                      ...chapter.topics,
+                      { ...topic, position: chapter.topics.length },
+                    ])
+                  }
                 />
               ) : null}
               {chapter.topics.length > 0 ? (
-                <DndContext id={`dnd-context-topics-${chapter.id}`} sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleTopicDragEnd}>
-                  <SortableContext items={chapter.topics.map((topic) => topic.id)} strategy={verticalListSortingStrategy}>
+                <DndContext
+                  id={`dnd-context-topics-${chapter.id}`}
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleTopicDragEnd}
+                >
+                  <SortableContext
+                    items={chapter.topics.map((topic) => topic.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
                     <div className="flex flex-col gap-2">
                       {chapter.topics.map((topic) => (
                         <SyllabusTopicRow
@@ -298,8 +410,12 @@ export function SyllabusChapterCard({
                           pending={pendingTopicIds.has(topic.id)}
                           navigationTarget={navigationTarget}
                           onNavigationComplete={onNavigationComplete}
-                          onProgress={(selectedTopic, value) => onTopicProgress(chapter.id, selectedTopic, value)}
-                          onUpdate={(update) => onTopicUpdate(chapter.id, topic.id, update)}
+                          onProgress={(selectedTopic, value) =>
+                            onTopicProgress(chapter.id, selectedTopic, value)
+                          }
+                          onUpdate={(update) =>
+                            onTopicUpdate(chapter.id, topic.id, update)
+                          }
                           onDelete={() => onTopicDelete(chapter.id, topic.id)}
                         />
                       ))}
@@ -308,7 +424,9 @@ export function SyllabusChapterCard({
                 </DndContext>
               ) : !isAddingTopic ? (
                 <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed p-6">
-                  <p className="text-center text-sm text-muted-foreground">Add the first topic to start tracking this chapter.</p>
+                  <p className="text-center text-sm text-muted-foreground">
+                    Add the first topic to start tracking this chapter.
+                  </p>
                   <Button
                     type="button"
                     variant="outline"
@@ -324,15 +442,18 @@ export function SyllabusChapterCard({
           )}
         </CardContent>
       ) : null}
-      
+
       {isSchedulePlannerOpen ? (
-        <SchedulePlannerDialog
+        <SubjectTestPlannerDialog
           workspaceSlug={workspaceSlug}
+          examId={examId}
           open={isSchedulePlannerOpen}
           onOpenChange={setIsSchedulePlannerOpen}
-          blockId={chapter.id}
-          title={chapter.name}
-          initialScheduledTests={chapter.scheduledTests}
+          subjectId={subjectId}
+          subjectName={subject.name}
+          chapters={subject.chapters}
+          defaultChapterId={chapter.id}
+          onSuccess={upsertScheduledTest}
         />
       ) : null}
     </Card>

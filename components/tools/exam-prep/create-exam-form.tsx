@@ -8,10 +8,14 @@ import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { createExamAction, type CreateExamActionState } from "@/lib/tools/exam-prep/actions/create-actions"
+import {
+  createExamAction,
+  type CreateExamActionState,
+} from "@/lib/tools/exam-prep/actions/create-actions"
 import { toast } from "sonner"
 import { workspaceRoutes } from "@/lib/routes/workspace-tools"
 import { cn } from "@/lib/utils"
+import { DialogFooter } from "@/components/ui/dialog"
 import { ExamDatePicker } from "./exam-date-picker"
 
 const initialState: CreateExamActionState = { status: "idle", message: "" }
@@ -31,7 +35,10 @@ export function CreateExamForm({
   onCancel,
   onCreated,
 }: CreateExamFormProps) {
-  const [state, formAction, pending] = useActionState(createExamAction, initialState)
+  const [state, formAction, pending] = useActionState(
+    createExamAction,
+    initialState
+  )
 
   useEffect(() => {
     if (state.status === "success") {
@@ -39,9 +46,20 @@ export function CreateExamForm({
         onCreated?.(state.rootBlockId)
       }
     } else if (state.status === "error" && state.message) {
-      toast.error("Error", { description: state.message })
+      if (state.fieldErrors && Object.keys(state.fieldErrors).length > 0) {
+        toast.warning("Incomplete Form", { description: state.message })
+      } else {
+        toast.error("Error", { description: state.message })
+      }
     }
-  }, [state.status, state.message, state.rootBlockId, mode, onCreated])
+  }, [
+    state.status,
+    state.message,
+    state.fieldErrors,
+    state.rootBlockId,
+    mode,
+    onCreated,
+  ])
 
   if (state.status === "success" && mode === "page") {
     return (
@@ -52,11 +70,20 @@ export function CreateExamForm({
         <h2 className="font-heading text-2xl font-semibold">Exam created!</h2>
         <p className="mt-2 text-muted-foreground">{state.message}</p>
         <div className="mt-8 flex justify-center gap-4">
-          <Link href={workspaceRoutes.examPrep.home(workspaceSlug)} className={buttonVariants({ variant: "outline" })}>
+          <Link
+            href={workspaceRoutes.examPrep.home(workspaceSlug)}
+            className={buttonVariants({ variant: "outline" })}
+          >
             View all exams
           </Link>
           {state.rootBlockId ? (
-            <Link href={workspaceRoutes.examPrep.exam(workspaceSlug, state.rootBlockId)} className={buttonVariants()}>
+            <Link
+              href={workspaceRoutes.examPrep.exam(
+                workspaceSlug,
+                state.rootBlockId
+              )}
+              className={buttonVariants()}
+            >
               Add syllabus
             </Link>
           ) : null}
@@ -71,8 +98,8 @@ export function CreateExamForm({
       action={formAction}
       className={cn(
         mode === "dialog"
-          ? "space-y-6 w-full"
-          : "mx-auto max-w-2xl mt-20 px-4 py-12 sm:px-6"
+          ? "w-full space-y-6"
+          : "mx-auto mt-20 max-w-2xl px-4 py-12 sm:px-6"
       )}
     >
       <input type="hidden" name="workspaceSlug" value={workspaceSlug} />
@@ -82,14 +109,18 @@ export function CreateExamForm({
         <div className="mb-8 flex items-center gap-4">
           <Link
             href={workspaceRoutes.examPrep.home(workspaceSlug)}
-            className="hidden md:flex size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="hidden size-9 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:flex"
           >
             <ArrowLeftIcon className="size-5" aria-hidden="true" />
             <span className="sr-only">Back</span>
           </Link>
           <div>
-            <h1 className="font-heading text-2xl font-semibold">Track a new exam</h1>
-            <p className="text-sm text-muted-foreground">Set up the foundation to track your syllabus.</p>
+            <h1 className="font-heading text-2xl font-semibold">
+              Track a new exam
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Set up the foundation to track your syllabus.
+            </p>
           </div>
         </div>
       )}
@@ -102,7 +133,9 @@ export function CreateExamForm({
         )}
       >
         <div className="grid gap-2">
-          <Label htmlFor="title">Exam Name</Label>
+          <Label htmlFor="title">
+            Exam Name <span className="text-destructive">*</span>
+          </Label>
           <Input
             id="title"
             name="title"
@@ -111,45 +144,73 @@ export function CreateExamForm({
             maxLength={120}
             defaultValue={state.inputs?.title ?? ""}
             autoFocus={mode === "page"}
-            className={mode === "dialog" ? "h-11 sm:h-9" : ""}
+            className={cn(
+              mode === "dialog" ? "h-11 sm:h-9" : "",
+              state.fieldErrors?.title
+                ? "border-destructive focus-visible:ring-destructive"
+                : ""
+            )}
+            aria-invalid={Boolean(state.fieldErrors?.title)}
+            aria-describedby={
+              state.fieldErrors?.title ? "title-error" : undefined
+            }
           />
           {state.fieldErrors?.title ? (
-            <p className="text-sm text-destructive">{state.fieldErrors.title[0]}</p>
+            <p id="title-error" className="text-sm text-destructive">
+              {state.fieldErrors.title[0]}
+            </p>
           ) : null}
         </div>
 
         <div className="grid gap-2">
-          <Label htmlFor="summary">Description</Label>
+          <Label htmlFor="summary">Description <span className="text-muted-foreground">(optional)</span></Label>
           <Textarea
             id="summary"
             name="summary"
-            placeholder="Optional context about why you are taking this exam..."
-            className="min-h-25 resize-none"
+            placeholder="Brief description or context of what you are preparing for..."
+            className={cn(
+              "min-h-25 resize-none",
+              state.fieldErrors?.summary
+                ? "border-destructive focus-visible:ring-destructive"
+                : ""
+            )}
             maxLength={4000}
             defaultValue={state.inputs?.summary ?? ""}
+            aria-invalid={Boolean(state.fieldErrors?.summary)}
+            aria-describedby={
+              state.fieldErrors?.summary ? "summary-error" : undefined
+            }
           />
           {state.fieldErrors?.summary ? (
-            <p className="text-sm text-destructive">{state.fieldErrors.summary[0]}</p>
+            <p id="summary-error" className="text-sm text-destructive">
+              {state.fieldErrors.summary[0]}
+            </p>
           ) : null}
         </div>
 
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
           <div className="grid gap-2">
-            <Label htmlFor="examDate">Target Date</Label>
+            <Label htmlFor="expectedStartDate">Expected exam date <span className="text-muted-foreground">(optional)</span></Label>
             <ExamDatePicker
-              id="examDate"
-              name="examDate"
-              defaultValue={state.inputs?.examDate ?? ""}
-              hasError={Boolean(state.fieldErrors?.examDate)}
-              ariaDescribedBy={state.fieldErrors?.examDate ? "examDate-error" : undefined}
+              id="expectedStartDate"
+              name="expectedStartDate"
+              defaultValue={state.inputs?.expectedStartDate ?? ""}
+              hasError={Boolean(state.fieldErrors?.expectedStartDate)}
+              ariaDescribedBy={
+                state.fieldErrors?.expectedStartDate
+                  ? "expectedStartDate-error"
+                  : undefined
+              }
             />
-            {state.fieldErrors?.examDate ? (
-              <p id="examDate-error" className="text-sm text-destructive">{state.fieldErrors.examDate[0]}</p>
+            {state.fieldErrors?.expectedStartDate ? (
+              <p id="expectedStartDate-error" className="text-sm text-destructive">
+                {state.fieldErrors.expectedStartDate[0]}
+              </p>
             ) : null}
           </div>
-          
+
           <div className="grid gap-2">
-            <Label htmlFor="targetMarks">Target Score / Rank</Label>
+            <Label htmlFor="targetMarks">Target score <span className="text-muted-foreground">(optional)</span></Label>
             <Input
               id="targetMarks"
               name="targetMarks"
@@ -157,48 +218,72 @@ export function CreateExamForm({
               min="0"
               placeholder="e.g., 75"
               defaultValue={state.inputs?.targetMarks ?? ""}
-              className={mode === "dialog" ? "h-11 sm:h-9" : ""}
+              className={cn(
+                mode === "dialog" ? "h-11 sm:h-9" : "",
+                state.fieldErrors?.targetMarks
+                  ? "border-destructive focus-visible:ring-destructive"
+                  : ""
+              )}
+              aria-invalid={Boolean(state.fieldErrors?.targetMarks)}
+              aria-describedby={
+                state.fieldErrors?.targetMarks ? "targetMarks-error" : undefined
+              }
             />
+            {state.fieldErrors?.targetMarks ? (
+              <p id="targetMarks-error" className="text-sm text-destructive">
+                {state.fieldErrors.targetMarks[0]}
+              </p>
+            ) : null}
           </div>
         </div>
 
-        <div className={cn(
-          "mt-4 flex gap-3 border-t border-border pt-6",
-          mode === "dialog"
-            ? "flex-col-reverse sm:flex-row sm:items-center sm:justify-end"
-            : "items-center justify-end gap-4"
-        )}>
-          {mode === "page" ? (
-            <Link href={workspaceRoutes.examPrep.home(workspaceSlug)} className={buttonVariants({ variant: "ghost" })}>
-              Cancel
-            </Link>
-          ) : (
+        {mode === "dialog" ? (
+          <DialogFooter className="-mx-6 mt-4 -mb-6 px-6 py-3 sm:-mx-8 sm:-mb-8 sm:px-8">
             <Button
               type="button"
               variant="ghost"
               onClick={onCancel}
-              className="h-11 sm:h-9 w-full sm:w-auto"
+              className="h-11 w-full sm:h-9 sm:w-auto"
             >
               Cancel
             </Button>
-          )}
-          <Button
-            type="submit"
-            disabled={pending}
-            className={cn(
-              mode === "dialog"
-                ? "h-11 sm:h-9 w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground"
-                : ""
-            )}
-          >
-            {pending ? (
-              <Loader2Icon className="mr-2 size-4 animate-spin" aria-hidden="true" />
-            ) : (
-              <GraduationCapIcon className="mr-2 size-4" aria-hidden="true" />
-            )}
-            {pending ? "Creating..." : "Create Exam"}
-          </Button>
-        </div>
+            <Button
+              type="submit"
+              disabled={pending}
+              className="h-11 w-full bg-primary text-primary-foreground hover:bg-primary/90 sm:h-9 sm:w-auto"
+            >
+              {pending ? (
+                <Loader2Icon
+                  className="mr-2 size-4 animate-spin"
+                  aria-hidden="true"
+                />
+              ) : (
+                <GraduationCapIcon className="mr-2 size-4" aria-hidden="true" />
+              )}
+              {pending ? "Creating..." : "Create Exam"}
+            </Button>
+          </DialogFooter>
+        ) : (
+          <div className="mt-4 flex items-center justify-end gap-4 border-t border-border pt-6">
+            <Link
+              href={workspaceRoutes.examPrep.home(workspaceSlug)}
+              className={buttonVariants({ variant: "ghost" })}
+            >
+              Cancel
+            </Link>
+            <Button type="submit" disabled={pending}>
+              {pending ? (
+                <Loader2Icon
+                  className="mr-2 size-4 animate-spin"
+                  aria-hidden="true"
+                />
+              ) : (
+                <GraduationCapIcon className="mr-2 size-4" aria-hidden="true" />
+              )}
+              {pending ? "Creating..." : "Create Exam"}
+            </Button>
+          </div>
+        )}
       </div>
     </form>
   )

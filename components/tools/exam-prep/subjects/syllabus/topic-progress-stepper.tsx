@@ -1,6 +1,11 @@
 "use client"
 
-import { CircleCheckIcon, MinusIcon, PlusIcon, SparklesIcon } from "lucide-react"
+import {
+  CircleCheckIcon,
+  MinusIcon,
+  PlusIcon,
+  SparklesIcon,
+} from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -14,6 +19,7 @@ type TopicProgressStepperProps = {
   count: number
   required: number
   pending: boolean
+  locked?: boolean
   onChange: (count: number) => void
 }
 
@@ -23,22 +29,29 @@ export function TopicProgressStepper({
   count,
   required,
   pending,
+  locked = false,
   onChange,
 }: TopicProgressStepperProps) {
   const targetMet = count >= required
   const isOverachieving = count > required
+  const controlsDisabled = pending || locked
+  const lockHint = "Mark the topic as learned before recording progress."
 
   return (
     <div
       className={cn("flex shrink-0 items-center gap-1.5", className)}
       role="group"
-      aria-label={`${stage} progress: ${count} completed, target ${required}`}
+      aria-label={`${stage} progress: ${count} completed, target ${required}${
+        locked ? `; ${lockHint}` : ""
+      }`}
     >
       <Button
         type="button"
         variant="outline"
         size="icon-sm"
-        disabled={pending || count <= 0}
+        className="size-11 sm:size-9"
+        disabled={controlsDisabled || count <= 0}
+        title={locked ? lockHint : undefined}
         onClick={() => onChange(count - 1)}
         aria-label={`Decrease ${stage} progress`}
       >
@@ -55,7 +68,10 @@ export function TopicProgressStepper({
           {count}
         </Badge>
       ) : (
-        <div className="flex min-w-20 flex-col items-center gap-1" aria-hidden="true">
+        <div
+          className="flex min-w-20 flex-col items-center gap-1"
+          aria-hidden="true"
+        >
           <div className="flex items-center gap-1">
             {Array.from({ length: required }, (_, index) => (
               <span
@@ -67,7 +83,12 @@ export function TopicProgressStepper({
               />
             ))}
           </div>
-          <span className={cn("flex items-center gap-1 text-xs tabular-nums text-muted-foreground", targetMet && "font-medium text-success-ink")}>
+          <span
+            className={cn(
+              "flex items-center gap-1 text-xs text-muted-foreground tabular-nums",
+              targetMet && "font-medium text-success-ink"
+            )}
+          >
             {targetMet ? <CircleCheckIcon className="size-3" /> : null}
             {count}/{required}
           </span>
@@ -78,8 +99,13 @@ export function TopicProgressStepper({
         type="button"
         variant="outline"
         size="icon-sm"
-        className={cn(targetMet && "border-success-line bg-success-soft text-success-ink hover:bg-success-soft")}
-        disabled={pending || count >= 100}
+        className={cn(
+          "size-11 sm:size-9",
+          targetMet &&
+            "border-success-line bg-success-soft text-success-ink hover:bg-success-soft"
+        )}
+        disabled={controlsDisabled || count >= 100}
+        title={locked ? lockHint : undefined}
         onClick={() => onChange(count + 1)}
         aria-label={`Increase ${stage} progress`}
       >

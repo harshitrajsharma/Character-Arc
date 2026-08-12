@@ -1,3 +1,4 @@
+import { createIdempotencyKey } from "@/lib/forms/idempotency-key"
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 
@@ -7,15 +8,19 @@ import { getArcDetail } from "@/lib/tools/definitions/goals-paths/repository"
 export const metadata: Metadata = { title: "Edit Arc" }
 
 type EditArcPageProps = {
-  params: Promise<{ workspaceSlug: string, arcId: string }>
+  params: Promise<{ workspaceSlug: string; arcId: string }>
 }
 
 export default async function EditArcPage({ params }: EditArcPageProps) {
   const { workspaceSlug, arcId } = await params
-  const { arc, workspace, item, issue } = await getArcDetail(workspaceSlug, arcId)
+  const { arc, workspace, item, issue } = await getArcDetail(
+    workspaceSlug,
+    arcId
+  )
 
   if (issue === "not_found" || !arc) notFound()
-  if (issue || !workspace) throw new Error("Arc data is temporarily unavailable")
+  if (issue || !workspace)
+    throw new Error("Arc data is temporarily unavailable")
   if (!item?.installationId) notFound()
 
   return (
@@ -25,7 +30,7 @@ export default async function EditArcPage({ params }: EditArcPageProps) {
       workspaceId={workspace.id}
       installationId={item.installationId}
       workspaceSlug={workspaceSlug}
-      idempotencyKey={crypto.randomUUID()}
+      idempotencyKey={createIdempotencyKey()}
       initialDraft={{
         title: arc.title,
         objective: arc.objective,

@@ -38,12 +38,12 @@ export function ToolPageHeader({
   return (
     <header
       className={cn(
-        "relative py-2 sm:py-4 [--icon-size:3rem] sm:[--icon-size:3.5rem] [--icon-gap:1rem]",
+        "relative py-2 [--icon-gap:1rem] [--icon-size:3rem] sm:py-4 sm:[--icon-size:3.5rem]",
         className
       )}
     >
       <div className="flex flex-col gap-7 sm:flex-row sm:items-end sm:justify-between">
-        <div className={cn("min-w-0 max-w-3xl", contentClassName)}>
+        <div className={cn("max-w-3xl min-w-0", contentClassName)}>
           {backHref ? (
             <Link
               href={backHref}
@@ -66,18 +66,21 @@ export function ToolPageHeader({
             ) : null}
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
-                {eyebrow ? <p className="text-sm font-medium text-muted-foreground">{eyebrow}</p> : null}
+                {eyebrow ? (
+                  <p className="text-sm font-medium text-muted-foreground">
+                    {eyebrow}
+                  </p>
+                ) : null}
                 {badge}
               </div>
-              <h1 className="mt-1 text-balance font-heading text-3xl font-semibold tracking-normal sm:text-4xl">
+              <h1 className="mt-1 font-heading text-3xl font-semibold tracking-normal text-balance sm:text-4xl">
                 {title}
               </h1>
             </div>
           </div>
           <div
             className={cn(
-              "mt-4 max-w-2xl text-base leading-7 text-muted-foreground",
-              icon && "sm:ml-[calc(var(--icon-size)+var(--icon-gap))]"
+              "mt-4 max-w-2xl text-base leading-7 text-muted-foreground"
             )}
           >
             {description}

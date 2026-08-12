@@ -20,53 +20,75 @@ export function SubjectHeader({
   subject: SubjectWithRelations
   settingsPresentation?: "sheet" | "link" | "none"
 }) {
-  
   const chaptersCount = subject.chapterCount ?? subject.chapters?.length ?? 0
-  const topicsCount = subject.topicCount ?? subject.chapters?.reduce((acc, chap) => acc + (chap.topicCount ?? chap.topics?.length ?? 0), 0) ?? 0
+  const topicsCount =
+    subject.topicCount ??
+    subject.chapters?.reduce(
+      (acc, chap) => acc + (chap.topicCount ?? chap.topics?.length ?? 0),
+      0
+    ) ??
+    0
 
   return (
     <div className="flex items-center gap-1.5 md:gap-4">
       <Button
-        render={<Link href={workspaceRoutes.examPrep.exam(workspaceSlug, examId)} />}
+        render={
+          <Link href={workspaceRoutes.examPrep.exam(workspaceSlug, examId)} />
+        }
         variant="ghost"
         size="icon"
-        className="hidden md:flex h-10 w-10 shrink-0 rounded-full"
+        className="size-10 shrink-0 self-center md:size-9"
         aria-label="Back to exam"
       >
-          <ArrowLeft className="h-4 w-4 md:h-5 md:w-5" />
+        <ArrowLeft aria-hidden="true" />
       </Button>
 
-      <div className="w-full min-w-0 space-y-0.5 md:space-y-1">
-        <div className="flex w-full flex-wrap items-center justify-between gap-1.5 md:gap-2">
-          <h1 className="line-clamp-1 text-lg font-bold md:text-2xl">{subject.name}</h1>
-          <div className="flex items-center justify-between w-full gap-2">
-            <Badge variant="secondary" className="px-1.5 py-0 text-[10px] font-normal md:px-2.5 md:py-0.5 md:text-sm">
-              {subject.weightage} marks
-            </Badge>
-            {settingsPresentation === "sheet" ? <SubjectSettingsSheet workspaceSlug={workspaceSlug} examId={examId} subject={subject} /> : null}
-            {settingsPresentation === "link" ? (
-              <Button
-                render={
-                  <Link
-                    href={workspaceRoutes.examPrep.subjectSettings(
-                      workspaceSlug,
-                      subject.id,
-                      examId
-                    )}
-                  />
-                }
-                variant="secondary"
-                className="h-10 gap-1.5 rounded-full px-3"
-              >
-                <Settings className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="hidden sm:inline">Settings</span>
-              </Button>
-            ) : null}
-          </div>
+      <div className="w-full min-w-0 space-y-1">
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="min-w-0 flex-1 truncate text-lg font-bold md:text-2xl">
+            {subject.name}
+          </h1>
+
+          {settingsPresentation === "sheet" ? (
+            <SubjectSettingsSheet
+              workspaceSlug={workspaceSlug}
+              examId={examId}
+              subject={subject}
+            />
+          ) : null}
+          {settingsPresentation === "link" ? (
+            <Button
+              render={
+                <Link
+                  href={workspaceRoutes.examPrep.subjectSettings(
+                    workspaceSlug,
+                    subject.id,
+                    examId
+                  )}
+                />
+              }
+              variant="secondary"
+              className="h-9 shrink-0 gap-1.5 rounded-full px-3"
+              aria-label="Subject settings"
+            >
+              <Settings data-icon="inline-start" aria-hidden="true" />
+              <span className="hidden sm:inline">Settings</span>
+            </Button>
+          ) : null}
         </div>
-        <p className="text-xs text-muted-foreground md:text-base">
-          {chaptersCount} chapters &bull; {topicsCount} topics
-        </p>
+
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground md:text-sm">
+          <Badge
+            variant="secondary"
+            className="px-2 py-0.5 text-xs font-normal md:text-sm"
+          >
+            {subject.weightage}% weightage
+          </Badge>
+          <span aria-hidden>&bull;</span>
+          <span>
+            {chaptersCount} chapters &bull; {topicsCount} topics
+          </span>
+        </div>
       </div>
     </div>
   )

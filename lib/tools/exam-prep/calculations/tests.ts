@@ -1,6 +1,9 @@
-import { BaseTest, TestStats } from "@/types/progressapp/prisma/test";
+import { BaseTest, TestStats } from "@/types/progressapp/prisma/test"
 
-export function calculateTestStats(tests: BaseTest[], weightage: number): TestStats {
+export function calculateTestStats(
+  tests: BaseTest[],
+  weightage: number
+): TestStats {
   if (!tests.length) {
     return {
       totalTests: 0,
@@ -10,16 +13,17 @@ export function calculateTestStats(tests: BaseTest[], weightage: number): TestSt
       expectedMarks: 0,
       weightage,
       averagePerformance: 0,
-    };
+    }
   }
 
-  const scores = tests.map(test => test.score);
-  const totalTests = tests.length;
-  const highestScore = Math.max(...scores);
-  const lowestScore = Math.min(...scores);
-  const averageScore = scores.reduce((acc, score) => acc + score, 0) / totalTests;
-  const averagePerformance = averageScore / 100;
-  const expectedMarks = Math.round(weightage * averagePerformance);
+  const scores = tests.map((test) => test.score)
+  const totalTests = tests.length
+  const highestScore = Math.max(...scores)
+  const lowestScore = Math.min(...scores)
+  const averageScore =
+    scores.reduce((acc, score) => acc + score, 0) / totalTests
+  const averagePerformance = averageScore / 100
+  const expectedMarks = Math.round(weightage * averagePerformance)
 
   return {
     totalTests,
@@ -29,5 +33,5 @@ export function calculateTestStats(tests: BaseTest[], weightage: number): TestSt
     expectedMarks,
     weightage,
     averagePerformance,
-  };
-} 
+  }
+}

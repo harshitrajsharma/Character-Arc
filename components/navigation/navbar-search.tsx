@@ -27,17 +27,28 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import {
-  NAVBAR_DESTINATIONS,
-  type NavbarDestination,
-  type NavbarDestinationKey,
-} from "./navbar-data"
+import { WrenchIcon } from "lucide-react"
+import { mapToolIcon } from "@/components/tools/tool-catalog-card"
+import type { getAppShellData } from "@/lib/workspaces/workspace-access"
+import { workspaceRoutes } from "@/lib/routes/workspace-tools"
+import { NAVBAR_DESTINATIONS, type NavbarDestinationKey } from "./navbar-data"
+
+type AppShellData = NonNullable<Awaited<ReturnType<typeof getAppShellData>>>
+
+type SearchResult = {
+  key: string
+  label: string
+  description: string
+  href: string
+  icon: React.ElementType
+}
 
 type NavbarSearchProps = {
   onSelect: (destination: NavbarDestinationKey) => void
+  memberships?: AppShellData
 }
 
-export function NavbarSearch({ onSelect }: NavbarSearchProps) {
+export function NavbarSearch({ onSelect, memberships }: NavbarSearchProps) {
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
   const [query, setQuery] = useState("")
@@ -68,24 +79,59 @@ export function NavbarSearch({ onSelect }: NavbarSearchProps) {
     return () => window.cancelAnimationFrame(frame)
   }, [open])
 
+  const allDestinations = useMemo<SearchResult[]>(() => {
+    const destinations: SearchResult[] = NAVBAR_DESTINATIONS.map((dest) => ({
+      key: dest.key,
+      label: dest.label,
+      description: dest.description,
+      href: dest.href,
+      icon: dest.icon,
+    }))
+
+    if (memberships) {
+      memberships.forEach((workspace) => {
+        workspace.installations.forEach((installation: any) => {
+          const toolHome = workspaceRoutes.toolHome(
+            workspace.slug,
+            installation.toolDefinition.key
+          )
+          if (toolHome) {
+            destinations.push({
+              key: `tool-${installation.id}`,
+              label: installation.toolDefinition.name,
+              description: `${workspace.name} workspace`,
+              href: toolHome,
+              icon: mapToolIcon(installation.toolDefinition.icon) || WrenchIcon,
+            })
+          }
+        })
+      })
+    }
+    return destinations
+  }, [memberships])
+
   const results = useMemo(() => {
     const normalized = query.trim().toLowerCase()
-    if (!normalized) return NAVBAR_DESTINATIONS
+    if (!normalized) return allDestinations
 
-    return NAVBAR_DESTINATIONS.filter((item) =>
-      `${item.label} ${item.description} ${item.keywords}`
+    return allDestinations.filter((item) =>
+      `${item.label} ${item.description}`
         .toLowerCase()
         .includes(normalized)
     )
-  }, [query])
+  }, [query, allDestinations])
 
   function setSearchOpen(nextOpen: boolean) {
     setOpen(nextOpen)
     if (!nextOpen) setQuery("")
   }
 
-  function choose(destination: NavbarDestination) {
-    onSelect(destination.key)
+  function choose(destination: SearchResult) {
+    // only update active link if it matches one of our top level nav items
+    const navItem = NAVBAR_DESTINATIONS.find((n) => n.key === destination.key)
+    if (navItem) {
+      onSelect(navItem.key)
+    }
     setSearchOpen(false)
   }
 

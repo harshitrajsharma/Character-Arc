@@ -1,18 +1,25 @@
-'use client';
+"use client"
 
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
-import { AlertTriangle, ArrowRight, Calendar, Info } from 'lucide-react';
+import Link from "next/link"
+import { Button } from "@/components/ui/button"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
+import { AlertTriangle, ArrowRight, Calendar, Info } from "lucide-react"
 
 interface LoadingErrorEmptyProps {
-  isLoading: boolean;
-  isError: boolean;
-  isEmpty: boolean;
-  error: Error | unknown;
-  dateRangeText: string;
-  onViewAllData: () => void;
+  isLoading: boolean
+  isError: boolean
+  isEmpty: boolean
+  error: Error | unknown
+  dateRangeText: string
+  onViewAllData: () => void
 }
 
 export function LoadingErrorEmpty({
@@ -21,30 +28,32 @@ export function LoadingErrorEmpty({
   isEmpty,
   error,
   dateRangeText,
-  onViewAllData
+  onViewAllData,
 }: LoadingErrorEmptyProps) {
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-full min-h-[300px]">
+      <div className="grid h-full min-h-[300px] grid-cols-1 gap-6 md:grid-cols-2">
         <Skeleton className="h-48 rounded-lg" />
         <Skeleton className="h-48 rounded-lg" />
         <Skeleton className="h-64 rounded-lg md:col-span-2" />
       </div>
-    );
+    )
   }
 
   if (isError) {
     return (
       <Card className="flex h-full min-h-[400px] flex-col border-red-200 bg-card/95 shadow-sm dark:border-red-800">
         <CardHeader>
-          <CardTitle className="text-red-600 dark:text-red-400 flex items-center">
+          <CardTitle className="flex items-center text-red-600 dark:text-red-400">
             <AlertTriangle className="mr-2 h-5 w-5" />
             Unable to load subject data
           </CardTitle>
         </CardHeader>
-        <CardContent className="flex-1 flex items-center justify-center">
+        <CardContent className="flex flex-1 items-center justify-center">
           <p className="text-muted-foreground">
-            {error instanceof Error ? error.message : "There was a problem loading your subject data. Please try again."}
+            {error instanceof Error
+              ? error.message
+              : "There was a problem loading your subject data. Please try again."}
           </p>
         </CardContent>
         <CardFooter>
@@ -53,7 +62,7 @@ export function LoadingErrorEmpty({
           </Button>
         </CardFooter>
       </Card>
-    );
+    )
   }
 
   if (isEmpty) {
@@ -65,21 +74,20 @@ export function LoadingErrorEmpty({
             No activity data for this period
           </CardTitle>
           <CardDescription>
-            Try selecting a different time period or check back after you&apos;ve completed more activities
+            Try selecting a different time period or check back after
+            you&apos;ve completed more activities
           </CardDescription>
         </CardHeader>
-        <CardContent className="flex-1 flex flex-col items-center justify-center py-8 space-y-4">
+        <CardContent className="flex flex-1 flex-col items-center justify-center space-y-4 py-8">
           <Calendar className="h-16 w-16 text-muted-foreground opacity-50" />
-          <p className="text-center text-muted-foreground max-w-md">
+          <p className="max-w-md text-center text-muted-foreground">
             You haven&apos;t logged any study activity during {dateRangeText}.
-            Complete topics in your subjects to see your progress analytics here.
+            Complete topics in your subjects to see your progress analytics
+            here.
           </p>
         </CardContent>
         <CardFooter className="flex flex-col justify-center gap-2 sm:flex-row">
-          <Button 
-            variant="outline" 
-            onClick={onViewAllData}
-          >
+          <Button variant="outline" onClick={onViewAllData}>
             View all activity
           </Button>
           <Button>
@@ -90,8 +98,8 @@ export function LoadingErrorEmpty({
           </Button>
         </CardFooter>
       </Card>
-    );
+    )
   }
 
-  return null;
+  return null
 }
