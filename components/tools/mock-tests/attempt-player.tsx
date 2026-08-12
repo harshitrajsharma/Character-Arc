@@ -10,6 +10,7 @@ import {
   ClockIcon,
   Loader2Icon,
   SendIcon,
+  XIcon,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -18,6 +19,7 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { createIdempotencyKey } from "@/lib/forms/idempotency-key"
 import {
+  abandonAttemptAction,
   recordAnswerAction,
   submitAttemptAction,
 } from "@/lib/tools/mock-tests/actions/attempt-actions"
@@ -62,6 +64,7 @@ export function AttemptPlayer({
     return initial
   })
   const [submitting, setSubmitting] = useState(false)
+  const [abandoning, setAbandoning] = useState(false)
   const submitStarted = useRef(false)
   const questionStartedAt = useRef<Record<string, number>>({})
   const questionTimeSpent = useRef<Record<string, number>>({})
@@ -186,6 +189,42 @@ export function AttemptPlayer({
     }
   }
 
+  async function handleAbandon() {
+    if (submitStarted.current) return
+    const confirmed = window.confirm(
+      "Are you sure you want to abandon this test? This action cannot be undone and your test will not be graded."
+    )
+    if (!confirmed) return
+
+    submitStarted.current = true
+    setAbandoning(true)
+    try {
+      await abandonAttemptAction({
+        workspaceSlug,
+        attemptId: attempt.attemptId,
+        idempotencyKey: createIdempotencyKey(),
+      })
+      router.push(workspaceRoutes.mockTests.detail(workspaceSlug, attempt.assessmentId))
+    } catch (error) {
+      submitStarted.current = false
+      setAbandoning(false)
+      const message =
+        error instanceof Error ? error.message : "Failed to abandon the test."
+      toast.error("Error", { description: message })
+    }
+  }
+
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (!submitStarted.current && remainingSeconds !== 0) {
+        // Just keeping the test IN_PROGRESS so it auto-suspends. They can return.
+        e.preventDefault()
+      }
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload)
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload)
+  }, [remainingSeconds])
+
   useEffect(() => {
     if (!attempt.durationMinutes) return
     const end = new Date(attempt.startedAt).getTime() + attempt.durationMinutes * 60_000
@@ -241,14 +280,24 @@ export function AttemptPlayer({
         ) : (
           <Badge variant="outline">Untimed</Badge>
         )}
-        <Button onClick={() => handleSubmit(Date.now())} disabled={submitting} variant="outline">
-          {submitting ? (
-            <Loader2Icon className="animate-spin" aria-hidden="true" />
-          ) : (
-            <SendIcon data-icon="inline-start" aria-hidden="true" />
-          )}
-          Submit
-        </Button>
+        <div className="flex gap-2 items-center">
+          <Button onClick={handleAbandon} disabled={submitting || abandoning} variant="destructive">
+            {abandoning ? (
+              <Loader2Icon className="animate-spin" aria-hidden="true" />
+            ) : (
+              <XIcon data-icon="inline-start" aria-hidden="true" />
+            )}
+            Abandon
+          </Button>
+          <Button onClick={() => handleSubmit(Date.now())} disabled={submitting || abandoning} variant="outline">
+            {submitting ? (
+              <Loader2Icon className="animate-spin" aria-hidden="true" />
+            ) : (
+              <SendIcon data-icon="inline-start" aria-hidden="true" />
+            )}
+            Submit
+          </Button>
+        </div>
       </div>
 
       {/* Question card */}
@@ -405,7 +454,7 @@ export function AttemptPlayer({
           You&apos;ve answered {answeredCount} of {attempt.questions.length}.
           Unanswered questions are marked incorrect on submit.
         </span>
-        <Button onClick={() => handleSubmit(Date.now())} disabled={submitting}>
+        <Button onClick={() => handleSubmit(Date.now())} disabled={submitting || abandoning}>
           {submitting ? (
             <Loader2Icon className="animate-spin" aria-hidden="true" />
           ) : (

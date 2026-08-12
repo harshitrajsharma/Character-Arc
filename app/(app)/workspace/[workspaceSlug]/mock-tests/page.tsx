@@ -76,7 +76,7 @@ export default async function MockTestsPage({
         title="Mock Tests"
         description="Build mock tests in any competitive pattern, attempt them under timed conditions, and get instant, explainable analysis of your weak topics."
         icon={<ListChecksIcon aria-hidden="true" />}
-        iconClassName="bg-brand-berry-soft text-brand-berry-ink"
+        iconClassName="bg-brand-violet-soft text-brand-violet-ink"
         primaryAction={
           canWrite ? (
             <Button render={<Link href={workspaceRoutes.mockTests.new(workspaceSlug)} />}>
@@ -105,7 +105,7 @@ export default async function MockTestsPage({
           <EmptyHeader>
             <EmptyMedia
               variant="icon"
-              className="bg-brand-berry-soft text-brand-berry-ink"
+              className="bg-brand-violet-soft text-brand-violet-ink"
             >
               <ListChecksIcon aria-hidden="true" />
             </EmptyMedia>
@@ -210,7 +210,7 @@ export default async function MockTestsPage({
                               : ""
                           }`}
                           icon={ListChecksIcon}
-                          iconClassName="bg-brand-berry-soft text-brand-berry-ink group-hover:bg-brand-berry group-hover:text-brand-berry-foreground"
+                          iconClassName="bg-brand-violet-soft text-brand-violet-ink group-hover:bg-brand-violet group-hover:text-brand-violet-foreground"
                           progressContainerClassName="bg-muted"
                           progressPercent={assessment.myBestPercentage}
                           timelineLabel={
