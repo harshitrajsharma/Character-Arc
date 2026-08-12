@@ -10,7 +10,7 @@ export async function createServerSupabaseClient() {
     {
       cookies: {
         getAll() {
-          return cookieStore.getAll();
+          return cookieStore.getAll()
         },
         setAll(cookiesToSet) {
           try {
@@ -23,6 +23,6 @@ export async function createServerSupabaseClient() {
           }
         },
       },
-    },
+    }
   )
 }

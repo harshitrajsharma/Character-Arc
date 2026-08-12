@@ -105,7 +105,7 @@ export function MarkdownFieldEditor({
         </DialogTrigger>
 
         <DialogContent className="h-dvh max-h-dvh w-screen max-w-none min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden rounded-none p-0 sm:h-[min(52rem,calc(100dvh-2rem))] sm:max-h-[calc(100dvh-2rem)] sm:w-full sm:max-w-5xl sm:rounded-lg">
-          <DialogHeader className="min-w-0 border-b border-border px-4 py-3.5 pr-14 sm:px-5">
+          <DialogHeader className="m-0 min-w-0 border-b border-border px-4 py-3.5 pr-14 sm:px-5">
             <div className="flex items-center gap-3">
               <span
                 className={cn(
@@ -136,7 +136,7 @@ export function MarkdownFieldEditor({
             />
           </div>
 
-          <DialogFooter className="min-w-0 flex-col items-stretch gap-2 border-t border-border bg-popover px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-3">
+          <DialogFooter className="m-0 min-w-0 flex-col items-stretch gap-2 border-t border-border bg-popover px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:flex-row sm:items-center sm:justify-between sm:px-5 sm:py-3">
             <span className="text-xs text-muted-foreground sm:mr-auto">
               <span className="font-mono tabular-nums">{value.length}</span>/
               {maxLength}

@@ -6,7 +6,9 @@ import { requireVerifiedClaims } from "@/lib/auth/session"
 import { prisma } from "@/lib/prisma"
 
 export const getWorkspaceIdentity = cache(async (slug: string) => {
-  const claims = await requireVerifiedClaims(`/workspace/${encodeURIComponent(slug)}`)
+  const claims = await requireVerifiedClaims(
+    `/workspace/${encodeURIComponent(slug)}`
+  )
   const userId = claims.sub!
 
   const workspace = await prisma.workspace.findFirst({
@@ -26,7 +28,10 @@ export const getWorkspaceIdentity = cache(async (slug: string) => {
       kind: true,
       members: {
         where: { userId },
-        select: { role: true },
+        select: {
+          role: true,
+          user: { select: { timezone: true } },
+        },
       },
     },
   })
@@ -42,6 +47,7 @@ export const getWorkspaceIdentity = cache(async (slug: string) => {
     slug: workspace.slug,
     kind: workspace.kind,
     role: workspace.members[0].role,
+    timezone: workspace.members[0].user.timezone,
   }
 })
 
@@ -56,44 +62,100 @@ export const requireActiveToolInstallation = cache(
           key: toolKey,
         },
       },
-      select: { 
+      select: {
         id: true,
         toolDefinition: {
           select: {
             key: true,
             name: true,
-          }
-        }
+          },
+        },
       },
     })
 
     if (!installation) {
       notFound()
     }
-    
+
     return installation
   }
 )
 
-export const getAuthorizedActiveToolInstallations = cache(async (workspaceSlug: string) => {
-  const workspace = await getWorkspaceIdentity(workspaceSlug)
-  const installations = await prisma.toolInstallation.findMany({
+export const getAppShellData = cache(async () => {
+  const claims = await requireVerifiedClaims()
+  const userId = claims.sub!
+
+  const memberships = await prisma.workspaceMember.findMany({
     where: {
-      workspaceId: workspace.id,
-      status: "ACTIVE",
+      userId,
+      workspace: {
+        archivedAt: null,
+      },
     },
     select: {
-      id: true,
-      toolDefinition: {
+      role: true,
+      workspace: {
         select: {
-          key: true,
+          id: true,
           name: true,
-          description: true,
-          icon: true,
+          slug: true,
+          kind: true,
+          toolInstallations: {
+            where: {
+              status: "ACTIVE",
+            },
+            select: {
+              id: true,
+              toolDefinition: {
+                select: {
+                  key: true,
+                  name: true,
+                  description: true,
+                  icon: true,
+                },
+              },
+            },
+          },
         },
       },
     },
+    orderBy: [
+      { workspace: { kind: "asc" } },
+      { workspace: { createdAt: "asc" } },
+    ],
   })
 
-  return installations
+  return memberships.map((m) => ({
+    role: m.role,
+    id: m.workspace.id,
+    name: m.workspace.name,
+    slug: m.workspace.slug,
+    kind: m.workspace.kind,
+    installations: m.workspace.toolInstallations,
+  }))
 })
+
+export const getAuthorizedActiveToolInstallations = cache(
+  async (workspaceSlug: string) => {
+    const workspace = await getWorkspaceIdentity(workspaceSlug)
+    const installations = await prisma.toolInstallation.findMany({
+      where: {
+        workspaceId: workspace.id,
+        status: "ACTIVE",
+      },
+      select: {
+        id: true,
+        toolDefinition: {
+          select: {
+            key: true,
+            name: true,
+            description: true,
+            icon: true,
+          },
+        },
+      },
+    })
+
+    return installations
+  }
+)

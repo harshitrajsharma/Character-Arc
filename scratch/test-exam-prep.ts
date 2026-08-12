@@ -1,16 +1,18 @@
-import "dotenv/config";
-import { prisma } from "../lib/prisma";
-import { z } from "zod";
+import "dotenv/config"
+import { prisma } from "../lib/prisma"
+import { z } from "zod"
 
-const examPropertiesSchema = z.object({
-  examCode: z.string().nullable().optional(),
-  conductingBody: z.string().nullable().optional(),
-  durationMinutes: z.number().int().nullable().optional(),
-  totalMarks: z.number().nullable().optional(),
-  targetMarks: z.number().nullable().optional(),
-  examDate: z.string().nullable().optional(),
-  officialUrl: z.string().nullable().optional(),
-}).passthrough();
+const examPropertiesSchema = z
+  .object({
+    examCode: z.string().nullable().optional(),
+    conductingBody: z.string().nullable().optional(),
+    durationMinutes: z.number().int().nullable().optional(),
+    totalMarks: z.number().nullable().optional(),
+    targetMarks: z.number().nullable().optional(),
+    examDate: z.string().nullable().optional(),
+    officialUrl: z.string().nullable().optional(),
+  })
+  .passthrough()
 
 const examRowsSchema = z.array(
   z.object({
@@ -27,17 +29,17 @@ const examRowsSchema = z.array(
     createdAt: z.date(),
     updatedAt: z.date(),
   })
-);
+)
 
 async function main() {
   const blockType = await prisma.blockType.findUnique({
-    where: { key: "exam-prep.exam" }
-  });
+    where: { key: "exam-prep.exam" },
+  })
   if (!blockType) {
-    console.log("No block type found");
-    return;
+    console.log("No block type found")
+    return
   }
-  
+
   const examsData = await prisma.block.findMany({
     where: {
       blockTypeId: blockType.id,
@@ -45,18 +47,29 @@ async function main() {
       archivedAt: null,
     },
     select: {
-      id: true, title: true, summary: true, body: true, status: true, visibility: true, allowAgentAccess: true, properties: true, schemaVersion: true, revision: true, createdAt: true, updatedAt: true
+      id: true,
+      title: true,
+      summary: true,
+      body: true,
+      status: true,
+      visibility: true,
+      allowAgentAccess: true,
+      properties: true,
+      schemaVersion: true,
+      revision: true,
+      createdAt: true,
+      updatedAt: true,
     },
-    take: 5
-  });
+    take: 5,
+  })
 
-  console.log("Exams found:", examsData.length);
-  const examRows = examRowsSchema.safeParse(examsData);
+  console.log("Exams found:", examsData.length)
+  const examRows = examRowsSchema.safeParse(examsData)
   if (!examRows.success) {
-    console.error("Parse error:", examRows.error);
+    console.error("Parse error:", examRows.error)
   } else {
-    console.log("Parse success!");
+    console.log("Parse success!")
   }
 }
 
-main().catch(console.error);
+main().catch(console.error)

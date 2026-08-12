@@ -88,7 +88,10 @@ function authErrorMessage(message: string) {
     return "An account with this email already exists."
   }
 
-  if (normalized.includes("rate limit") || normalized.includes("too many requests")) {
+  if (
+    normalized.includes("rate limit") ||
+    normalized.includes("too many requests")
+  ) {
     return "You've requested too many signups/emails. Please try again later or use a different email."
   }
 

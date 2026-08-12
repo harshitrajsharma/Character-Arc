@@ -1,7 +1,11 @@
 import type { ComponentProps } from "react"
 import { cn } from "@/lib/utils"
 
-export function FormFooter({ className, children, ...props }: ComponentProps<"div">) {
+export function FormFooter({
+  className,
+  children,
+  ...props
+}: ComponentProps<"div">) {
   return (
     <div
       className={cn(

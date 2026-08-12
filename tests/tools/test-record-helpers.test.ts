@@ -1,12 +1,20 @@
 // @ts-expect-error - bun:test types might not be in tsconfig
 import { describe, it, expect } from "bun:test"
-import { getTargetMessage, getScoreStatus, validateTestRecordForm } from "../../components/tools/exam-prep/subjects/tests/test-record-helpers"
+import {
+  getTargetMessage,
+  getScoreStatus,
+  validateTestRecordForm,
+} from "../../components/tools/exam-prep/subjects/tests/test-record-helpers"
 
 describe("test-record-helpers", () => {
   describe("getTargetMessage", () => {
     it("returns correctly for target 0", () => {
-      expect(getTargetMessage(1, 0)).toBe("Not required · records count as extra evidence")
-      expect(getTargetMessage(0, 0)).toBe("Not required · records count as extra evidence")
+      expect(getTargetMessage(1, 0)).toBe(
+        "Not required · records count as extra evidence"
+      )
+      expect(getTargetMessage(0, 0)).toBe(
+        "Not required · records count as extra evidence"
+      )
     })
 
     it("returns correctly when incomplete", () => {
@@ -27,19 +35,40 @@ describe("test-record-helpers", () => {
 
   describe("getScoreStatus", () => {
     it("returns Strong for >= 80", () => {
-      expect(getScoreStatus(80)).toEqual({ label: "Strong", variant: "success" })
-      expect(getScoreStatus(95)).toEqual({ label: "Strong", variant: "success" })
+      expect(getScoreStatus(80)).toEqual({
+        label: "Strong",
+        variant: "success",
+      })
+      expect(getScoreStatus(95)).toEqual({
+        label: "Strong",
+        variant: "success",
+      })
     })
 
     it("returns Building for 50 - 79", () => {
-      expect(getScoreStatus(79)).toEqual({ label: "Building", variant: "warning" })
-      expect(getScoreStatus(50)).toEqual({ label: "Building", variant: "warning" })
-      expect(getScoreStatus(65)).toEqual({ label: "Building", variant: "warning" })
+      expect(getScoreStatus(79)).toEqual({
+        label: "Building",
+        variant: "warning",
+      })
+      expect(getScoreStatus(50)).toEqual({
+        label: "Building",
+        variant: "warning",
+      })
+      expect(getScoreStatus(65)).toEqual({
+        label: "Building",
+        variant: "warning",
+      })
     })
 
     it("returns Needs review for < 50", () => {
-      expect(getScoreStatus(49)).toEqual({ label: "Needs review", variant: "destructive" })
-      expect(getScoreStatus(0)).toEqual({ label: "Needs review", variant: "destructive" })
+      expect(getScoreStatus(49)).toEqual({
+        label: "Needs review",
+        variant: "destructive",
+      })
+      expect(getScoreStatus(0)).toEqual({
+        label: "Needs review",
+        variant: "destructive",
+      })
     })
   })
 
@@ -51,20 +80,36 @@ describe("test-record-helpers", () => {
     })
 
     it("returns error for invalid marksObtained", () => {
-      expect(validateTestRecordForm(-1, 100)).toBe("Marks obtained must be 0 or greater.")
-      expect(validateTestRecordForm(NaN, 100)).toBe("Marks obtained must be 0 or greater.")
-      expect(validateTestRecordForm(Number.POSITIVE_INFINITY, 100)).toBe("Marks obtained must be 0 or greater.")
+      expect(validateTestRecordForm(-1, 100)).toBe(
+        "Marks obtained must be 0 or greater."
+      )
+      expect(validateTestRecordForm(NaN, 100)).toBe(
+        "Marks obtained must be 0 or greater."
+      )
+      expect(validateTestRecordForm(Number.POSITIVE_INFINITY, 100)).toBe(
+        "Marks obtained must be 0 or greater."
+      )
     })
 
     it("returns error for invalid totalMarks", () => {
-      expect(validateTestRecordForm(50, 0)).toBe("Total marks must be greater than 0.")
-      expect(validateTestRecordForm(50, -10)).toBe("Total marks must be greater than 0.")
-      expect(validateTestRecordForm(50, NaN)).toBe("Total marks must be greater than 0.")
-      expect(validateTestRecordForm(50, Number.POSITIVE_INFINITY)).toBe("Total marks must be greater than 0.")
+      expect(validateTestRecordForm(50, 0)).toBe(
+        "Total marks must be greater than 0."
+      )
+      expect(validateTestRecordForm(50, -10)).toBe(
+        "Total marks must be greater than 0."
+      )
+      expect(validateTestRecordForm(50, NaN)).toBe(
+        "Total marks must be greater than 0."
+      )
+      expect(validateTestRecordForm(50, Number.POSITIVE_INFINITY)).toBe(
+        "Total marks must be greater than 0."
+      )
     })
 
     it("returns error if marksObtained > totalMarks", () => {
-      expect(validateTestRecordForm(101, 100)).toBe("Marks obtained cannot exceed total marks.")
+      expect(validateTestRecordForm(101, 100)).toBe(
+        "Marks obtained cannot exceed total marks."
+      )
     })
   })
 })

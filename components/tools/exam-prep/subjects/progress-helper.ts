@@ -38,7 +38,9 @@ export function getSubjectCategory(overallProgress: number): SubjectCategory {
  * Unified canonical progress calculations for a Subject.
  * Ensures the category, displayed percentage, and progress bars cannot disagree.
  */
-export function getCanonicalSubjectProgress(subject: SubjectWithRelations): CanonicalSubjectProgress {
+export function getCanonicalSubjectProgress(
+  subject: SubjectWithRelations
+): CanonicalSubjectProgress {
   if (!subject) {
     return {
       overall: 0,
@@ -53,15 +55,15 @@ export function getCanonicalSubjectProgress(subject: SubjectWithRelations): Cano
   }
 
   const rawProgress = calculateSubjectProgress(subject)
-  
+
   const overall = clampProgress(rawProgress.overall ?? 0)
   const learning = clampProgress(rawProgress.learning ?? 0)
   const revision = clampProgress(rawProgress.revision ?? 0)
   const practice = clampProgress(rawProgress.practice ?? 0)
   const test = clampProgress(rawProgress.test ?? 0)
-  
+
   const category = getSubjectCategory(overall)
-  
+
   return {
     overall,
     learning,

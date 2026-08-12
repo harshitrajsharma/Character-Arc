@@ -11,7 +11,10 @@
  */
 
 import { normalizeSubjectProgressPolicy } from "@/lib/tools/exam-prep/progress/policy"
-import { getRequiredRevisions, getRequiredPractices } from "@/lib/tools/exam-prep/progress/rules"
+import {
+  getRequiredRevisions,
+  getRequiredPractices,
+} from "@/lib/tools/exam-prep/progress/rules"
 import type {
   Recommendation,
   RecommendationEngineInput,
@@ -54,7 +57,11 @@ function daysBetween(a: Date, b: Date): number {
 // ID builder (deterministic, dedup-safe)
 // ---------------------------------------------------------------------------
 
-function makeId(type: RecommendationType, chapterId?: string, topicId?: string): string {
+function makeId(
+  type: RecommendationType,
+  chapterId?: string,
+  topicId?: string
+): string {
   const parts: string[] = [type]
   if (chapterId) parts.push(chapterId)
   if (topicId) parts.push(topicId)
@@ -92,18 +99,31 @@ interface ValidTestRecord {
 }
 
 function getValidTestRecords(
-  records: ReadonlyArray<{
-    id: string
-    marksObtained: number
-    totalMarks: number
-    createdAt: Date | string
-  }> | undefined | null
+  records:
+    | ReadonlyArray<{
+        id: string
+        marksObtained: number
+        totalMarks: number
+        createdAt: Date | string
+      }>
+    | undefined
+    | null
 ): ValidTestRecord[] {
   if (!records) return []
   const validRecords: ValidTestRecord[] = []
   for (const r of records) {
-    if (typeof r.marksObtained !== "number" || !Number.isFinite(r.marksObtained) || r.marksObtained < 0) continue
-    if (typeof r.totalMarks !== "number" || !Number.isFinite(r.totalMarks) || r.totalMarks <= 0) continue
+    if (
+      typeof r.marksObtained !== "number" ||
+      !Number.isFinite(r.marksObtained) ||
+      r.marksObtained < 0
+    )
+      continue
+    if (
+      typeof r.totalMarks !== "number" ||
+      !Number.isFinite(r.totalMarks) ||
+      r.totalMarks <= 0
+    )
+      continue
     if (r.marksObtained > r.totalMarks) continue // impossible value
 
     const date = toSafeDate(r.createdAt)
@@ -120,12 +140,15 @@ function getValidTestRecords(
 }
 
 function getLatestValidTestAttempt(
-  records: ReadonlyArray<{
-    id: string
-    marksObtained: number
-    totalMarks: number
-    createdAt: Date | string
-  }> | undefined | null
+  records:
+    | ReadonlyArray<{
+        id: string
+        marksObtained: number
+        totalMarks: number
+        createdAt: Date | string
+      }>
+    | undefined
+    | null
 ): ValidTestRecord | null {
   const valid = getValidTestRecords(records)
   if (valid.length === 0) return null
@@ -183,14 +206,20 @@ export function generateRecommendations(
     for (const topic of chapter.topics) {
       const isHighYield = topic.important
       // Use canonical progress rules (Requirement 3)
-      const revTarget = getRequiredRevisions({
-        important: topic.important,
-        targetRevisions: topic.targetRevisions ?? undefined,
-      }, policy)
-      const pracTarget = getRequiredPractices({
-        important: topic.important,
-        targetPractices: topic.targetPractices ?? undefined,
-      }, policy)
+      const revTarget = getRequiredRevisions(
+        {
+          important: topic.important,
+          targetRevisions: topic.targetRevisions ?? undefined,
+        },
+        policy
+      )
+      const pracTarget = getRequiredPractices(
+        {
+          important: topic.important,
+          targetPractices: topic.targetPractices ?? undefined,
+        },
+        policy
+      )
 
       // --- 1. Overdue revisions (priority 1 high-yield, 4 standard) ---
       if (topic.learningStatus) {
@@ -300,15 +329,21 @@ export function generateRecommendations(
     // Evaluates ONLY the latest valid attempt by createdAt (Requirement 2)
     const latestChapterTest = getLatestValidTestAttempt(chapter.testRecords)
     if (latestChapterTest) {
-      if (latestChapterTest.marksObtained / latestChapterTest.totalMarks < WEAK_TEST_HEURISTIC_THRESHOLD) {
-        const pct = Math.round((latestChapterTest.marksObtained / latestChapterTest.totalMarks) * 100)
+      if (
+        latestChapterTest.marksObtained / latestChapterTest.totalMarks <
+        WEAK_TEST_HEURISTIC_THRESHOLD
+      ) {
+        const pct = Math.round(
+          (latestChapterTest.marksObtained / latestChapterTest.totalMarks) * 100
+        )
         candidates.push(
           rec({
             type: "weak-test",
             priority: 3,
             subPriority: WEAK_TEST_HEURISTIC_THRESHOLD * 100 - pct,
             title: `Review: ${chapter.name} – Weak Test`,
-            reason: "The latest chapter test score was below the 50% heuristic threshold.",
+            reason:
+              "The latest chapter test score was below the 50% heuristic threshold.",
             evidence: `Scored ${pct}%`,
             urgency: "warning",
             stage: "test",
@@ -321,7 +356,7 @@ export function generateRecommendations(
     }
 
     // --- 6. Missing chapter test (priority 9) ---
-    if (policy.chapterTestTarget > 0) {
+    if (policy.chapterTestTarget > 0 && chapter.topics.length > 0) {
       const validTestRecords = getValidTestRecords(chapter.testRecords)
       const testCount = validTestRecords.length
       if (testCount < policy.chapterTestTarget) {
@@ -348,15 +383,21 @@ export function generateRecommendations(
   // Evaluates ONLY the latest valid attempt by createdAt (Requirement 2)
   const latestSubjectTest = getLatestValidTestAttempt(input.subjectTestRecords)
   if (latestSubjectTest) {
-    if (latestSubjectTest.marksObtained / latestSubjectTest.totalMarks < WEAK_TEST_HEURISTIC_THRESHOLD) {
-      const pct = Math.round((latestSubjectTest.marksObtained / latestSubjectTest.totalMarks) * 100)
+    if (
+      latestSubjectTest.marksObtained / latestSubjectTest.totalMarks <
+      WEAK_TEST_HEURISTIC_THRESHOLD
+    ) {
+      const pct = Math.round(
+        (latestSubjectTest.marksObtained / latestSubjectTest.totalMarks) * 100
+      )
       candidates.push(
         rec({
           type: "weak-test",
           priority: 3,
           subPriority: WEAK_TEST_HEURISTIC_THRESHOLD * 100 - pct,
           title: "Review: Weak Subject Test",
-          reason: "The latest subject-level test score was below the 50% heuristic threshold.",
+          reason:
+            "The latest subject-level test score was below the 50% heuristic threshold.",
           evidence: `Scored ${pct}%`,
           urgency: "warning",
           stage: "test",
@@ -367,8 +408,14 @@ export function generateRecommendations(
   }
 
   // --- 8. Missing subject test (priority 9) ---
-  if (policy.subjectTestTarget > 0) {
-    const validSubjectTestRecords = getValidTestRecords(input.subjectTestRecords)
+  const totalTopicsInSubject = input.chapters.reduce(
+    (sum, ch) => sum + ch.topics.length,
+    0
+  )
+  if (policy.subjectTestTarget > 0 && totalTopicsInSubject > 0) {
+    const validSubjectTestRecords = getValidTestRecords(
+      input.subjectTestRecords
+    )
     const subjectTestCount = validSubjectTestRecords.length
     if (subjectTestCount < policy.subjectTestTarget) {
       candidates.push(

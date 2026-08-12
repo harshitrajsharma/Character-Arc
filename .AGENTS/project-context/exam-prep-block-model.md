@@ -1,0 +1,74 @@
+# Exam Prep Block Model Contract
+
+This document is the source-of-truth contract for Exam Prep persistence. It complements the tool manifest and Prisma schema; it does not replace either of them.
+
+## Source-of-truth matrix
+
+| Concern | Authoritative record | Notes |
+| --- | --- | --- |
+| Identity, tenancy, lifecycle, title, summary, visibility, revision, and provenance | `Block` | Every Exam Prep object has one base Block. `Block.properties` is not used for stable domain facts. |
+| Personal exam plan, schedule snapshot, pattern, scoring rules and official reference | `ExamBlock` | One-to-one extension of an `exam-prep.exam` Block. |
+| Subject canonical code, discipline, foundation level | `SubjectBlock` | One-to-one extension of an `exam-prep.subject` Block. These values describe the reusable subject in its workspace. |
+| Chapter importance | `ChapterBlock.isImportant` | One-to-one extension of an `exam-prep.chapter` Block. |
+| Topic importance | `TopicBlock.isImportant` | One-to-one extension of an `exam-prep.topic` Block. |
+| Topic learning state, counters, and scheduling timestamps | `Block.properties` on the Topic | Operational workflow state: `learningStatus`, progress counters, and learning/revision/practice timestamps. |
+| Subject progress-policy overrides | `Block.properties` on the Subject | Operational configuration only: revision, practice, and test targets. |
+| Subject weightage, section, requiredness and syllabus/source/version | `ExamSubjectConfig` | One-to-one extension of the corresponding Exam -> Subject `BlockRelation`. These facts must never live on the shared Subject Block. |
+| Parent-specific ordering | `BlockRelation.position` | The ordering is relative to the relation parent, not the child Block. |
+
+Do not duplicate a fact between `Block.properties` and a typed extension. A typed field is authoritative whenever one exists.
+
+## Relationship contract
+
+Exam Prep has one hierarchy source of truth: typed `BlockRelation` rows. Exam Prep does **not** populate `Block.parentBlockId`.
+
+```text
+Exam --exam-prep.exam-has-subject--> Subject
+Subject --exam-prep.subject-has-chapter--> Chapter
+Chapter --exam-prep.chapter-has-topic--> Topic
+```
+
+- An Exam may include a Subject once; a Subject may belong to multiple Exams.
+- Each Exam -> Subject relation has exactly one `ExamSubjectConfig`.
+- A Chapter has exactly one active Subject parent for `exam-prep.subject-has-chapter`.
+- A Topic has exactly one active Chapter parent for `exam-prep.chapter-has-topic`.
+- Every endpoint must be active, in the same workspace, have its expected BlockType, and originate from the active Exam Prep installation.
+- The database uniqueness constraint prevents duplicate edges. Handler transactions enforce endpoint types, workspace and installation scope, and the one-parent rules.
+- Reordering accepts exactly the current active children of the specified parent and updates only their relation positions.
+
+## Create, attach, and detach lifecycle
+
+All relation mutations run in a serializable Prisma transaction after membership and installation authorization, with bounded retries for serialization conflicts.
+
+### Create subject from an Exam
+
+1. Create the Subject `Block` and `SubjectBlock` extension.
+2. Create the Exam -> Subject `BlockRelation`.
+3. Create the required `ExamSubjectConfig` for that relation.
+4. Set `originToolRunId` and `originToolInstallationId` on the newly created Block.
+
+### Attach an existing Subject
+
+1. Validate the existing Subject, its typed extension, workspace, and Exam Prep installation.
+2. Reject an existing Exam -> Subject edge.
+3. Create only the relation and its `ExamSubjectConfig`; the Subject, Chapters, and Topics are reused unchanged.
+
+### Detach a Subject from an Exam
+
+1. Validate the typed Exam -> Subject relation and its scope.
+2. Delete the relation. Cascade deletion removes only its `ExamSubjectConfig`.
+3. Do not archive, delete, or mutate the shared Subject, Chapters, or Topics.
+
+## Query and UI contract
+
+- Exam-scoped views load subjects through the Exam -> Subject relation and read link-specific values from `ExamSubjectConfig`.
+- A Subject’s syllabus and progress are shared across every Exam that includes that Subject.
+- A direct Subject route may redirect to its sole owning Exam. If more than one Exam includes it, the user must select an Exam context before any per-exam configuration is shown.
+- Study paths and test-record workflow retain the current behaviour; they use the shared Subject -> Chapter -> Topic tree, while test scheduling/marks remain scoped by Exam and Subject.
+
+## Implementation rules
+
+- New stable, searchable, validated, or cross-tool facts belong in a typed table, not JSON.
+- New relation-specific facts belong in a relation extension, not either endpoint’s JSON.
+- Never add SQL triggers, RPCs, or RLS policies for this workflow. Prisma/TypeScript transactions own these invariants.
+- Schema migrations are generated by the Prisma CLI only; they are not written or edited manually.

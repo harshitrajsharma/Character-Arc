@@ -3,4 +3,4 @@ export type {
   ChapterProgress,
   ChapterWithRelations,
   ProgressStats,
-} from "@/types/progressapp/domain";
+} from "@/types/progressapp/domain"

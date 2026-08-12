@@ -12,8 +12,10 @@ const subjectProgressPolicyFields = {
 export const subjectProgressPolicySchema = z.object({
   revisionTarget: subjectProgressPolicyFields.revisionTarget.default(3),
   practiceTarget: subjectProgressPolicyFields.practiceTarget.default(3),
-  highYieldRevisionTarget: subjectProgressPolicyFields.highYieldRevisionTarget.default(5),
-  highYieldPracticeTarget: subjectProgressPolicyFields.highYieldPracticeTarget.default(5),
+  highYieldRevisionTarget:
+    subjectProgressPolicyFields.highYieldRevisionTarget.default(5),
+  highYieldPracticeTarget:
+    subjectProgressPolicyFields.highYieldPracticeTarget.default(5),
   chapterTestTarget: subjectProgressPolicyFields.chapterTestTarget.default(1),
   subjectTestTarget: subjectProgressPolicyFields.subjectTestTarget.default(1),
 })
@@ -25,7 +27,8 @@ export const subjectProgressPolicyUpdateSchema = z
       context.addIssue({
         code: "custom",
         path: ["highYieldRevisionTarget"],
-        message: "High-yield revisions must be at least the standard revision target.",
+        message:
+          "High-yield revisions must be at least the standard revision target.",
       })
     }
 
@@ -33,13 +36,16 @@ export const subjectProgressPolicyUpdateSchema = z
       context.addIssue({
         code: "custom",
         path: ["highYieldPracticeTarget"],
-        message: "High-yield practice must be at least the standard practice target.",
+        message:
+          "High-yield practice must be at least the standard practice target.",
       })
     }
   })
 
-export type SubjectProgressPolicyInput = z.input<typeof subjectProgressPolicySchema>;
-export type SubjectProgressPolicy = z.infer<typeof subjectProgressPolicySchema>;
+export type SubjectProgressPolicyInput = z.input<
+  typeof subjectProgressPolicySchema
+>
+export type SubjectProgressPolicy = z.infer<typeof subjectProgressPolicySchema>
 
 export const defaultSubjectProgressPolicy: SubjectProgressPolicy = {
   revisionTarget: 3,
@@ -48,7 +54,7 @@ export const defaultSubjectProgressPolicy: SubjectProgressPolicy = {
   highYieldPracticeTarget: 5,
   chapterTestTarget: 1,
   subjectTestTarget: 1,
-};
+}
 
 export const DEFAULT_SUBJECT_PROGRESS_POLICY = defaultSubjectProgressPolicy
 
@@ -86,17 +92,30 @@ export function normalizeSubjectProgressPolicy(
         defaultSubjectProgressPolicy.highYieldPracticeTarget
       )
     ),
-    chapterTestTarget: normalizeTarget(source.chapterTestTarget, 0, defaultSubjectProgressPolicy.chapterTestTarget),
-    subjectTestTarget: normalizeTarget(source.subjectTestTarget, 0, defaultSubjectProgressPolicy.subjectTestTarget),
+    chapterTestTarget: normalizeTarget(
+      source.chapterTestTarget,
+      0,
+      defaultSubjectProgressPolicy.chapterTestTarget
+    ),
+    subjectTestTarget: normalizeTarget(
+      source.subjectTestTarget,
+      0,
+      defaultSubjectProgressPolicy.subjectTestTarget
+    ),
   })
 }
 
-export function validateSubjectProgressPolicy(policy: unknown): SubjectProgressPolicy {
+export function validateSubjectProgressPolicy(
+  policy: unknown
+): SubjectProgressPolicy {
   return subjectProgressPolicyUpdateSchema.parse(policy)
 }
 
 function normalizeTarget(value: unknown, minimum: number, fallback: number) {
-  return typeof value === "number" && Number.isInteger(value) && value >= minimum && value <= 100
+  return typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= minimum &&
+    value <= 100
     ? value
     : fallback
 }

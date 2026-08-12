@@ -1,5 +1,11 @@
 "use client"
 
+import * as React from "react"
+import Link from "next/link"
+import { useParams } from "next/navigation"
+import type { getAppShellData } from "@/lib/workspaces/workspace-access"
+import { workspaceRoutes } from "@/lib/routes/workspace-tools"
+
 import {
   Collapsible,
   CollapsibleContent,
@@ -17,66 +23,106 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar"
-import { ChevronRightIcon, PlusIcon, MoreHorizontalIcon } from "lucide-react"
+import { ChevronRightIcon, UserIcon, BuildingIcon, WrenchIcon } from "lucide-react"
+import { mapToolIcon } from "../tools/tool-catalog-card"
+
+type AppShellData = NonNullable<Awaited<ReturnType<typeof getAppShellData>>>
+type AppShellInstallation =
+  AppShellData[number]["installations"][number]
+
+function WorkspaceNavItem({
+  workspace,
+  currentSlug,
+}: {
+  workspace: AppShellData[number]
+  currentSlug: string | undefined
+}) {
+  const isActive = workspace.slug === currentSlug
+  const [isOpen, setIsOpen] = React.useState(isActive)
+
+  // Open automatically if this workspace becomes active
+  React.useEffect(() => {
+    if (isActive) {
+      setIsOpen(true)
+    }
+  }, [isActive])
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+      <SidebarMenuItem>
+        <SidebarMenuButton
+          render={<Link href={`/workspace/${workspace.slug}`} />}
+          isActive={isActive}
+        >
+          {workspace.kind === "PERSONAL" ? (
+            <UserIcon className="text-muted-foreground" />
+          ) : (
+            <BuildingIcon className="text-muted-foreground" />
+          )}
+          <span>{workspace.name}</span>
+        </SidebarMenuButton>
+        {workspace.installations.length > 0 && (
+          <>
+            <SidebarMenuAction
+              render={<CollapsibleTrigger />}
+              className="left-2 bg-sidebar-accent text-sidebar-accent-foreground data-open:rotate-90"
+              showOnHover
+            >
+              <ChevronRightIcon />
+            </SidebarMenuAction>
+            <CollapsibleContent>
+              <SidebarMenuSub>
+                {workspace.installations.map(
+                  (installation: AppShellInstallation) => {
+                    const toolHome = workspaceRoutes.toolHome(
+                      workspace.slug,
+                      installation.toolDefinition.key
+                    )
+                    const Icon =
+                      mapToolIcon(installation.toolDefinition.icon) ||
+                      WrenchIcon
+
+                    return (
+                      <SidebarMenuSubItem key={installation.id}>
+                        <SidebarMenuSubButton
+                          render={<Link href={toolHome || "#"} />}
+                        >
+                          <Icon />
+                          <span>{installation.toolDefinition.name}</span>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    )
+                  }
+                )}
+              </SidebarMenuSub>
+            </CollapsibleContent>
+          </>
+        )}
+      </SidebarMenuItem>
+    </Collapsible>
+  )
+}
 
 export function NavWorkspaces({
   workspaces,
 }: {
-  workspaces: {
-    name: string
-    emoji: React.ReactNode
-    pages: {
-      name: string
-      emoji: React.ReactNode
-    }[]
-  }[]
+  workspaces: AppShellData
 }) {
+  const params = useParams()
+  const currentSlug = params?.workspaceSlug as string | undefined
+
   return (
     <SidebarGroup>
       <SidebarGroupLabel>Workspaces</SidebarGroupLabel>
       <SidebarGroupContent>
         <SidebarMenu>
           {workspaces.map((workspace) => (
-            <Collapsible key={workspace.name}>
-              <SidebarMenuItem>
-                <SidebarMenuButton render={<a href="#" />}>
-                  <span>{workspace.emoji}</span>
-                  <span>{workspace.name}</span>
-                </SidebarMenuButton>
-                <SidebarMenuAction
-                  render={<CollapsibleTrigger />}
-                  className="left-2 bg-sidebar-accent text-sidebar-accent-foreground data-open:rotate-90"
-                  showOnHover
-                >
-                  <ChevronRightIcon
-                  />
-                </SidebarMenuAction>
-                <SidebarMenuAction showOnHover>
-                  <PlusIcon
-                  />
-                </SidebarMenuAction>
-                <CollapsibleContent>
-                  <SidebarMenuSub>
-                    {workspace.pages.map((page) => (
-                      <SidebarMenuSubItem key={page.name}>
-                        <SidebarMenuSubButton render={<a href="#" />}>
-                          <span>{page.emoji}</span>
-                          <span>{page.name}</span>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                    ))}
-                  </SidebarMenuSub>
-                </CollapsibleContent>
-              </SidebarMenuItem>
-            </Collapsible>
+            <WorkspaceNavItem
+              key={workspace.id}
+              workspace={workspace}
+              currentSlug={currentSlug}
+            />
           ))}
-          <SidebarMenuItem>
-            <SidebarMenuButton className="text-sidebar-foreground/70">
-              <MoreHorizontalIcon
-              />
-              <span>More</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
         </SidebarMenu>
       </SidebarGroupContent>
     </SidebarGroup>

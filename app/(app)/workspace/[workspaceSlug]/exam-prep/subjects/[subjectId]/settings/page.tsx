@@ -46,8 +46,8 @@ export default async function SubjectSettingsPage({
     : workspaceRoutes.examPrep.home(workspaceSlug)
 
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 pb-10 pt-6 md:px-6 md:pt-10 xl:px-10">
-      <header className="mb-8 flex items-start gap-3 border-b border-border/60 pb-6">
+    <main className="mx-auto w-full max-w-6xl px-4 pt-20 pb-10 sm:pt-24 md:px-6 xl:px-10">
+      <header className="mb-10 flex items-start gap-3 border-b border-border/60 pb-6 lg:mx-auto lg:max-w-5xl">
         <Button
           render={<Link href={returnHref} />}
           variant="ghost"
@@ -65,10 +65,6 @@ export default async function SubjectSettingsPage({
           <h1 className="mt-1 truncate font-heading text-2xl font-semibold text-foreground md:text-3xl">
             {subject.name}
           </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-            These progress rules belong to this subject. Changes apply in every
-            exam that uses it.
-          </p>
         </div>
       </header>
 

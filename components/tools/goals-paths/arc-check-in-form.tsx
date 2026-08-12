@@ -32,7 +32,12 @@ import { createIdempotencyKey } from "@/lib/forms/idempotency-key"
 
 const INITIAL_STATE: ArcMutationActionState = { status: "idle", message: "" }
 
-const ACTIONABLE_STATUSES = new Set(["active", "paused", "completed", "archived"])
+const ACTIONABLE_STATUSES = new Set([
+  "active",
+  "paused",
+  "completed",
+  "archived",
+])
 
 const STATUS_OPTIONS = [
   { value: "active", label: "Active" },
@@ -58,15 +63,20 @@ export function ArcCheckInForm({
   currentStatus = "not_started",
   progressPercent = 0,
 }: ArcCheckInFormProps) {
-  const [prevProgressPercent, setPrevProgressPercent] = useState(progressPercent)
+  const [prevProgressPercent, setPrevProgressPercent] =
+    useState(progressPercent)
   const [progressVal, setProgressVal] = useState<number | string>(
-    progressPercent !== null && progressPercent !== undefined ? Math.round(progressPercent) : 0
+    progressPercent !== null && progressPercent !== undefined
+      ? Math.round(progressPercent)
+      : 0
   )
 
   if (progressPercent !== prevProgressPercent) {
     setPrevProgressPercent(progressPercent)
     setProgressVal(
-      progressPercent !== null && progressPercent !== undefined ? Math.round(progressPercent) : 0
+      progressPercent !== null && progressPercent !== undefined
+        ? Math.round(progressPercent)
+        : 0
     )
   }
 

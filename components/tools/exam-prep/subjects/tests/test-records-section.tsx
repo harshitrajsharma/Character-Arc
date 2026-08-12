@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { PlusIcon, Trash2Icon } from "lucide-react"
 import { toast } from "sonner"
 
@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
+import { createIdempotencyKey } from "@/lib/forms/idempotency-key"
 import { deleteTestRecordAction } from "@/lib/tools/exam-prep/actions/test-actions"
 import type { BaseTestRecord } from "@/types/progressapp/domain/assessment"
 import { getTargetMessage } from "./test-record-helpers"
@@ -32,6 +33,7 @@ type TestRecordsSectionProps = {
   title: string
   records: BaseTestRecord[]
   targetTests?: number
+  addLabel?: string
 }
 
 export function TestRecordsSection({
@@ -42,14 +44,22 @@ export function TestRecordsSection({
   title,
   records,
   targetTests,
+  addLabel = "Record unscheduled result",
 }: TestRecordsSectionProps) {
   const { upsertTestRecord, removeTestRecord } = useSubjectProgress()
-  
+
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [editingRecord, setEditingRecord] = useState<BaseTestRecord | undefined>()
-  const [viewingRecord, setViewingRecord] = useState<BaseTestRecord | undefined>()
-  const [deletingRecord, setDeletingRecord] = useState<BaseTestRecord | undefined>()
+  const [editingRecord, setEditingRecord] = useState<
+    BaseTestRecord | undefined
+  >()
+  const [viewingRecord, setViewingRecord] = useState<
+    BaseTestRecord | undefined
+  >()
+  const [deletingRecord, setDeletingRecord] = useState<
+    BaseTestRecord | undefined
+  >()
   const [isDeleting, setIsDeleting] = useState(false)
+  const deleteKeys = useRef(new Map<string, string>())
 
   function handleAdd() {
     setEditingRecord(undefined)
@@ -61,17 +71,34 @@ export function TestRecordsSection({
     setDialogOpen(true)
   }
 
+  function handleDeleteRequest(record: BaseTestRecord) {
+    if (!deleteKeys.current.has(record.id)) {
+      deleteKeys.current.set(record.id, createIdempotencyKey())
+    }
+    setDeletingRecord(record)
+  }
+
   async function handleDelete() {
     if (!deletingRecord || isDeleting) return
 
     setIsDeleting(true)
     try {
-      const { deletedRecord } = await deleteTestRecordAction(workspaceSlug, deletingRecord.id)
+      const idempotencyKey = deleteKeys.current.get(deletingRecord.id)
+      const { deletedRecord } = await deleteTestRecordAction(
+        workspaceSlug,
+        deletingRecord.id,
+        idempotencyKey
+      )
+      deleteKeys.current.delete(deletingRecord.id)
       removeTestRecord(deletedRecord.id)
       setDeletingRecord(undefined)
       toast.success("Test record deleted")
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not delete the test record")
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Could not delete the test record"
+      )
     } finally {
       setIsDeleting(false)
     }
@@ -97,8 +124,10 @@ export function TestRecordsSection({
               key={record.id}
               record={record}
               onView={setViewingRecord}
-              onEdit={handleEdit}
-              onDelete={setDeletingRecord}
+              onEdit={record.scheduledTestId ? undefined : handleEdit}
+              onDelete={
+                record.scheduledTestId ? undefined : handleDeleteRequest
+              }
             />
           ))}
           <Button
@@ -108,12 +137,14 @@ export function TestRecordsSection({
             className="h-11 w-full border-dashed border-brand-violet-line text-brand-violet-ink hover:bg-brand-violet-soft hover:text-brand-violet-ink"
           >
             <PlusIcon aria-hidden="true" className="mr-2" />
-            Add Test Record
+            {addLabel}
           </Button>
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-brand-violet-line bg-brand-violet-soft p-6">
-          <p className="text-center text-sm text-muted-foreground">No tests recorded yet.</p>
+          <p className="text-center text-sm text-muted-foreground">
+            No tests recorded yet.
+          </p>
           <Button
             type="button"
             variant="outline"
@@ -121,7 +152,7 @@ export function TestRecordsSection({
             className="h-11 border-brand-violet-line text-brand-violet-ink hover:bg-brand-violet-soft hover:text-brand-violet-ink"
           >
             <PlusIcon aria-hidden="true" className="mr-2" />
-            Add Test Record
+            {addLabel}
           </Button>
         </div>
       )}
@@ -155,13 +186,23 @@ export function TestRecordsSection({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete test record?</AlertDialogTitle>
             <AlertDialogDescription>
-              “{deletingRecord?.title}” and its saved summary will be permanently removed.
+              “{deletingRecord?.title}” and its saved summary will be
+              permanently removed.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" className="min-w-28" onClick={() => void handleDelete()} disabled={isDeleting}>
-              {isDeleting ? <Spinner /> : <Trash2Icon aria-hidden="true" className="mr-2" />}
+            <AlertDialogAction
+              variant="destructive"
+              className="min-w-28"
+              onClick={() => void handleDelete()}
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <Spinner />
+              ) : (
+                <Trash2Icon aria-hidden="true" className="mr-2" />
+              )}
               Delete record
             </AlertDialogAction>
           </AlertDialogFooter>

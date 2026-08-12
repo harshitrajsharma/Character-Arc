@@ -5,6 +5,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 
 import { CharacterArcLogo } from "@/components/brand/character-arc-logo"
+
 import { NavbarAccountMenu } from "./navbar-account-menu"
 import { type NavbarDestinationKey, type NavbarUser } from "./navbar-data"
 import { NavbarNotifications } from "./navbar-notifications"
@@ -14,11 +15,16 @@ import { NavClock } from "./nav-clock"
 import { DayPulse } from "./day-pulse"
 import { dayProgress, getDayPhase } from "./day-phase"
 
+import type { getAppShellData } from "@/lib/workspaces/workspace-access"
+
+type AppShellData = NonNullable<Awaited<ReturnType<typeof getAppShellData>>>
+
 type NavbarProps = {
   user?: NavbarUser
+  memberships?: AppShellData
 }
 
-export function Navbar({ user }: NavbarProps) {
+export function Navbar({ user, memberships }: NavbarProps) {
   const pathname = usePathname()
   const [active, setActive] = useState<NavbarDestinationKey>("today")
   const [now, setNow] = useState<Date | null>(null)
@@ -36,8 +42,10 @@ export function Navbar({ user }: NavbarProps) {
     if (!isAuthenticated) return
 
     const syncHash = () => {
-      if (pathname === "/tools" || pathname.startsWith("/tools/")) setActive("tools")
-      else if (pathname === "/workspace" || pathname.startsWith("/workspace/")) setActive("workspace")
+      if (pathname === "/tools" || pathname.startsWith("/tools/"))
+        setActive("tools")
+      else if (pathname === "/workspace" || pathname.startsWith("/workspace/"))
+        setActive("workspace")
       else if (window.location.hash === "#workspace") setActive("workspace")
       else if (window.location.hash === "#tools") setActive("tools")
       else setActive("today")
@@ -57,8 +65,9 @@ export function Navbar({ user }: NavbarProps) {
       {user ? (
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-40 w-full"
+          className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-40 w-full transition-opacity duration-700 ease-out"
           style={{
+            opacity: now ? 1 : 0,
             background: `linear-gradient(
         180deg,
         color-mix(in oklch, ${phase.cssVar} 20%, transparent) 0%,
@@ -68,7 +77,8 @@ export function Navbar({ user }: NavbarProps) {
           }}
         />
       ) : null}
-      <div className="flex h-15 items-center justify-between gap-2 px-4 md:gap-14">
+      <div className="flex h-15 items-center gap-2 px-4 md:gap-14">
+        
         <Link
           href={homeHref}
           className="min-w-0 justify-self-start rounded-md outline-none focus-visible:ring-3 focus-visible:ring-brand-neon-line"
@@ -79,7 +89,7 @@ export function Navbar({ user }: NavbarProps) {
         </Link>
 
         {user ? (
-          <div className="hidden items-center justify-start sm:flex xl:pointer-events-none xl:absolute xl:inset-y-0 xl:left-1/2 xl:w-full xl:max-w-6xl xl:-translate-x-1/2 xl:px-8">
+          <div className="hidden items-center justify-start sm:flex xl:pointer-events-none xl:absolute xl:inset-y-0 xl:left-1/2 xl:w-full xl:max-w-6xl xl:-translate-x-1/2 xl:px-16">
             <div className="pointer-events-auto">
               <NavbarPrimaryLinks active={active} onSelect={setActive} />
             </div>
@@ -90,7 +100,7 @@ export function Navbar({ user }: NavbarProps) {
           <NavClock />
           {user ? (
             <>
-              <NavbarSearch onSelect={setActive} />
+              <NavbarSearch onSelect={setActive} memberships={memberships} />
               <NavbarNotifications />
               <NavbarAccountMenu user={user} onSelect={setActive} />
             </>

@@ -196,7 +196,10 @@ function inspectSchema(
     }
   }
 
-  if (value.description !== undefined && typeof value.description !== "string") {
+  if (
+    value.description !== undefined &&
+    typeof value.description !== "string"
+  ) {
     addSchemaIssue(
       issues,
       "invalid_schema",
@@ -422,7 +425,10 @@ function inspectArraySchema(
 ): void {
   inspectNonNegativeIntegerKeyword(schema, "maxItems", schemaPath, issues)
 
-  if (schema.uniqueItems !== undefined && typeof schema.uniqueItems !== "boolean") {
+  if (
+    schema.uniqueItems !== undefined &&
+    typeof schema.uniqueItems !== "boolean"
+  ) {
     addSchemaIssue(
       issues,
       "invalid_schema",

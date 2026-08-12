@@ -8,11 +8,16 @@ export async function GET(request: NextRequest) {
   const tokenHash = request.nextUrl.searchParams.get("token_hash")
   const type = request.nextUrl.searchParams.get("type") as EmailOtpType | null
   const fallback = type === "recovery" ? "/update-password" : "/dashboard"
-  const next = safeNextPath(request.nextUrl.searchParams.get("next") ?? fallback)
+  const next = safeNextPath(
+    request.nextUrl.searchParams.get("next") ?? fallback
+  )
 
   if (tokenHash && type) {
     const supabase = await createServerSupabaseClient()
-    const { error } = await supabase.auth.verifyOtp({ type, token_hash: tokenHash })
+    const { error } = await supabase.auth.verifyOtp({
+      type,
+      token_hash: tokenHash,
+    })
 
     if (!error) {
       return NextResponse.redirect(new URL(next, request.url))
@@ -20,6 +25,9 @@ export async function GET(request: NextRequest) {
   }
 
   const errorUrl = new URL("/login", request.url)
-  errorUrl.searchParams.set("error", "The confirmation link is invalid or has expired.")
+  errorUrl.searchParams.set(
+    "error",
+    "The confirmation link is invalid or has expired."
+  )
   return NextResponse.redirect(errorUrl)
 }

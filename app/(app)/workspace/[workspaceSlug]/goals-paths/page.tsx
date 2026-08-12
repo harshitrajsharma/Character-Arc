@@ -73,7 +73,9 @@ const ARC_GROUPS: Array<{
   },
 ]
 
-export default async function GoalsPathsPage(props: { params: Promise<{ workspaceSlug: string }> }) {
+export default async function GoalsPathsPage(props: {
+  params: Promise<{ workspaceSlug: string }>
+}) {
   const params = await props.params
   const overview = await getGoalsPathsOverview(params.workspaceSlug)
   const arcGroups = ARC_GROUPS.map((group) => ({
@@ -82,7 +84,7 @@ export default async function GoalsPathsPage(props: { params: Promise<{ workspac
   })).filter((group) => group.arcs.length > 0)
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 md:px-6 xl:px-10 pt-24 pb-8 sm:pb-10">
+    <main className="mx-auto w-full max-w-6xl px-4 pt-24 pb-8 sm:pb-10 md:px-6 xl:px-10">
       <ToolPageHeader
         eyebrow="Route log"
         title="Goals and Paths"
@@ -90,7 +92,10 @@ export default async function GoalsPathsPage(props: { params: Promise<{ workspac
         icon={<RouteIcon aria-hidden="true" />}
         iconClassName="bg-brand-neon-soft text-brand-neon-ink"
         primaryAction={
-          <Link href={workspaceRoutes.goalsPaths.new(params.workspaceSlug)} className={buttonVariants()}>
+          <Link
+            href={workspaceRoutes.goalsPaths.new(params.workspaceSlug)}
+            className={buttonVariants()}
+          >
             <PlusIcon data-icon="inline-start" aria-hidden="true" />
             New arc
           </Link>
@@ -124,7 +129,10 @@ export default async function GoalsPathsPage(props: { params: Promise<{ workspac
             </EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
-            <Link href={workspaceRoutes.goalsPaths.new(params.workspaceSlug)} className={buttonVariants()}>
+            <Link
+              href={workspaceRoutes.goalsPaths.new(params.workspaceSlug)}
+              className={buttonVariants()}
+            >
               <PlusIcon data-icon="inline-start" aria-hidden="true" />
               Create an arc
             </Link>
@@ -175,7 +183,9 @@ export default async function GoalsPathsPage(props: { params: Promise<{ workspac
                   <div>
                     {group.arcs.map((arc) => {
                       const targetDate = parseIsoLocalDate(arc.targetDate)
-                      const formattedTargetDate = targetDate ? `${String(targetDate.getDate()).padStart(2, '0')}-${String(targetDate.getMonth() + 1).padStart(2, '0')}-${targetDate.getFullYear()}` : undefined
+                      const formattedTargetDate = targetDate
+                        ? `${String(targetDate.getDate()).padStart(2, "0")}-${String(targetDate.getMonth() + 1).padStart(2, "0")}-${targetDate.getFullYear()}`
+                        : undefined
                       const timelineLabel = formattedTargetDate
                         ? `Target ${formattedTargetDate}`
                         : `Started ${formatDate(arc.createdAt)}`
@@ -183,7 +193,10 @@ export default async function GoalsPathsPage(props: { params: Promise<{ workspac
                       return (
                         <ToolListRow
                           key={arc.id}
-                          href={workspaceRoutes.goalsPaths.arc(params.workspaceSlug, arc.id)}
+                          href={workspaceRoutes.goalsPaths.arc(
+                            params.workspaceSlug,
+                            arc.id
+                          )}
                           title={arc.title}
                           summary={arc.summary}
                           emptySummaryText="No summary yet. Open this arc to review its direction."

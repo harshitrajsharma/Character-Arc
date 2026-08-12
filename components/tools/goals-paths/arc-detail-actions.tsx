@@ -33,7 +33,10 @@ export function ArcDetailActions(props: ArcDetailActionsProps) {
     <>
       <div className="flex items-center gap-1.5">
         <Link
-          href={workspaceRoutes.goalsPaths.arcEdit(props.workspaceSlug, props.arcId)}
+          href={workspaceRoutes.goalsPaths.arcEdit(
+            props.workspaceSlug,
+            props.arcId
+          )}
           className={cn(
             buttonVariants({ variant: "secondary", size: "sm" }),
             "min-h-11 sm:min-h-8"

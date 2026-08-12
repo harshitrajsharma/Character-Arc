@@ -1,5 +1,5 @@
-import { Skeleton } from "@/components/ui/skeleton";
-import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton"
+import { Card } from "@/components/ui/card"
 
 export function DashboardSkeleton() {
   return (
@@ -14,19 +14,19 @@ export function DashboardSkeleton() {
       <div className="grid gap-4 md:grid-cols-3">
         {/* Days Until */}
         <Card className="p-6">
-          <Skeleton className="h-12 w-[100px] mb-4" />
+          <Skeleton className="mb-4 h-12 w-[100px]" />
           <Skeleton className="h-4 w-[150px]" />
         </Card>
 
         {/* Subject Progress */}
         <Card className="p-6">
-          <Skeleton className="h-12 w-[80px] mb-4" />
+          <Skeleton className="mb-4 h-12 w-[80px]" />
           <Skeleton className="h-4 w-[120px]" />
         </Card>
 
         {/* Projected Marks */}
         <Card className="p-6">
-          <Skeleton className="h-12 w-[90px] mb-4" />
+          <Skeleton className="mb-4 h-12 w-[90px]" />
           <Skeleton className="h-4 w-[130px]" />
         </Card>
       </div>
@@ -37,7 +37,7 @@ export function DashboardSkeleton() {
       </Card>
 
       {/* Progress Section */}
-      <Card className="p-6 space-y-4">
+      <Card className="space-y-4 p-6">
         <Skeleton className="h-6 w-[150px]" />
         <Skeleton className="h-4 w-full" />
         <div className="grid grid-cols-2 gap-4">
@@ -53,5 +53,5 @@ export function DashboardSkeleton() {
         <Skeleton className="h-[200px] w-full" />
       </Card>
     </div>
-  );
-} 
+  )
+}

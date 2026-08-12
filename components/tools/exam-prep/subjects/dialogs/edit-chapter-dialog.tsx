@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -14,37 +14,29 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "sonner"
 
 interface EditChapterDialogProps {
-  chapterId: string;
-  initialName: string;
-  initialImportant: boolean;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  chapterId: string
+  initialName: string
+  initialImportant: boolean
+  open: boolean
+  onOpenChange: (open: boolean) => void
   onSuccess?: (updatedChapter: {
-    id: string;
-    name: string;
-    important: boolean;
-  }) => void;
+    id: string
+    name: string
+    important: boolean
+  }) => void
 }
 
-export function EditChapterDialog({ 
-  chapterId, 
-  initialName, 
+export function EditChapterDialog({
+  chapterId,
+  initialName,
   initialImportant,
   open,
   onOpenChange,
-  onSuccess 
+  onSuccess,
 }: EditChapterDialogProps) {
   const [loading, setLoading] = useState(false)
   const [name, setName] = useState(initialName)
   const [important, setImportant] = useState(initialImportant)
-
-  // Reset form when dialog opens
-  useEffect(() => {
-    if (open) {
-      setName(initialName)
-      setImportant(initialImportant)
-    }
-  }, [open, initialName, initialImportant])
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -63,7 +55,9 @@ export function EditChapterDialog({
       toast.success("Chapter updated.")
     } catch (error) {
       console.error(error)
-      toast.error(error instanceof Error ? error.message : "Failed to update chapter.")
+      toast.error(
+        error instanceof Error ? error.message : "Failed to update chapter."
+      )
     } finally {
       setLoading(false)
     }
@@ -81,7 +75,9 @@ export function EditChapterDialog({
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="name">Chapter Name</Label>
+              <Label htmlFor="name">
+                Chapter name <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="name"
                 placeholder="Enter chapter name"
@@ -103,17 +99,21 @@ export function EditChapterDialog({
             </div>
           </div>
           <DialogFooter>
-            <Button 
-              type="button" 
-              variant="outline" 
+            <Button
+              type="button"
+              variant="outline"
               onClick={() => onOpenChange(false)}
               disabled={loading}
             >
               Cancel
             </Button>
-            <Button 
-              type="submit" 
-              disabled={loading || !name.trim() || (name === initialName && important === initialImportant)}
+            <Button
+              type="submit"
+              disabled={
+                loading ||
+                !name.trim() ||
+                (name === initialName && important === initialImportant)
+              }
               className="gap-2"
             >
               {loading && (
@@ -126,4 +126,4 @@ export function EditChapterDialog({
       </DialogContent>
     </Dialog>
   )
-} 
+}

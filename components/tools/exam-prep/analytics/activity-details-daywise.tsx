@@ -1,11 +1,11 @@
-'use client';
+"use client"
 
-import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { format, isAfter, isToday, startOfDay } from "date-fns";
-import { useAnalytics } from "@/components/tools/exam-prep/contexts/analytics-context";
-import { ActivityFilters } from "./ActivityFilters";
-import { ActivityList } from "./ActivityList";
+import { Button } from "@/components/ui/button"
+import { ChevronLeft, ChevronRight } from "lucide-react"
+import { format, isAfter, isToday, startOfDay } from "date-fns"
+import { useAnalytics } from "@/components/tools/exam-prep/contexts/analytics-context"
+import { ActivityFilters } from "./ActivityFilters"
+import { ActivityList } from "./ActivityList"
 
 export function ActivityDetailsDaywise() {
   const {
@@ -17,13 +17,14 @@ export function ActivityDetailsDaywise() {
     filteredDetails,
     goToPreviousDay,
     goToNextDay,
-    goToToday
-  } = useAnalytics();
+    goToToday,
+  } = useAnalytics()
 
-  const isFutureNavigationDisabled = isLoading || !isAfter(startOfDay(new Date()), startOfDay(selectedDate));
+  const isFutureNavigationDisabled =
+    isLoading || !isAfter(startOfDay(new Date()), startOfDay(selectedDate))
 
   return (
-    <div className="space-y-4 h-full flex flex-col">
+    <div className="flex h-full flex-col space-y-4">
       {/* Header with Date Navigation */}
       <div>
         <div className="mb-4 flex items-center justify-between gap-8">
@@ -39,10 +40,12 @@ export function ActivityDetailsDaywise() {
           </Button>
           <div className="min-w-0 text-center">
             <h3 className="truncate text-xl font-semibold tracking-tight">
-              {isToday(selectedDate) ? "Today" : format(selectedDate, 'MMMM d, yyyy')}
+              {isToday(selectedDate)
+                ? "Today"
+                : format(selectedDate, "MMMM d, yyyy")}
             </h3>
             <p className="text-sm text-muted-foreground">
-              {format(selectedDate, 'EEEE')}
+              {format(selectedDate, "EEEE")}
             </p>
           </div>
           <Button
@@ -61,18 +64,22 @@ export function ActivityDetailsDaywise() {
         <ActivityFilters
           selectedFilter={selectedFilter}
           onFilterChange={setSelectedFilter}
-          activityCounts={activityData ? {
-            learning: activityData.learning || 0,
-            revision: activityData.revision || 0,
-            practice: activityData.practice || 0,
-            test: activityData.test || 0
-          } : {}}
+          activityCounts={
+            activityData
+              ? {
+                  learning: activityData.learning || 0,
+                  revision: activityData.revision || 0,
+                  practice: activityData.practice || 0,
+                  test: activityData.test || 0,
+                }
+              : {}
+          }
           isLoading={isLoading}
         />
       </div>
 
       {/* Activity List - takes remaining height */}
-      <div className="flex-1 min-h-0">
+      <div className="min-h-0 flex-1">
         <ActivityList
           selectedDate={selectedDate}
           filteredDetails={filteredDetails}
@@ -82,5 +89,5 @@ export function ActivityDetailsDaywise() {
         />
       </div>
     </div>
-  );
+  )
 }

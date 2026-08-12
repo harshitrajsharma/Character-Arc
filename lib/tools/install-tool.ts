@@ -126,14 +126,17 @@ export async function installTool(input: InstallToolInput) {
 
       // 4. Copies permissions from release.manifest->'defaultGrants' into tool_grants
       const manifestData = release.manifest as any
-      const defaultGrants = Array.isArray(manifestData?.defaultGrants) 
-        ? manifestData.defaultGrants 
+      const defaultGrants = Array.isArray(manifestData?.defaultGrants)
+        ? manifestData.defaultGrants
         : []
 
       for (const grant of defaultGrants) {
         if (!grant.permissionKey) continue
 
-        const effect = grant.effect === "allow" ? ToolGrantEffect.ALLOW : ToolGrantEffect.DENY
+        const effect =
+          grant.effect === "allow"
+            ? ToolGrantEffect.ALLOW
+            : ToolGrantEffect.DENY
         const constraints = grant.constraints || {}
 
         await tx.toolGrant.upsert({

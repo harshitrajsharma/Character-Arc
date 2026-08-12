@@ -20,7 +20,10 @@ export function withCalculatedSubjectProgress(
       testProgress: progress.test,
     }
   })
-  const topicCount = chapters.reduce((total, chapter) => total + chapter.topics.length, 0)
+  const topicCount = chapters.reduce(
+    (total, chapter) => total + chapter.topics.length,
+    0
+  )
   const subjectWithChapters = {
     ...subject,
     chapters,

@@ -1,18 +1,22 @@
-import { BlockKind, RelationCardinality, ToolReleaseStatus } from '../../generated/prisma/enums';
-import { config } from 'dotenv';
-import { listFirstPartyToolManifests } from './registry';
+import {
+  BlockKind,
+  RelationCardinality,
+  ToolReleaseStatus,
+} from "../../generated/prisma/enums"
+import { config } from "dotenv"
+import { listFirstPartyToolManifests } from "./registry"
 
-config({ path: '.env.local', quiet: true });
-config({ quiet: true });
+config({ path: ".env.local", quiet: true })
+config({ quiet: true })
 
 export async function syncTools() {
-  const { prisma } = await import('../prisma');
-  console.log('Synchronizing Tools from Registry...');
-  
-  const manifests = listFirstPartyToolManifests();
+  const { prisma } = await import("../prisma")
+  console.log("Synchronizing Tools from Registry...")
+
+  const manifests = listFirstPartyToolManifests()
 
   for (const manifest of manifests) {
-    console.log(`Syncing tool: ${manifest.tool.name} (${manifest.tool.key})`);
+    console.log(`Syncing tool: ${manifest.tool.name} (${manifest.tool.key})`)
 
     // 1. Upsert Tool Definition
     const toolDef = await prisma.toolDefinition.upsert({
@@ -29,8 +33,8 @@ export async function syncTools() {
         description: manifest.tool.description,
         icon: manifest.tool.icon,
         enabled: true,
-      }
-    });
+      },
+    })
 
     // 2. Upsert Tool Release
     const toolRelease = await prisma.toolRelease.upsert({
@@ -38,7 +42,7 @@ export async function syncTools() {
         toolDefinitionId_version: {
           toolDefinitionId: toolDef.id,
           version: manifest.release.version,
-        }
+        },
       },
       update: {
         schemaVersion: manifest.release.schemaVersion,
@@ -52,8 +56,8 @@ export async function syncTools() {
         status: ToolReleaseStatus.PUBLISHED,
         manifest: JSON.parse(JSON.stringify(manifest)), // Convert object to JSON compatible
         publishedAt: new Date(),
-      }
-    });
+      },
+    })
 
     await prisma.toolInstallation.updateMany({
       where: {
@@ -63,7 +67,7 @@ export async function syncTools() {
       data: {
         toolReleaseId: toolRelease.id,
       },
-    });
+    })
 
     // 3. Upsert Block Types
     for (const bt of manifest.blockTypes) {
@@ -72,7 +76,12 @@ export async function syncTools() {
         update: {
           name: bt.name,
           description: bt.description,
-          kind: bt.kind === 'entity' ? BlockKind.ENTITY : bt.kind === 'container' ? BlockKind.CONTAINER : BlockKind.CONTENT,
+          kind:
+            bt.kind === "entity"
+              ? BlockKind.ENTITY
+              : bt.kind === "container"
+                ? BlockKind.CONTAINER
+                : BlockKind.CONTENT,
           schemaVersion: bt.schemaVersion,
           isSystem: false,
         },
@@ -81,24 +90,32 @@ export async function syncTools() {
           toolDefinitionId: toolDef.id,
           name: bt.name,
           description: bt.description,
-          kind: bt.kind === 'entity' ? BlockKind.ENTITY : bt.kind === 'container' ? BlockKind.CONTAINER : BlockKind.CONTENT,
+          kind:
+            bt.kind === "entity"
+              ? BlockKind.ENTITY
+              : bt.kind === "container"
+                ? BlockKind.CONTAINER
+                : BlockKind.CONTENT,
           schemaVersion: bt.schemaVersion,
           isSystem: false,
-        }
-      });
+        },
+      })
     }
   }
 
   // 4. Upsert Relation Types (Requires second pass so source/target blocks are guaranteed to exist)
   for (const manifest of manifests) {
     for (const rt of manifest.relationTypes) {
-      
-      const sourceBlock = await prisma.blockType.findUnique({ where: { key: rt.sourceBlockTypeKey } });
-      const targetBlock = await prisma.blockType.findUnique({ where: { key: rt.targetBlockTypeKey } });
+      const sourceBlock = await prisma.blockType.findUnique({
+        where: { key: rt.sourceBlockTypeKey },
+      })
+      const targetBlock = await prisma.blockType.findUnique({
+        where: { key: rt.targetBlockTypeKey },
+      })
 
       if (!sourceBlock || !targetBlock) {
-        console.warn(`Skipping relation ${rt.key}: source or target missing.`);
-        continue;
+        console.warn(`Skipping relation ${rt.key}: source or target missing.`)
+        continue
       }
 
       await prisma.blockRelationType.upsert({
@@ -106,7 +123,12 @@ export async function syncTools() {
         update: {
           name: rt.name,
           description: rt.description,
-          cardinality: rt.cardinality === 'one_to_one' ? RelationCardinality.ONE_TO_ONE : rt.cardinality === 'one_to_many' ? RelationCardinality.ONE_TO_MANY : RelationCardinality.MANY_TO_MANY,
+          cardinality:
+            rt.cardinality === "one_to_one"
+              ? RelationCardinality.ONE_TO_ONE
+              : rt.cardinality === "one_to_many"
+                ? RelationCardinality.ONE_TO_MANY
+                : RelationCardinality.MANY_TO_MANY,
         },
         create: {
           key: rt.key,
@@ -114,14 +136,19 @@ export async function syncTools() {
           targetBlockTypeId: targetBlock.id,
           name: rt.name,
           description: rt.description,
-          cardinality: rt.cardinality === 'one_to_one' ? RelationCardinality.ONE_TO_ONE : rt.cardinality === 'one_to_many' ? RelationCardinality.ONE_TO_MANY : RelationCardinality.MANY_TO_MANY,
+          cardinality:
+            rt.cardinality === "one_to_one"
+              ? RelationCardinality.ONE_TO_ONE
+              : rt.cardinality === "one_to_many"
+                ? RelationCardinality.ONE_TO_MANY
+                : RelationCardinality.MANY_TO_MANY,
           isSystem: false,
-        }
-      });
+        },
+      })
     }
   }
 
-  console.log('Synchronization complete!');
+  console.log("Synchronization complete!")
 }
 
 syncTools()

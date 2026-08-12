@@ -124,7 +124,10 @@ function normalizeArc(
   }
 }
 
-import { getWorkspaceIdentity, requireActiveToolInstallation } from "@/lib/workspaces/workspace-access"
+import {
+  getWorkspaceIdentity,
+  requireActiveToolInstallation,
+} from "@/lib/workspaces/workspace-access"
 
 async function resolveArcContext(workspaceSlug: string) {
   const [workspace, claims, installation] = await Promise.all([
@@ -157,7 +160,7 @@ export async function getGoalsPathsOverview(workspaceSlug: string) {
 
   const blockType = await prisma.blockType.findUnique({
     where: { key: "goals-paths.arc" },
-    select: { id: true }
+    select: { id: true },
   })
 
   if (!blockType) {
@@ -178,13 +181,33 @@ export async function getGoalsPathsOverview(workspaceSlug: string) {
       archivedAt: null,
     },
     select: {
-      id: true, title: true, summary: true, body: true, status: true, visibility: true, allowAgentAccess: true, properties: true, schemaVersion: true, revision: true, createdAt: true, updatedAt: true
+      id: true,
+      title: true,
+      summary: true,
+      body: true,
+      status: true,
+      visibility: true,
+      allowAgentAccess: true,
+      properties: true,
+      schemaVersion: true,
+      revision: true,
+      createdAt: true,
+      updatedAt: true,
     },
-    orderBy: { updatedAt: 'desc' },
-    take: 50
+    orderBy: { updatedAt: "desc" },
+    take: 50,
   })
 
-  const mappedArcs = arcsData.map(e => ({ ...e, allow_agent_access: e.allowAgentAccess, schema_version: e.schemaVersion, created_at: e.createdAt.toISOString(), updated_at: e.updatedAt.toISOString(), status: e.status.toLowerCase(), visibility: e.visibility.toLowerCase(), revision: e.revision.toString() }))
+  const mappedArcs = arcsData.map((e) => ({
+    ...e,
+    allow_agent_access: e.allowAgentAccess,
+    schema_version: e.schemaVersion,
+    created_at: e.createdAt.toISOString(),
+    updated_at: e.updatedAt.toISOString(),
+    status: e.status.toLowerCase(),
+    visibility: e.visibility.toLowerCase(),
+    revision: e.revision.toString(),
+  }))
   const arcRows = arcRowsSchema.safeParse(mappedArcs)
   if (!arcRows.success) {
     return {
@@ -201,12 +224,23 @@ export async function getGoalsPathsOverview(workspaceSlug: string) {
         where: {
           workspaceId: workspace.id,
           userId: claims.sub,
-          blockId: { in: blockIds }
+          blockId: { in: blockIds },
         },
-        select: { blockId: true, status: true, progressPercent: true, lastActivityAt: true }
+        select: {
+          blockId: true,
+          status: true,
+          progressPercent: true,
+          lastActivityAt: true,
+        },
       })
     : []
-  const mappedStates = statesData.map(s => ({ ...s, block_id: s.blockId, status: s.status.toLowerCase(), progress_percent: s.progressPercent?.toString() || null, last_activity_at: s.lastActivityAt?.toISOString() || null }))
+  const mappedStates = statesData.map((s) => ({
+    ...s,
+    block_id: s.blockId,
+    status: s.status.toLowerCase(),
+    progress_percent: s.progressPercent?.toString() || null,
+    last_activity_at: s.lastActivityAt?.toISOString() || null,
+  }))
   const states = stateRowsSchema.safeParse(mappedStates)
 
   if (!states.success) {
@@ -228,9 +262,14 @@ export async function getGoalsPathsOverview(workspaceSlug: string) {
   return { workspace, item, arcs, issue: null }
 }
 
-export async function getArcDetail(workspaceSlug: string, arcId: string): Promise<{
+export async function getArcDetail(
+  workspaceSlug: string,
+  arcId: string
+): Promise<{
   workspace: { id: string; name: string } | null
-  item: { installationStatus: "active" | "none", installationId: string | null } | undefined
+  item:
+    | { installationStatus: "active" | "none"; installationId: string | null }
+    | undefined
   arc: ArcDetail | null
   issue: GoalsPathsIssue | "not_found" | null
 }> {
@@ -251,7 +290,7 @@ export async function getArcDetail(workspaceSlug: string, arcId: string): Promis
 
   const blockType = await prisma.blockType.findUnique({
     where: { key: "goals-paths.arc" },
-    select: { id: true }
+    select: { id: true },
   })
 
   if (!blockType) {
@@ -272,39 +311,87 @@ export async function getArcDetail(workspaceSlug: string, arcId: string): Promis
         blockTypeId: blockType.id,
         archivedAt: null,
       },
-      select: { id: true, title: true, summary: true, body: true, status: true, visibility: true, allowAgentAccess: true, properties: true, schemaVersion: true, revision: true, createdAt: true, updatedAt: true }
+      select: {
+        id: true,
+        title: true,
+        summary: true,
+        body: true,
+        status: true,
+        visibility: true,
+        allowAgentAccess: true,
+        properties: true,
+        schemaVersion: true,
+        revision: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     }),
     prisma.userBlockState.findUnique({
       where: {
         userId_blockId: {
           userId: claims.sub,
-          blockId: parsedArcId.data
+          blockId: parsedArcId.data,
         },
-        workspaceId: workspace.id
+        workspaceId: workspace.id,
       },
-      select: { blockId: true, status: true, progressPercent: true, lastActivityAt: true }
+      select: {
+        blockId: true,
+        status: true,
+        progressPercent: true,
+        lastActivityAt: true,
+      },
     }),
     prisma.progressEvidence.findMany({
       where: {
         workspaceId: workspace.id,
         userId: claims.sub,
         blockId: parsedArcId.data,
-        evidenceKey: "arc.check-in"
+        evidenceKey: "arc.check-in",
       },
-      select: { id: true, evidenceKey: true, numericValue: true, maxValue: true, properties: true, occurredAt: true },
+      select: {
+        id: true,
+        evidenceKey: true,
+        numericValue: true,
+        maxValue: true,
+        properties: true,
+        occurredAt: true,
+      },
       orderBy: { occurredAt: "desc" },
-      take: 12
-    })
+      take: 12,
+    }),
   ])
 
   if (!arcData) {
     return { workspace, item, arc: null, issue: "not_found" }
   }
 
-  const mappedArc = { ...arcData, allow_agent_access: arcData.allowAgentAccess, schema_version: arcData.schemaVersion, created_at: arcData.createdAt.toISOString(), updated_at: arcData.updatedAt.toISOString(), status: arcData.status.toLowerCase(), visibility: arcData.visibility.toLowerCase(), revision: arcData.revision.toString() }
-  const mappedState = stateData ? { ...stateData, block_id: stateData.blockId, status: stateData.status.toLowerCase(), progress_percent: stateData.progressPercent?.toString() || null, last_activity_at: stateData.lastActivityAt?.toISOString() || null } : null
-  const mappedEvidence = evidenceData.map(e => ({ ...e, evidence_key: e.evidenceKey, numeric_value: e.numericValue?.toString() || null, max_value: e.maxValue?.toString() || null, occurred_at: e.occurredAt.toISOString() }))
-  
+  const mappedArc = {
+    ...arcData,
+    allow_agent_access: arcData.allowAgentAccess,
+    schema_version: arcData.schemaVersion,
+    created_at: arcData.createdAt.toISOString(),
+    updated_at: arcData.updatedAt.toISOString(),
+    status: arcData.status.toLowerCase(),
+    visibility: arcData.visibility.toLowerCase(),
+    revision: arcData.revision.toString(),
+  }
+  const mappedState = stateData
+    ? {
+        ...stateData,
+        block_id: stateData.blockId,
+        status: stateData.status.toLowerCase(),
+        progress_percent: stateData.progressPercent?.toString() || null,
+        last_activity_at: stateData.lastActivityAt?.toISOString() || null,
+      }
+    : null
+  const mappedEvidence = evidenceData.map((e) => ({
+    ...e,
+    evidence_key: e.evidenceKey,
+    numeric_value: e.numericValue?.toString() || null,
+    max_value: e.maxValue?.toString() || null,
+    occurred_at: e.occurredAt.toISOString(),
+  }))
+
   const arcRows = arcRowsSchema.safeParse([mappedArc])
   const states = stateRowsSchema.safeParse(mappedState ? [mappedState] : [])
   const evidence = evidenceRowsSchema.safeParse(mappedEvidence)

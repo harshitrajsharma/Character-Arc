@@ -1,4 +1,9 @@
-import { RouteIcon, SparklesIcon, type LucideIcon } from "lucide-react"
+import {
+  ListChecksIcon,
+  RouteIcon,
+  SparklesIcon,
+  type LucideIcon,
+} from "lucide-react"
 import Link from "next/link"
 
 import { InstallToolForm } from "@/components/tools/install-tool-form"
@@ -10,6 +15,12 @@ import { cn } from "@/lib/utils"
 
 const iconByKey: Record<string, LucideIcon> = {
   route: RouteIcon,
+  "list-checks": ListChecksIcon,
+}
+
+export function mapToolIcon(iconKey: string | null | undefined): LucideIcon | null {
+  if (!iconKey) return null
+  return iconByKey[iconKey] || null
 }
 
 const categoryLabel = {
@@ -27,7 +38,11 @@ type ToolCatalogCardProps = {
   workspaceSlug: string
 }
 
-export function ToolCatalogCard({ item, workspaceId, workspaceSlug }: ToolCatalogCardProps) {
+export function ToolCatalogCard({
+  item,
+  workspaceId,
+  workspaceSlug,
+}: ToolCatalogCardProps) {
   const Icon = iconByKey[item.icon] ?? SparklesIcon
   const installed = item.installationStatus === "active"
   const destination = resolveToolDestination({

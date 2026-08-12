@@ -116,7 +116,10 @@ export function ArcDetailHeader({
       <div className="flex items-center justify-between gap-3">
         <Link
           href={workspaceRoutes.goalsPaths.home(workspaceSlug)}
-          className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "hidden md:inline-flex")}
+          className={cn(
+            buttonVariants({ variant: "ghost", size: "sm" }),
+            "hidden md:inline-flex"
+          )}
         >
           <ArrowLeftIcon data-icon="inline-start" aria-hidden="true" />
           All arcs
@@ -130,7 +133,7 @@ export function ArcDetailHeader({
             <p className="text-sm font-medium text-brand-neon-ink">
               Current arc
             </p>
-            <h1 className="mt-2 max-w-4xl font-heading text-3xl leading-tight font-semibold warp-break-word text-balance sm:text-4xl lg:text-5xl">
+            <h1 className="warp-break-word mt-2 max-w-4xl font-heading text-3xl leading-tight font-semibold text-balance sm:text-4xl lg:text-5xl">
               {title}
             </h1>
             {summary ? (
@@ -140,7 +143,7 @@ export function ArcDetailHeader({
             ) : null}
           </div>
 
-          <div className="grid gap-2 grid-cols-2 lg:grid-cols-2">
+          <div className="grid grid-cols-2 gap-2 lg:grid-cols-2">
             <HeaderSignal
               tone="neon"
               label="Status"
@@ -171,9 +174,7 @@ export function ArcDetailHeader({
             <HeaderSignal
               tone={target ? "amber" : "neutral"}
               label="Target"
-              value={
-                target ? DATE_FORMATTER.format(target) : "Open-ended"
-              }
+              value={target ? DATE_FORMATTER.format(target) : "Open-ended"}
               icon={<Clock3Icon aria-hidden="true" />}
             />
           </div>

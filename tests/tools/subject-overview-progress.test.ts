@@ -65,7 +65,9 @@ describe("Subject Overview Progress & Category Canonical Path", () => {
 
   describe("getCanonicalSubjectProgress", () => {
     test("handles null/undefined subjects safely", () => {
-      const result = getCanonicalSubjectProgress(null as unknown as SubjectWithRelations)
+      const result = getCanonicalSubjectProgress(
+        null as unknown as SubjectWithRelations
+      )
       expect(result.overall).toBe(0)
       expect(result.category).toBe("not-started")
       expect(result.foundationLevel).toBe("Beginner")

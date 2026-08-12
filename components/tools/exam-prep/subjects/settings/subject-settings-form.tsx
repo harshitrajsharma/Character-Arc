@@ -3,20 +3,36 @@
 import { useActionState, useEffect, useState, type ChangeEvent } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Loader2Icon, SaveIcon } from "lucide-react"
+import {
+  ChevronDownIcon,
+  ClipboardCheckIcon,
+  Loader2Icon,
+  RefreshCwIcon,
+  SaveIcon,
+  TargetIcon,
+} from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"
+import {
+  SegmentedSelector,
+  type SegmentedSelectorOption,
+} from "@/components/ui/segmented-selector"
 import {
   Field,
   FieldDescription,
   FieldError,
   FieldLabel,
+  FieldGroup,
 } from "@/components/ui/field"
 import { FormFooter } from "@/components/ui/form-footer"
 import { Input } from "@/components/ui/input"
-import { SegmentedSelector } from "@/components/ui/segmented-selector"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { workspaceRoutes } from "@/lib/routes/workspace-tools"
 import {
   updateSubjectSettingsAction,
@@ -75,6 +91,7 @@ export function SubjectSettingsForm({
     initialState
   )
   const [activeSectionId, setActiveSectionId] = useState("standard-targets")
+  const [showExplainer, setShowExplainer] = useState(false)
 
   useEffect(() => {
     if (state.status === "success") {
@@ -104,7 +121,11 @@ export function SubjectSettingsForm({
       const rawValue = event.currentTarget.value
       const parsedValue = Number(rawValue)
 
-      if (rawValue !== "" && Number.isFinite(parsedValue) && parsedValue > 100) {
+      if (
+        rawValue !== "" &&
+        Number.isFinite(parsedValue) &&
+        parsedValue > 100
+      ) {
         setDraft((current) => ({ ...current, [name]: "100" }))
         setTargetFeedback((current) => ({
           ...current,
@@ -133,7 +154,7 @@ export function SubjectSettingsForm({
           step={1}
           value={draft[name]}
           onChange={handleChange}
-          className="min-h-11"
+          className="min-h-11 rounded-lg"
           aria-invalid={Boolean(error)}
           aria-describedby={`${name}-description ${name}-feedback`}
           required
@@ -146,9 +167,13 @@ export function SubjectSettingsForm({
   const sections = [
     {
       id: "standard-targets",
+      navLabel: "Standard",
       title: "Standard topics",
       description: "The everyday rhythm for each topic.",
+      icon: TargetIcon,
       className: "text-brand-neon-ink",
+      activeClassName:
+        "aria-pressed:!bg-brand-neon aria-pressed:!text-brand-neon-foreground",
       fields: [
         targetField(
           "revisionTarget",
@@ -166,9 +191,13 @@ export function SubjectSettingsForm({
     },
     {
       id: "high-yield-targets",
+      navLabel: "High-yield",
       title: "High-yield topics",
       description: "A stronger target for important material.",
-      className: "text-warning-ink",
+      icon: RefreshCwIcon,
+      className: "text-brand-amber-ink",
+      activeClassName:
+        "aria-pressed:!bg-brand-amber aria-pressed:!text-brand-amber-foreground",
       fields: [
         targetField(
           "highYieldRevisionTarget",
@@ -186,9 +215,13 @@ export function SubjectSettingsForm({
     },
     {
       id: "test-targets",
+      navLabel: "Tests",
       title: "Tests",
       description: "Real Test Records complete this stage.",
+      icon: ClipboardCheckIcon,
       className: "text-brand-violet-ink",
+      activeClassName:
+        "aria-pressed:!bg-brand-violet aria-pressed:!text-brand-violet-foreground",
       fields: [
         targetField(
           "chapterTestTarget",
@@ -204,119 +237,229 @@ export function SubjectSettingsForm({
         ),
       ],
     },
-  ]
+  ] as const
 
   return (
-    <form action={formAction} className="space-y-8">
+    <form
+      action={formAction}
+      className={cn(
+        presentation === "sheet" && "flex min-h-0 flex-1 flex-col"
+      )}
+    >
       <input type="hidden" name="workspaceSlug" value={workspaceSlug} />
       <input type="hidden" name="subjectId" value={subject.id} />
 
       {presentation === "page" ? (
-        <div className="max-w-2xl border-b border-border/50 pb-3">
-          <h2 className="font-heading text-lg font-semibold text-foreground">
-            Progress targets
-          </h2>
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            Targets define 100% completion for this subject everywhere it is
-            used. Work beyond a target remains visible as overachievement.
-          </p>
-        </div>
-      ) : null}
-
-      <div className="w-full space-y-4">
-        <SegmentedSelector
-          value={activeSectionId}
-          onValueChange={setActiveSectionId}
-          ariaLabel="Progress sections"
-          className="w-full rounded-2xl bg-brand-neon-soft/30 p-1 sm:w-full!"
-          itemClassName="rounded-xl transition-all duration-200 data-[selected]:bg-brand-neon! data-[state=on]:bg-brand-neon! data-[state=on]:text-brand-neon-foreground! data-[state=on]:shadow-md! aria-pressed:bg-brand-neon! hover:data-[state=on]:bg-brand-neon! sm:flex-1!"
-          options={sections.map((section) => ({
-            value: section.id,
-            label: section.title.split(" ")[0],
-          }))}
-        />
-        {sections.map((section) => (
-          <div
-            key={section.id}
-            className={cn(
-              "hidden",
-              activeSectionId === section.id && "block"
-            )}
+        <div className="mx-auto w-full max-w-5xl pb-24 lg:grid lg:grid-cols-[14rem_minmax(0,1fr)] lg:items-start lg:gap-16">
+          <nav
+            aria-label="Subject settings sections"
+            className="lg:sticky lg:top-24 lg:mb-0 -mx-4 mb-8 flex gap-1 overflow-x-auto border-b border-border/60 px-4 pb-3 sm:mx-0 sm:px-0 lg:block lg:overflow-visible lg:border-none lg:pb-0"
           >
-            <Card className="space-y-5 p-5">
-              <div>
-                <h3
-                  id={section.id}
+            {sections.map((section) => {
+              const Icon = section.icon
+              const isActive = activeSectionId === section.id
+
+              return (
+                <button
+                  key={section.id}
+                  type="button"
+                  aria-current={isActive ? "page" : undefined}
+                  onClick={() => {
+                    setActiveSectionId(section.id)
+                    document.getElementById(section.id)?.scrollIntoView({
+                      behavior: "smooth",
+                      block: "start",
+                    })
+                  }}
                   className={cn(
-                    "font-heading text-lg font-semibold",
-                    section.className
+                    "flex min-h-11 shrink-0 items-center gap-2.5 rounded-full px-4 text-left text-sm font-medium transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/30 lg:w-full lg:rounded-lg lg:py-2.5",
+                    isActive
+                      ? "bg-brand-neon-soft text-brand-neon-ink hover:bg-brand-neon-soft"
+                      : "text-muted-foreground hover:text-foreground"
                   )}
                 >
-                  {section.title}
-                </h3>
-                <p className="mt-1 text-sm leading-5 text-muted-foreground">
-                  {section.description}
-                </p>
-              </div>
-              <div className="grid gap-5" aria-labelledby={section.id}>
-                {section.fields.map((field, index) => (
-                  <div key={index}>{field}</div>
-                ))}
-              </div>
-            </Card>
-          </div>
-        ))}
-      </div>
+                  <Icon className="size-4 shrink-0" aria-hidden="true" />
+                  <span>{section.navLabel}</span>
+                </button>
+              )
+            })}
+          </nav>
 
-      <ProgressCalculatorExplainer
-        policy={previewPolicy}
-        compact={presentation === "sheet"}
-      />
+          <div className="min-w-0 space-y-16">
+            {sections.map((section) => {
+              const Icon = section.icon
+
+              return (
+                <section
+                  id={section.id}
+                  key={section.id}
+                  aria-labelledby={`${section.id}-heading`}
+                  className="scroll-mt-24 space-y-6"
+                >
+                  <header className="border-b border-border/60 pb-4">
+                    <div
+                      className={cn(
+                        "flex items-center gap-2 text-sm font-medium",
+                        section.className
+                      )}
+                    >
+                      <Icon className="size-4" aria-hidden="true" />
+                      <h2
+                        id={`${section.id}-heading`}
+                        className="font-heading text-xl font-semibold text-foreground"
+                      >
+                        {section.title}
+                      </h2>
+                    </div>
+                    <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+                      {section.description}
+                    </p>
+                  </header>
+
+                  <FieldGroup className="gap-6 sm:grid sm:grid-cols-2">
+                    {section.fields.map((field, index) => (
+                      <div key={index}>{field}</div>
+                    ))}
+                  </FieldGroup>
+                </section>
+              )
+            })}
+
+            <div className="mt-10 border-t border-border/60 pt-6">
+              <ProgressCalculatorExplainer policy={previewPolicy} />
+            </div>
+          </div>
+        </div>
+      ) : (
+        <ScrollArea className="min-h-0 flex-1">
+          <div className="p-6">
+            <SegmentedSelector
+              value={activeSectionId}
+              options={sections.map((section) => ({
+                value: section.id,
+                label: section.navLabel,
+                icon: section.icon,
+                activeClassName: section.activeClassName,
+              }))}
+              onValueChange={setActiveSectionId}
+              ariaLabel="Subject settings sections"
+              className="mb-6"
+            />
+
+            {sections
+              .filter((section) => section.id === activeSectionId)
+              .map((section) => {
+                const Icon = section.icon
+
+                return (
+                  <section
+                    key={section.id}
+                    aria-labelledby={`${section.id}-heading`}
+                    className="space-y-3"
+                  >
+                    <header className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Icon
+                          className={cn("size-4 shrink-0", section.className)}
+                          aria-hidden="true"
+                        />
+                        <h2
+                          id={`${section.id}-heading`}
+                          className="font-heading text-sm font-semibold text-foreground"
+                        >
+                          {section.title}
+                        </h2>
+                      </div>
+                      <p className="text-xs leading-relaxed text-muted-foreground">
+                        {section.description}
+                      </p>
+                    </header>
+
+                    <FieldGroup className="gap-5 pt-1">
+                      {section.fields.map((field, index) => (
+                        <div key={index}>{field}</div>
+                      ))}
+                    </FieldGroup>
+                  </section>
+                )
+              })}
+
+            <div className="mt-7 border-t border-border/60 pt-4">
+              <Collapsible open={showExplainer} onOpenChange={setShowExplainer}>
+                <CollapsibleTrigger className="group flex w-full items-center justify-between gap-3 rounded-lg py-1 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/30">
+                  <span className="flex items-center gap-2 text-xs font-semibold tracking-wider text-muted-foreground uppercase transition-colors group-hover:text-foreground">
+                    <TargetIcon
+                      className="size-3.5 text-brand-neon-ink"
+                      aria-hidden="true"
+                    />
+                    How is progress calculated?
+                  </span>
+                  <ChevronDownIcon
+                    className={cn(
+                      "size-4 text-muted-foreground transition-transform duration-200",
+                      showExplainer && "rotate-180"
+                    )}
+                    aria-hidden="true"
+                  />
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-3">
+                  <ProgressCalculatorExplainer policy={previewPolicy} compact />
+                </CollapsibleContent>
+              </Collapsible>
+            </div>
+          </div>
+        </ScrollArea>
+      )}
 
       <FormFooter
         className={cn(
-          presentation === "sheet" &&
-            "sticky bottom-0 z-10 -mx-4 bg-background/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur sm:-mx-6 sm:px-6"
+          "border-t border-border/60 bg-background/95 backdrop-blur",
+          presentation === "sheet"
+            ? "shrink-0 px-6 py-4"
+            : "fixed inset-x-0 px-4 pt-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6 md:px-8 xl:px-10"
         )}
       >
-        {presentation === "sheet" ? (
-          <Button
-            type="button"
-            variant="ghost"
-            className="min-h-11 rounded-full"
-            onClick={onCancel}
-            disabled={isPending}
-          >
-            Cancel
-          </Button>
-        ) : (
-          <Button
-            render={
-              <Link
-                href={
-                  returnHref ?? workspaceRoutes.examPrep.home(workspaceSlug)
-                }
-              />
-            }
-            type="button"
-            variant="outline"
-            className="min-h-11 rounded-full"
-          >
-            Cancel
-          </Button>
-        )}
-        <Button
-          type="submit"
-          disabled={isPending || hasClientErrors}
-          className="min-h-11 rounded-full"
-        >
-          {isPending ? (
-            <Loader2Icon className="animate-spin" />
-          ) : (
-            <SaveIcon />
+        <div
+          className={cn(
+            "flex flex-col-reverse justify-end gap-3 sm:flex-row w-full",
+            presentation === "page" && "mx-auto max-w-5xl"
           )}
-          {isPending ? "Saving..." : "Save settings"}
-        </Button>
+        >
+          {presentation === "sheet" ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11 rounded-full sm:min-w-[100px]"
+              onClick={onCancel}
+              disabled={isPending}
+            >
+              Cancel
+            </Button>
+          ) : (
+            <Button
+              render={
+                <Link
+                  href={
+                    returnHref ?? workspaceRoutes.examPrep.home(workspaceSlug)
+                  }
+                />
+              }
+              type="button"
+              variant="outline"
+              className="min-h-11 rounded-full sm:min-w-[100px]"
+            >
+              Cancel
+            </Button>
+          )}
+          <Button
+            type="submit"
+            disabled={isPending || hasClientErrors}
+            className="min-h-11 rounded-full bg-primary hover:bg-primary/90 sm:min-w-[140px]"
+          >
+            {isPending ? <Loader2Icon className="mr-2 size-4 animate-spin" /> : <SaveIcon className="mr-2 size-4" />}
+            {isPending ? "Saving..." : "Save changes"}
+          </Button>
+        </div>
       </FormFooter>
     </form>
   )
@@ -337,14 +480,17 @@ function draftToPolicy(
   draft: PolicyDraft,
   fallback: SubjectProgressPolicy
 ): SubjectProgressPolicy {
-  return policyFields.reduce<SubjectProgressPolicy>((policy, field) => {
-    const value = Number(draft[field])
-    policy[field] =
-      Number.isInteger(value) && value >= 0 && value <= 100
-        ? value
-        : fallback[field]
-    return policy
-  }, { ...fallback })
+  return policyFields.reduce<SubjectProgressPolicy>(
+    (policy, field) => {
+      const value = Number(draft[field])
+      policy[field] =
+        Number.isInteger(value) && value >= 0 && value <= 100
+          ? value
+          : fallback[field]
+      return policy
+    },
+    { ...fallback }
+  )
 }
 
 function getClientErrors(

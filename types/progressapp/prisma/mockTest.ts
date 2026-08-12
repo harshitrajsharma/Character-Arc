@@ -1,1 +1,1 @@
-export type { MockTest } from "@/types/progressapp/domain";
+export type { MockTest } from "@/types/progressapp/domain"

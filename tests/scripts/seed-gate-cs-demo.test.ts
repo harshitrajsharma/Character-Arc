@@ -18,9 +18,8 @@ describe("seed-gate-cs-demo helpers", () => {
       )
     ).toBe("seed-gate-2027-subject.create-subj-engineering-mathematics")
     expect(
-      getGateCsDemoIdempotencyKey("topic.create", "x".repeat(500))).toHaveLength(
-      128
-    )
+      getGateCsDemoIdempotencyKey("topic.create", "x".repeat(500))
+    ).toHaveLength(128)
   })
 
   test("parses only the required seed arguments", () => {

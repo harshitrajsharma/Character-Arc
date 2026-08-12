@@ -238,12 +238,16 @@ describe("action input validation", () => {
       },
     })
 
-    expect(validateActionInput(manifest.actions[0], { ids: ["a", "b"] })).toEqual({
+    expect(
+      validateActionInput(manifest.actions[0], { ids: ["a", "b"] })
+    ).toEqual({
       success: true,
       data: { ids: ["a", "b"] },
     })
 
-    const duplicateResult = validateActionInput(manifest.actions[0], { ids: ["a", "a"] })
+    const duplicateResult = validateActionInput(manifest.actions[0], {
+      ids: ["a", "a"],
+    })
     expect(duplicateResult.success).toBe(false)
     if (!duplicateResult.success) {
       expect(duplicateResult.issues[0]).toMatchObject({
@@ -255,8 +259,10 @@ describe("action input validation", () => {
   })
 
   test("accepts Exam Prep learning and reorder action schemas", () => {
+    const examId = "48a0111e-43d0-4464-83c0-a5132c6bd4f4"
     const topicId = "58a0111e-43d0-4464-83c0-a5132c6bd4f5"
     const chapterId = "68a0111e-43d0-4464-83c0-a5132c6bd4f6"
+    const subjectId = "78a0111e-43d0-4464-83c0-a5132c6bd4f7"
 
     expect(
       validateToolActionInput(examPrepManifest, "topic.set-learning", {
@@ -271,6 +277,20 @@ describe("action input validation", () => {
         topicIds: [topicId],
       }).success
     ).toBe(true)
+
+    expect(
+      validateToolActionInput(examPrepManifest, "exam.reorder-subjects", {
+        examId,
+        subjectIds: [subjectId],
+      }).success
+    ).toBe(true)
+
+    expect(
+      validateToolActionInput(examPrepManifest, "exam.reorder-subjects", {
+        examId,
+        subjectIds: [subjectId, subjectId],
+      }).success
+    ).toBe(false)
 
     expect(
       validateToolActionInput(examPrepManifest, "topic.set-progress", {

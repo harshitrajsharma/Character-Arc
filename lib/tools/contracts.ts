@@ -9,12 +9,7 @@ const registryKeySchema = z
 const jsonObjectSchema = z.record(z.string(), z.unknown())
 
 export type JsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | JsonValue[]
-  | { [key: string]: JsonValue }
+  string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
 
 const toolGrantSchema = z.object({
   permissionKey: registryKeySchema,

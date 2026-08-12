@@ -1,10 +1,10 @@
 "use client"
 
 import * as React from "react"
+import { useParams, usePathname } from "next/navigation"
+import type { getAppShellData } from "@/lib/workspaces/workspace-access"
 
-import { NavFavorites } from "@/components/sidebar/nav-favorites"
 import { NavMain } from "@/components/sidebar/nav-main"
-import { NavSecondary } from "@/components/sidebar/nav-secondary"
 import { NavWorkspaces } from "@/components/sidebar/nav-workspaces"
 import { TeamSwitcher } from "@/components/sidebar/team-switcher"
 import {
@@ -13,286 +13,60 @@ import {
   SidebarHeader,
   SidebarRail,
 } from "@/components/ui/sidebar"
-import { TerminalIcon, AudioLinesIcon, SearchIcon, SparklesIcon, HomeIcon, InboxIcon, CalendarIcon, Settings2Icon, BlocksIcon, Trash2Icon, MessageCircleQuestionIcon } from "lucide-react"
+import {
+  HomeIcon,
+  BlocksIcon,
+  WrenchIcon,
+} from "lucide-react"
 
-// This is sample data.
-const data = {
-  teams: [
-    {
-      name: "Acme Inc",
-      logo: (
-        <TerminalIcon
-        />
-      ),
-      plan: "Enterprise",
-    },
-    {
-      name: "Acme Corp.",
-      logo: (
-        <AudioLinesIcon
-        />
-      ),
-      plan: "Startup",
-    },
-    {
-      name: "Evil Corp.",
-      logo: (
-        <TerminalIcon
-        />
-      ),
-      plan: "Free",
-    },
-  ],
-  navMain: [
-    {
-      title: "Search",
-      url: "#",
-      icon: (
-        <SearchIcon
-        />
-      ),
-    },
-    {
-      title: "Ask AI",
-      url: "#",
-      icon: (
-        <SparklesIcon
-        />
-      ),
-    },
+type AppShellData = NonNullable<Awaited<ReturnType<typeof getAppShellData>>>
+
+export function AppSidebar({
+  memberships,
+  ...props
+}: React.ComponentProps<typeof Sidebar> & {
+  memberships: AppShellData
+}) {
+  const pathname = usePathname()
+  const params = useParams()
+  const currentSlug =
+    typeof params?.workspaceSlug === "string"
+      ? params.workspaceSlug
+      : memberships[0]?.slug
+
+  const sidebarMain = [
     {
       title: "Home",
-      url: "#",
-      icon: (
-        <HomeIcon
-        />
-      ),
-      isActive: true,
+      url: "/dashboard",
+      icon: <HomeIcon />,
+      isActive: pathname === "/dashboard",
     },
+    ...(currentSlug
+      ? [
+          {
+            title: "Workspace",
+            url: `/workspace/${currentSlug}`,
+            icon: <BlocksIcon />,
+            isActive: pathname === `/workspace/${currentSlug}`,
+          },
+        ]
+      : []),
     {
-      title: "Inbox",
-      url: "#",
-      icon: (
-        <InboxIcon
-        />
-      ),
-      badge: "10",
+      title: "Tools",
+      url: "/tools",
+      icon: <WrenchIcon />,
+      isActive: pathname === "/tools" || pathname.startsWith("/tools/"),
     },
-  ],
-  navSecondary: [
-    {
-      title: "Calendar",
-      url: "#",
-      icon: (
-        <CalendarIcon
-        />
-      ),
-    },
-    {
-      title: "Settings",
-      url: "#",
-      icon: (
-        <Settings2Icon
-        />
-      ),
-    },
-    {
-      title: "Templates",
-      url: "#",
-      icon: (
-        <BlocksIcon
-        />
-      ),
-    },
-    {
-      title: "Trash",
-      url: "#",
-      icon: (
-        <Trash2Icon
-        />
-      ),
-    },
-    {
-      title: "Help",
-      url: "#",
-      icon: (
-        <MessageCircleQuestionIcon
-        />
-      ),
-    },
-  ],
-  favorites: [
-    {
-      name: "Project Management & Task Tracking",
-      url: "#",
-      emoji: "📊",
-    },
-    {
-      name: "Family Recipe Collection & Meal Planning",
-      url: "#",
-      emoji: "🍳",
-    },
-    {
-      name: "Fitness Tracker & Workout Routines",
-      url: "#",
-      emoji: "💪",
-    },
-    {
-      name: "Book Notes & Reading List",
-      url: "#",
-      emoji: "📚",
-    },
-    {
-      name: "Sustainable Gardening Tips & Plant Care",
-      url: "#",
-      emoji: "🌱",
-    },
-    {
-      name: "Language Learning Progress & Resources",
-      url: "#",
-      emoji: "🗣️",
-    },
-    {
-      name: "Home Renovation Ideas & Budget Tracker",
-      url: "#",
-      emoji: "🏠",
-    },
-    {
-      name: "Personal Finance & Investment Portfolio",
-      url: "#",
-      emoji: "💰",
-    },
-    {
-      name: "Movie & TV Show Watchlist with Reviews",
-      url: "#",
-      emoji: "🎬",
-    },
-    {
-      name: "Daily Habit Tracker & Goal Setting",
-      url: "#",
-      emoji: "✅",
-    },
-  ],
-  workspaces: [
-    {
-      name: "Personal Life Management",
-      emoji: "🏠",
-      pages: [
-        {
-          name: "Daily Journal & Reflection",
-          url: "#",
-          emoji: "📔",
-        },
-        {
-          name: "Health & Wellness Tracker",
-          url: "#",
-          emoji: "🍏",
-        },
-        {
-          name: "Personal Growth & Learning Goals",
-          url: "#",
-          emoji: "🌟",
-        },
-      ],
-    },
-    {
-      name: "Professional Development",
-      emoji: "💼",
-      pages: [
-        {
-          name: "Career Objectives & Milestones",
-          url: "#",
-          emoji: "🎯",
-        },
-        {
-          name: "Skill Acquisition & Training Log",
-          url: "#",
-          emoji: "🧠",
-        },
-        {
-          name: "Networking Contacts & Events",
-          url: "#",
-          emoji: "🤝",
-        },
-      ],
-    },
-    {
-      name: "Creative Projects",
-      emoji: "🎨",
-      pages: [
-        {
-          name: "Writing Ideas & Story Outlines",
-          url: "#",
-          emoji: "✍️",
-        },
-        {
-          name: "Art & Design Portfolio",
-          url: "#",
-          emoji: "🖼️",
-        },
-        {
-          name: "Music Composition & Practice Log",
-          url: "#",
-          emoji: "🎵",
-        },
-      ],
-    },
-    {
-      name: "Home Management",
-      emoji: "🏡",
-      pages: [
-        {
-          name: "Household Budget & Expense Tracking",
-          url: "#",
-          emoji: "💰",
-        },
-        {
-          name: "Home Maintenance Schedule & Tasks",
-          url: "#",
-          emoji: "🔧",
-        },
-        {
-          name: "Family Calendar & Event Planning",
-          url: "#",
-          emoji: "📅",
-        },
-      ],
-    },
-    {
-      name: "Travel & Adventure",
-      emoji: "🧳",
-      pages: [
-        {
-          name: "Trip Planning & Itineraries",
-          url: "#",
-          emoji: "🗺️",
-        },
-        {
-          name: "Travel Bucket List & Inspiration",
-          url: "#",
-          emoji: "🌎",
-        },
-        {
-          name: "Travel Journal & Photo Gallery",
-          url: "#",
-          emoji: "📸",
-        },
-      ],
-    },
-  ],
-}
+  ]
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
-    <Sidebar className="border-r-0" {...props}>
+    <Sidebar {...props}>
       <SidebarHeader>
-        <TeamSwitcher teams={data.teams} />
-        <NavMain items={data.navMain} />
+        <TeamSwitcher workspaces={memberships} />
+        <NavMain items={sidebarMain} />
       </SidebarHeader>
       <SidebarContent>
-        <NavFavorites favorites={data.favorites} />
-        <NavWorkspaces workspaces={data.workspaces} />
-        <NavSecondary items={data.navSecondary} className="mt-auto" />
+        <NavWorkspaces workspaces={memberships} />
       </SidebarContent>
       <SidebarRail />
     </Sidebar>

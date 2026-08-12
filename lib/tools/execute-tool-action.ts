@@ -8,17 +8,31 @@ import {
   resolveToolActionStrict,
   validateActionInput,
 } from "@/lib/tools/action-contract"
-import { parseToolManifest, type ToolActionResult, type ToolExecutionPrincipal } from "@/lib/tools/contracts"
+import {
+  parseToolManifest,
+  type ToolActionResult,
+  type ToolExecutionPrincipal,
+} from "@/lib/tools/contracts"
+import { ToolActionExecutionError } from "@/lib/tools/errors"
 import { evaluateToolPermissions } from "@/lib/tools/permissions"
 import { getFirstPartyToolManifest } from "@/lib/tools/registry"
-import { executeCreateArc, createArcUpdateExecutor, createArcContentExecutor } from "./goals-paths-handlers"
+import {
+  executeCreateArc,
+  createArcUpdateExecutor,
+  createArcContentExecutor,
+} from "./goals-paths-handlers"
 import {
   createExamPrepSyllabusItemExecutor,
   executeExamPrepCreateExam,
+  executeExamPrepUpdateExam,
+  executeExamPrepExamUpdateSettings,
+  executeExamPrepDeleteExam,
   executeExamPrepCreateSubject,
+  createExamPrepExamSubjectExecutor,
   executeExamPrepCreateChapter,
   executeExamPrepCreateTopic,
   executeExamPrepReorderChapters,
+  executeExamPrepReorderSubjects,
   executeExamPrepReorderTopics,
   executeExamPrepTopicRecordPractice,
   executeExamPrepTopicRecordRevision,
@@ -29,7 +43,35 @@ import {
   executeExamPrepTestRecordCreate,
   executeExamPrepTestRecordUpdate,
   executeExamPrepTestRecordDelete,
+  executeExamPrepGetSubjectRecommendations,
 } from "./exam-prep-handlers"
+import {
+  executeExamPrepScheduledTestCancel,
+  executeExamPrepScheduledTestComplete,
+  executeExamPrepScheduledTestCreate,
+  executeExamPrepScheduledTestDelete,
+  executeExamPrepScheduledTestReopen,
+  executeExamPrepScheduledTestRestore,
+  executeExamPrepScheduledTestUpdate,
+} from "./exam-prep-scheduled-test-handlers"
+import {
+  executeMockTestsAssessmentAddQuestions,
+  executeMockTestsAssessmentCreate,
+  executeMockTestsAssessmentGetQuestions,
+  executeMockTestsAssessmentGetWeakTopics,
+  executeMockTestsAssessmentPublish,
+  executeMockTestsAssessmentRemoveQuestion,
+  executeMockTestsAssessmentReorderQuestions,
+  executeMockTestsAssessmentUpdate,
+  executeMockTestsAttemptAbandon,
+  executeMockTestsAttemptCreate,
+  executeMockTestsAttemptGetAnalysis,
+  executeMockTestsAttemptRecordAnswer,
+  executeMockTestsAttemptSubmit,
+  executeMockTestsQuestionCreate,
+  executeMockTestsQuestionDelete,
+  executeMockTestsQuestionUpdate,
+} from "./mock-tests-handlers"
 
 const executeInputSchema = z.object({
   workspaceId: z.uuid(),
@@ -64,6 +106,8 @@ const grantsSchema = z.array(
 
 export type ExecuteToolActionInput = z.input<typeof executeInputSchema>
 
+export { ToolActionExecutionError }
+
 type HandlerBinding = Readonly<{
   handlerVersion: string
   execute: (
@@ -72,23 +116,6 @@ type HandlerBinding = Readonly<{
     handlerVersion: string
   ) => Promise<ToolActionResult>
 }>
-
-export class ToolActionExecutionError extends Error {
-  constructor(
-    message: string,
-    readonly code:
-      | "INVALID_INPUT"
-      | "NOT_AVAILABLE"
-      | "FORBIDDEN"
-      | "HANDLER_MISSING"
-      | "RELEASE_MISMATCH"
-      | "RUN_FAILED"
-      | "FAILED"
-  ) {
-    super(message)
-    this.name = "ToolActionExecutionError"
-  }
-}
 
 function canonicalJson(value: unknown): string {
   if (Array.isArray(value)) {
@@ -142,137 +169,299 @@ const handlers = new Map<string, HandlerBinding>([
     },
   ],
   [
-    "core.exam-prep@1.5.0:exam.create",
+    "core.exam-prep@1.11.0:exam.create",
     {
-      handlerVersion: "exam-prep.exam.create.v1",
+      handlerVersion: "exam-prep.exam.create.v2",
       execute: executeExamPrepCreateExam,
     },
   ],
   [
-    "core.exam-prep@1.5.0:subject.create",
+    "core.exam-prep@1.11.0:exam.update",
+    {
+      handlerVersion: "exam-prep.exam.update.v2",
+      execute: executeExamPrepUpdateExam,
+    },
+  ],
+  [
+    "core.exam-prep@1.11.0:exam.update-settings",
+    {
+      handlerVersion: "exam-prep.exam.update-settings.v5",
+      execute: executeExamPrepExamUpdateSettings,
+    },
+  ],
+  [
+    "core.exam-prep@1.11.0:exam.delete",
+    {
+      handlerVersion: "exam-prep.exam.delete.v1",
+      execute: executeExamPrepDeleteExam,
+    },
+  ],
+  [
+    "core.exam-prep@1.11.0:subject.create",
     {
       handlerVersion: "exam-prep.subject.create.v1",
       execute: executeExamPrepCreateSubject,
     },
   ],
   [
-    "core.exam-prep@1.5.0:chapter.create",
+    "core.exam-prep@1.11.0:exam.attach-subject",
+    {
+      handlerVersion: "exam-prep.exam.attach-subject.v1",
+      execute: createExamPrepExamSubjectExecutor("attach"),
+    },
+  ],
+  [
+    "core.exam-prep@1.11.0:exam.detach-subject",
+    {
+      handlerVersion: "exam-prep.exam.detach-subject.v1",
+      execute: createExamPrepExamSubjectExecutor("detach"),
+    },
+  ],
+  [
+    "core.exam-prep@1.11.0:chapter.create",
     {
       handlerVersion: "exam-prep.chapter.create.v1",
       execute: executeExamPrepCreateChapter,
     },
   ],
   [
-    "core.exam-prep@1.5.0:topic.create",
+    "core.exam-prep@1.11.0:topic.create",
     {
       handlerVersion: "exam-prep.topic.create.v1",
       execute: executeExamPrepCreateTopic,
     },
   ],
   [
-    "core.exam-prep@1.5.0:chapter.update",
+    "core.exam-prep@1.11.0:chapter.update",
     {
       handlerVersion: "exam-prep.chapter.update.v1",
       execute: createExamPrepSyllabusItemExecutor("chapter", "update"),
     },
   ],
   [
-    "core.exam-prep@1.5.0:chapter.delete",
+    "core.exam-prep@1.11.0:chapter.delete",
     {
       handlerVersion: "exam-prep.chapter.delete.v1",
       execute: createExamPrepSyllabusItemExecutor("chapter", "delete"),
     },
   ],
   [
-    "core.exam-prep@1.5.0:topic.update",
+    "core.exam-prep@1.11.0:topic.update",
     {
       handlerVersion: "exam-prep.topic.update.v1",
       execute: createExamPrepSyllabusItemExecutor("topic", "update"),
     },
   ],
   [
-    "core.exam-prep@1.5.0:topic.delete",
+    "core.exam-prep@1.11.0:topic.delete",
     {
       handlerVersion: "exam-prep.topic.delete.v1",
       execute: createExamPrepSyllabusItemExecutor("topic", "delete"),
     },
   ],
   [
-    "core.exam-prep@1.5.0:chapter.reorder",
+    "core.exam-prep@1.11.0:exam.reorder-subjects",
+    {
+      handlerVersion: "exam-prep.exam.reorder-subjects.v1",
+      execute: executeExamPrepReorderSubjects,
+    },
+  ],
+  [
+    "core.exam-prep@1.11.0:chapter.reorder",
     {
       handlerVersion: "exam-prep.chapter.reorder.v1",
       execute: executeExamPrepReorderChapters,
     },
   ],
   [
-    "core.exam-prep@1.5.0:topic.reorder",
+    "core.exam-prep@1.11.0:topic.reorder",
     {
       handlerVersion: "exam-prep.topic.reorder.v1",
       execute: executeExamPrepReorderTopics,
     },
   ],
   [
-    "core.exam-prep@1.5.0:topic.set-learning",
+    "core.exam-prep@1.11.0:topic.set-learning",
     {
       handlerVersion: "exam-prep.topic.set-learning.v1",
       execute: executeExamPrepTopicSetLearning,
     },
   ],
   [
-    "core.exam-prep@1.5.0:topic.set-progress",
+    "core.exam-prep@1.11.0:topic.set-progress",
     {
       handlerVersion: "exam-prep.topic.set-progress.v1",
       execute: executeExamPrepTopicSetProgress,
     },
   ],
   [
-    "core.exam-prep@1.5.0:topic.record-revision",
+    "core.exam-prep@1.11.0:topic.record-revision",
     {
       handlerVersion: "exam-prep.topic.record-revision.v1",
       execute: executeExamPrepTopicRecordRevision,
     },
   ],
   [
-    "core.exam-prep@1.5.0:topic.record-practice",
+    "core.exam-prep@1.11.0:topic.record-practice",
     {
       handlerVersion: "exam-prep.topic.record-practice.v1",
       execute: executeExamPrepTopicRecordPractice,
     },
   ],
   [
-    "core.exam-prep@1.5.0:topic.record-test",
+    "core.exam-prep@1.11.0:topic.record-test",
     {
       handlerVersion: "exam-prep.topic.record-test.v1",
       execute: executeExamPrepTopicRecordTest,
     },
   ],
   [
-    "core.exam-prep@1.5.0:subject.update-settings",
+    "core.exam-prep@1.11.0:subject.update-settings",
     {
       handlerVersion: "exam-prep.subject.update-settings.v1",
       execute: executeExamPrepSubjectUpdateSettings,
     },
   ],
   [
-    "core.exam-prep@1.5.0:test-record.create",
+    "core.exam-prep@1.11.0:scheduled-test.create",
+    {
+      handlerVersion: "exam-prep.scheduled-test.create.v1",
+      execute: executeExamPrepScheduledTestCreate,
+    },
+  ],
+  [
+    "core.exam-prep@1.11.0:scheduled-test.update",
+    {
+      handlerVersion: "exam-prep.scheduled-test.update.v1",
+      execute: executeExamPrepScheduledTestUpdate,
+    },
+  ],
+  [
+    "core.exam-prep@1.11.0:scheduled-test.cancel",
+    {
+      handlerVersion: "exam-prep.scheduled-test.cancel.v1",
+      execute: executeExamPrepScheduledTestCancel,
+    },
+  ],
+  [
+    "core.exam-prep@1.11.0:scheduled-test.restore",
+    {
+      handlerVersion: "exam-prep.scheduled-test.restore.v1",
+      execute: executeExamPrepScheduledTestRestore,
+    },
+  ],
+  [
+    "core.exam-prep@1.11.0:scheduled-test.complete",
+    {
+      handlerVersion: "exam-prep.scheduled-test.complete.v1",
+      execute: executeExamPrepScheduledTestComplete,
+    },
+  ],
+  [
+    "core.exam-prep@1.11.0:scheduled-test.reopen",
+    {
+      handlerVersion: "exam-prep.scheduled-test.reopen.v1",
+      execute: executeExamPrepScheduledTestReopen,
+    },
+  ],
+  [
+    "core.exam-prep@1.11.0:scheduled-test.delete",
+    {
+      handlerVersion: "exam-prep.scheduled-test.delete.v1",
+      execute: executeExamPrepScheduledTestDelete,
+    },
+  ],
+  [
+    "core.exam-prep@1.11.0:test-record.create",
     {
       handlerVersion: "exam-prep.test-record.create.v1",
       execute: executeExamPrepTestRecordCreate,
     },
   ],
   [
-    "core.exam-prep@1.5.0:test-record.update",
+    "core.exam-prep@1.11.0:test-record.update",
     {
       handlerVersion: "exam-prep.test-record.update.v1",
       execute: executeExamPrepTestRecordUpdate,
     },
   ],
   [
-    "core.exam-prep@1.5.0:test-record.delete",
+    "core.exam-prep@1.11.0:test-record.delete",
     {
       handlerVersion: "exam-prep.test-record.delete.v1",
       execute: executeExamPrepTestRecordDelete,
     },
+  ],
+  [
+    "core.exam-prep@1.11.0:exam.get-subject-recommendations",
+    {
+      handlerVersion: "exam-prep.exam.get-subject-recommendations.v1",
+      execute: executeExamPrepGetSubjectRecommendations,
+    },
+  ],
+  [
+    "core.mock-tests@1.0.0:question.create",
+    { handlerVersion: "mock-tests.question.create.v1", execute: executeMockTestsQuestionCreate.execute },
+  ],
+  [
+    "core.mock-tests@1.0.0:question.update",
+    { handlerVersion: "mock-tests.question.update.v1", execute: executeMockTestsQuestionUpdate.execute },
+  ],
+  [
+    "core.mock-tests@1.0.0:question.delete",
+    { handlerVersion: "mock-tests.question.delete.v1", execute: executeMockTestsQuestionDelete.execute },
+  ],
+  [
+    "core.mock-tests@1.0.0:assessment.get-questions",
+    { handlerVersion: "mock-tests.assessment.get-questions.v1", execute: executeMockTestsAssessmentGetQuestions.execute },
+  ],
+  [
+    "core.mock-tests@1.0.0:assessment.create",
+    { handlerVersion: "mock-tests.assessment.create.v1", execute: executeMockTestsAssessmentCreate.execute },
+  ],
+  [
+    "core.mock-tests@1.0.0:assessment.update",
+    { handlerVersion: "mock-tests.assessment.update.v1", execute: executeMockTestsAssessmentUpdate.execute },
+  ],
+  [
+    "core.mock-tests@1.0.0:assessment.add-questions",
+    { handlerVersion: "mock-tests.assessment.add-questions.v1", execute: executeMockTestsAssessmentAddQuestions.execute },
+  ],
+  [
+    "core.mock-tests@1.0.0:assessment.remove-question",
+    { handlerVersion: "mock-tests.assessment.remove-question.v1", execute: executeMockTestsAssessmentRemoveQuestion.execute },
+  ],
+  [
+    "core.mock-tests@1.0.0:assessment.reorder-questions",
+    { handlerVersion: "mock-tests.assessment.reorder-questions.v1", execute: executeMockTestsAssessmentReorderQuestions.execute },
+  ],
+  [
+    "core.mock-tests@1.0.0:assessment.publish",
+    { handlerVersion: "mock-tests.assessment.publish.v1", execute: executeMockTestsAssessmentPublish.execute },
+  ],
+  [
+    "core.mock-tests@1.0.0:attempt.create",
+    { handlerVersion: "mock-tests.attempt.create.v1", execute: executeMockTestsAttemptCreate.execute },
+  ],
+  [
+    "core.mock-tests@1.0.0:attempt.record-answer",
+    { handlerVersion: "mock-tests.attempt.record-answer.v1", execute: executeMockTestsAttemptRecordAnswer.execute },
+  ],
+  [
+    "core.mock-tests@1.0.0:attempt.submit",
+    { handlerVersion: "mock-tests.attempt.submit.v1", execute: executeMockTestsAttemptSubmit.execute },
+  ],
+  [
+    "core.mock-tests@1.0.0:attempt.abandon",
+    { handlerVersion: "mock-tests.attempt.abandon.v1", execute: executeMockTestsAttemptAbandon.execute },
+  ],
+  [
+    "core.mock-tests@1.0.0:attempt.get-analysis",
+    { handlerVersion: "mock-tests.attempt.get-analysis.v1", execute: executeMockTestsAttemptGetAnalysis.execute },
+  ],
+  [
+    "core.mock-tests@1.0.0:assessment.get-weak-topics",
+    { handlerVersion: "mock-tests.assessment.get-weak-topics.v1", execute: executeMockTestsAssessmentGetWeakTopics.execute },
   ],
 ])
 
@@ -287,7 +476,7 @@ export async function executeToolAction(input: ExecuteToolActionInput) {
   }
 
   const claims = await requireVerifiedClaims("/tools")
-  
+
   const principal: ToolExecutionPrincipal = {
     actorId: claims.sub,
     workspaceId: parsed.data.workspaceId,
@@ -327,7 +516,10 @@ export async function executeToolActionForPrincipal(
     select: { role: true },
   })
   if (!membership) {
-    throw new ToolActionExecutionError("Workspace access is required.", "FORBIDDEN")
+    throw new ToolActionExecutionError(
+      "Workspace access is required.",
+      "FORBIDDEN"
+    )
   }
 
   const localManifest = getFirstPartyToolManifest(parsed.data.toolKey)
@@ -339,8 +531,16 @@ export async function executeToolActionForPrincipal(
   }
 
   const action = resolveToolActionStrict(localManifest, parsed.data.actionKey)
-  if (membership.role === "VIEWER" && action.requiredPermissions.some((permission) => permission.startsWith("blocks.write"))) {
-    throw new ToolActionExecutionError("Workspace write access is required.", "FORBIDDEN")
+  if (
+    membership.role === "VIEWER" &&
+    action.requiredPermissions.some((permission) =>
+      permission.startsWith("blocks.write")
+    )
+  ) {
+    throw new ToolActionExecutionError(
+      "Workspace write access is required.",
+      "FORBIDDEN"
+    )
   }
   const inputValidation = validateActionInput(action, parsed.data.input)
   if (!inputValidation.success) {
@@ -359,33 +559,44 @@ export async function executeToolActionForPrincipal(
     )
   }
 
-  let installationData, grantsData;
+  let installationData, grantsData
   try {
     const [instData, grData] = await Promise.all([
       prisma.toolInstallation.findUnique({
-        where: { id: parsed.data.installationId, workspaceId: parsed.data.workspaceId },
-        select: { id: true, workspaceId: true, toolDefinitionId: true, toolReleaseId: true, status: true }
+        where: {
+          id: parsed.data.installationId,
+          workspaceId: parsed.data.workspaceId,
+        },
+        select: {
+          id: true,
+          workspaceId: true,
+          toolDefinitionId: true,
+          toolReleaseId: true,
+          status: true,
+        },
       }),
       prisma.toolGrant.findMany({
         where: { installationId: parsed.data.installationId },
-        select: { permissionKey: true, effect: true, constraints: true }
-      })
+        select: { permissionKey: true, effect: true, constraints: true },
+      }),
     ])
-    installationData = instData ? {
-      ...instData,
-      workspace_id: instData.workspaceId,
-      tool_definition_id: instData.toolDefinitionId,
-      tool_release_id: instData.toolReleaseId,
-      status: instData.status.toLowerCase(),
-    } : null;
+    installationData = instData
+      ? {
+          ...instData,
+          workspace_id: instData.workspaceId,
+          tool_definition_id: instData.toolDefinitionId,
+          tool_release_id: instData.toolReleaseId,
+          status: instData.status.toLowerCase(),
+        }
+      : null
     grantsData = grData.map((grant) => ({
       ...grant,
       permission_key: grant.permissionKey,
       effect: grant.effect.toLowerCase(),
-    }));
+    }))
   } catch {
-    installationData = null;
-    grantsData = null;
+    installationData = null
+    grantsData = null
   }
 
   const installation = installationSchema.safeParse(installationData)
@@ -403,23 +614,23 @@ export async function executeToolActionForPrincipal(
     )
   }
 
-  let definitionData, releaseData;
+  let definitionData, releaseData
   try {
     const [defData, relData] = await Promise.all([
       prisma.toolDefinition.findUnique({
         where: { id: installation.data.tool_definition_id },
-        select: { id: true, key: true }
+        select: { id: true, key: true },
       }),
       prisma.toolRelease.findUnique({
         where: { id: installation.data.tool_release_id },
-        select: { id: true, version: true, manifest: true }
-      })
+        select: { id: true, version: true, manifest: true },
+      }),
     ])
-    definitionData = defData;
-    releaseData = relData;
+    definitionData = defData
+    releaseData = relData
   } catch {
-    definitionData = null;
-    releaseData = null;
+    definitionData = null
+    releaseData = null
   }
 
   const definition = definitionSchema.safeParse(definitionData)

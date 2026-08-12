@@ -1,9 +1,9 @@
-'use client';
+"use client"
 
-import Link from 'next/link';
-import { useMemo, useState } from 'react';
-import { ArrowUpRight, BarChart3, Layers3, Target } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import Link from "next/link"
+import { useMemo, useState } from "react"
+import { ArrowUpRight, BarChart3, Layers3, Target } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import {
   Card,
   CardContent,
@@ -11,37 +11,43 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
-import { getProgressSummary } from '@/lib/tools/exam-prep/progress/selectors';
-import { cn } from '@/lib/utils';
-import type { SubjectActivity } from '@/types/progressapp/analytics';
-import type { ActivityConfig } from '../types';
-import type { ActivityType } from '../activity-config';
-import { CustomScrollbar } from './CustomScrollbar';
-import { ActivitySubjectCard } from './activity-subject-card';
+} from "@/components/ui/card"
+import { getProgressSummary } from "@/lib/tools/exam-prep/progress/selectors"
+import { cn } from "@/lib/utils"
+import type { SubjectActivity } from "@/types/progressapp/analytics"
+import type { ActivityConfig } from "../types"
+import type { ActivityType } from "../activity-config"
+import { CustomScrollbar } from "./CustomScrollbar"
+import { ActivitySubjectCard } from "./activity-subject-card"
 
 interface ActivityInsightsProps {
-  subjects: SubjectActivity[];
-  activityConfig: Record<string, ActivityConfig>;
-  focusRecommendation?: Pick<SubjectActivity, 'id' | 'name'>;
-  getPredominantActivityType: (subject: SubjectActivity) => ActivityType;
+  subjects: SubjectActivity[]
+  activityConfig: Record<string, ActivityConfig>
+  focusRecommendation?: Pick<SubjectActivity, "id" | "name">
+  getPredominantActivityType: (subject: SubjectActivity) => ActivityType
 }
 
-type ActivityTotals = Record<ActivityType | 'total', number>;
+type ActivityTotals = Record<ActivityType | "total", number>
 
-const ACTIVITY_TYPES: ActivityType[] = ['learning', 'revision', 'practice', 'test'];
+const ACTIVITY_TYPES: ActivityType[] = [
+  "learning",
+  "revision",
+  "practice",
+  "test",
+]
 
 const PROGRESS_FIELD_BY_ACTIVITY: Record<
   ActivityType,
-  'learningProgress' | 'revisionProgress' | 'practiceProgress' | 'testProgress'
+  "learningProgress" | "revisionProgress" | "practiceProgress" | "testProgress"
 > = {
-  learning: 'learningProgress',
-  revision: 'revisionProgress',
-  practice: 'practiceProgress',
-  test: 'testProgress',
-};
+  learning: "learningProgress",
+  revision: "revisionProgress",
+  practice: "practiceProgress",
+  test: "testProgress",
+}
 
-const clampProgress = (value: number) => Math.max(0, Math.min(100, Math.round(value || 0)));
+const clampProgress = (value: number) =>
+  Math.max(0, Math.min(100, Math.round(value || 0)))
 
 export function ActivityInsights({
   subjects,
@@ -49,7 +55,9 @@ export function ActivityInsights({
   focusRecommendation,
   getPredominantActivityType,
 }: ActivityInsightsProps) {
-  const [selectedCategory, setSelectedCategory] = useState<ActivityType | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<ActivityType | null>(
+    null
+  )
 
   const categoryTotals = useMemo(() => {
     const totals: ActivityTotals = {
@@ -58,23 +66,23 @@ export function ActivityInsights({
       practice: 0,
       test: 0,
       total: 0,
-    };
+    }
 
     for (const subject of subjects) {
       for (const category of ACTIVITY_TYPES) {
-        totals[category] += subject.activity[category] || 0;
+        totals[category] += subject.activity[category] || 0
       }
-      totals.total += subject.activity.total || 0;
+      totals.total += subject.activity.total || 0
     }
 
-    return totals;
-  }, [subjects]);
+    return totals
+  }, [subjects])
 
   const activeSubjects = useMemo(() => {
-    const activityKey = selectedCategory ?? 'total';
+    const activityKey = selectedCategory ?? "total"
     const progressKey = selectedCategory
       ? PROGRESS_FIELD_BY_ACTIVITY[selectedCategory]
-      : null;
+      : null
 
     return [...subjects]
       .filter((subject) => (subject.activity[activityKey] || 0) > 0)
@@ -85,20 +93,22 @@ export function ActivityInsights({
       .map((subject) => ({
         ...subject,
         overallProgress: clampProgress(
-          progressKey ? subject[progressKey] : getProgressSummary(subject).overall
+          progressKey
+            ? subject[progressKey]
+            : getProgressSummary(subject).overall
         ),
-      }));
-  }, [selectedCategory, subjects]);
+      }))
+  }, [selectedCategory, subjects])
 
   const selectedConfig = selectedCategory
     ? activityConfig[selectedCategory]
-    : null;
+    : null
   const title = selectedConfig
     ? `${selectedConfig.label} Activity`
-    : 'Subject Activity';
+    : "Subject Activity"
   const description = selectedConfig
     ? `Subjects ranked by ${selectedConfig.label.toLowerCase()} activity`
-    : 'Subjects ranked by total activity in this period';
+    : "Subjects ranked by total activity in this period"
 
   return (
     <Card className="flex min-h-[30rem] flex-col border-border/70 bg-card shadow-sm">
@@ -108,8 +118,12 @@ export function ActivityInsights({
             <BarChart3 aria-hidden="true" />
           </div>
           <div className="min-w-0">
-            <CardTitle className="text-lg font-semibold text-pretty">{title}</CardTitle>
-            <CardDescription className="mt-1 text-pretty">{description}</CardDescription>
+            <CardTitle className="text-lg font-semibold text-pretty">
+              {title}
+            </CardTitle>
+            <CardDescription className="mt-1 text-pretty">
+              {description}
+            </CardDescription>
           </div>
         </div>
 
@@ -120,7 +134,7 @@ export function ActivityInsights({
         >
           <Button
             type="button"
-            variant={selectedCategory === null ? 'secondary' : 'outline'}
+            variant={selectedCategory === null ? "secondary" : "outline"}
             size="sm"
             className="shrink-0 rounded-md"
             onClick={() => setSelectedCategory(null)}
@@ -129,12 +143,14 @@ export function ActivityInsights({
           >
             <Layers3 data-icon="inline-start" aria-hidden="true" />
             All
-            <span className="tabular-nums text-muted-foreground">{categoryTotals.total}</span>
+            <span className="text-muted-foreground tabular-nums">
+              {categoryTotals.total}
+            </span>
           </Button>
 
           {ACTIVITY_TYPES.map((category) => {
-            const config = activityConfig[category];
-            const isSelected = selectedCategory === category;
+            const config = activityConfig[category]
+            const isSelected = selectedCategory === category
 
             return (
               <Button
@@ -144,24 +160,27 @@ export function ActivityInsights({
                 size="sm"
                 onClick={() => setSelectedCategory(category)}
                 className={cn(
-                  'shrink-0 rounded-md',
+                  "shrink-0 rounded-md",
                   isSelected && config.bgColorFaded,
                   isSelected && config.color,
-                  isSelected && 'border-current shadow-none'
+                  isSelected && "border-current shadow-none"
                 )}
                 aria-pressed={isSelected}
                 aria-label={`${config.label}, ${categoryTotals[category]} activities`}
               >
                 <span aria-hidden="true">{config.icon}</span>
                 {config.label}
-                <span className="tabular-nums opacity-70">{categoryTotals[category]}</span>
+                <span className="tabular-nums opacity-70">
+                  {categoryTotals[category]}
+                </span>
               </Button>
-            );
+            )
           })}
         </div>
 
         <p className="sr-only" aria-live="polite">
-          Showing {activeSubjects.length} subjects for {selectedConfig?.label ?? 'all activity'}.
+          Showing {activeSubjects.length} subjects for{" "}
+          {selectedConfig?.label ?? "all activity"}.
         </p>
       </CardHeader>
 
@@ -187,8 +206,10 @@ export function ActivityInsights({
             <div className="flex min-h-64 items-center justify-center p-6 text-center">
               <div className="max-w-sm">
                 <p className="font-medium">No matching subject activity</p>
-                <p className="mt-1 text-sm text-muted-foreground text-pretty">
-                  No subjects have {selectedConfig?.label.toLowerCase() ?? 'study'} activity in this period.
+                <p className="mt-1 text-sm text-pretty text-muted-foreground">
+                  No subjects have{" "}
+                  {selectedConfig?.label.toLowerCase() ?? "study"} activity in
+                  this period.
                 </p>
               </div>
             </div>
@@ -206,7 +227,8 @@ export function ActivityInsights({
               <div className="min-w-0">
                 <p className="text-sm font-medium">Needs attention</p>
                 <p className="truncate text-sm text-muted-foreground">
-                  {focusRecommendation.name} has the lowest activity among incomplete subjects.
+                  {focusRecommendation.name} has the lowest activity among
+                  incomplete subjects.
                 </p>
               </div>
             </div>
@@ -220,5 +242,5 @@ export function ActivityInsights({
         </CardFooter>
       ) : null}
     </Card>
-  );
+  )
 }

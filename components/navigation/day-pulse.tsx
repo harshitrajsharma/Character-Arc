@@ -84,7 +84,7 @@ export function DayPulse({ className }: DayPulseProps) {
           </motion.div>
         </div>
 
-        <span className="w-8 text-right font-mono text-xs tabular-nums text-muted-foreground">
+        <span className="w-8 text-right font-mono text-xs text-muted-foreground tabular-nums">
           {roundedProgress}%
         </span>
       </div>
@@ -92,7 +92,7 @@ export function DayPulse({ className }: DayPulseProps) {
       <div className="mt-1 h-4">
         <AnimatePresence mode="wait" initial={false}>
           <motion.p
-            key={isHovered ? "hover" : (now ? phase.key : "loading")}
+            key={isHovered ? "hover" : now ? phase.key : "loading"}
             className="truncate text-[11px] leading-4 text-muted-foreground"
             initial={{ opacity: 0, y: -5 }}
             animate={{ opacity: 1, y: 0 }}
@@ -102,7 +102,11 @@ export function DayPulse({ className }: DayPulseProps) {
               ease: "easeOut",
             }}
           >
-            {isHovered ? "Current Day progress" : now ? phase.message : "Your day is loading."}
+            {isHovered
+              ? "Current Day progress"
+              : now
+                ? phase.message
+                : "Your day is loading."}
           </motion.p>
         </AnimatePresence>
       </div>

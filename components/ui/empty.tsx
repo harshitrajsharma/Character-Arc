@@ -7,7 +7,8 @@ const emptyVariants = cva(
   {
     variants: {
       variant: {
-        default: "min-h-64 border border-dashed border-border bg-card p-8 sm:p-12",
+        default:
+          "min-h-64 border border-dashed border-border bg-card p-8 sm:p-12",
         compact: "p-6",
       },
     },

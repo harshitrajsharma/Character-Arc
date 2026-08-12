@@ -2,13 +2,14 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@blocknote/shadcn/style.css";
+@import "katex/dist/katex.min.css";
 
 @source "../node_modules/@blocknote/shadcn";
 
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: oklch(0.98 0.003 286);
+  --background: oklch(0.962 0.004 286.3);
   --foreground: oklch(0.141 0.005 285.823);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.141 0.005 285.823);
@@ -16,17 +17,17 @@
   --popover-foreground: oklch(0.141 0.005 285.823);
   --primary: oklch(0.21 0.006 285.885);
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.967 0.001 286.375);
+  --secondary: oklch(0.932 0.005 286.375);
   --secondary-foreground: oklch(0.21 0.006 285.885);
-  --muted: oklch(0.967 0.001 286.375);
-  --muted-foreground: oklch(0.552 0.016 285.938);
-  --accent: oklch(0.94 0.004 286.32);
+  --muted: oklch(0.932 0.005 286.375);
+  --muted-foreground: oklch(0.46 0.018 285.938);
+  --accent: oklch(0.915 0.008 286.32);
   --accent-foreground: oklch(0.21 0.006 285.885);
   --destructive: oklch(0.577 0.245 27.325);
   --success: oklch(0.55 0.16 150);
   --success-foreground: oklch(0.985 0 0);
-  --border: oklch(0.92 0.004 286.32);
-  --input: oklch(0.92 0.004 286.32);
+  --border: oklch(0.885 0.007 286.32);
+  --input: oklch(0.885 0.007 286.32);
   --ring: var(--brand-neon-line);
   --chart-1: var(--brand-neon-ink);
   --chart-2: var(--brand-cyan-ink);
@@ -145,6 +146,12 @@
     var(--brand-neon) 12%,
     var(--background)
   );
+  --brand-neon-surface: color-mix(in oklch, var(--brand-neon) 34%, var(--card));
+  --brand-neon-surface-hover: color-mix(
+    in oklch,
+    var(--brand-neon) 44%,
+    var(--card)
+  );
   --brand-neon-line: color-mix(
     in oklch,
     var(--brand-neon) 30%,
@@ -161,6 +168,16 @@
     in oklch,
     var(--brand-amber) 12%,
     var(--background)
+  );
+  --brand-amber-surface: color-mix(
+    in oklch,
+    var(--brand-amber) 34%,
+    var(--card)
+  );
+  --brand-amber-surface-hover: color-mix(
+    in oklch,
+    var(--brand-amber) 44%,
+    var(--card)
   );
   --brand-amber-line: color-mix(
     in oklch,
@@ -179,6 +196,12 @@
     var(--brand-cyan) 12%,
     var(--background)
   );
+  --brand-cyan-surface: color-mix(in oklch, var(--brand-cyan) 34%, var(--card));
+  --brand-cyan-surface-hover: color-mix(
+    in oklch,
+    var(--brand-cyan) 44%,
+    var(--card)
+  );
   --brand-cyan-line: color-mix(
     in oklch,
     var(--brand-cyan) 30%,
@@ -196,6 +219,16 @@
     var(--brand-violet) 12%,
     var(--background)
   );
+  --brand-violet-surface: color-mix(
+    in oklch,
+    var(--brand-violet) 34%,
+    var(--card)
+  );
+  --brand-violet-surface-hover: color-mix(
+    in oklch,
+    var(--brand-violet) 44%,
+    var(--card)
+  );
   --brand-violet-line: color-mix(
     in oklch,
     var(--brand-violet) 30%,
@@ -207,6 +240,18 @@
     var(--foreground)
   );
   --brand-violet-foreground: var(--brand-contrast);
+
+  /* berry is a legacy alias of the violet family used by the mock-tests
+     tool UI. Kept as an alias (not a new hue) so existing utilities such as
+     bg-brand-berry-soft keep working and stay on the exams/structured-learning
+     family. Prefer brand-violet-* in new code. */
+  --brand-berry: var(--brand-violet);
+  --brand-berry-soft: var(--brand-violet-soft);
+  --brand-berry-surface: var(--brand-violet-surface);
+  --brand-berry-surface-hover: var(--brand-violet-surface-hover);
+  --brand-berry-line: var(--brand-violet-line);
+  --brand-berry-ink: var(--brand-violet-ink);
+  --brand-berry-foreground: var(--brand-violet-foreground);
 
   --success-soft: color-mix(in oklch, var(--success) 12%, var(--background));
   --success-line: color-mix(in oklch, var(--success) 30%, var(--background));
@@ -254,24 +299,39 @@
   --color-background: var(--background);
   --color-brand-neon: var(--brand-neon);
   --color-brand-neon-soft: var(--brand-neon-soft);
+  --color-brand-neon-surface: var(--brand-neon-surface);
+  --color-brand-neon-surface-hover: var(--brand-neon-surface-hover);
   --color-brand-neon-line: var(--brand-neon-line);
   --color-brand-neon-ink: var(--brand-neon-ink);
   --color-brand-neon-foreground: var(--brand-neon-foreground);
   --color-brand-amber: var(--brand-amber);
   --color-brand-amber-soft: var(--brand-amber-soft);
+  --color-brand-amber-surface: var(--brand-amber-surface);
+  --color-brand-amber-surface-hover: var(--brand-amber-surface-hover);
   --color-brand-amber-line: var(--brand-amber-line);
   --color-brand-amber-ink: var(--brand-amber-ink);
   --color-brand-amber-foreground: var(--brand-amber-foreground);
   --color-brand-cyan: var(--brand-cyan);
   --color-brand-cyan-soft: var(--brand-cyan-soft);
+  --color-brand-cyan-surface: var(--brand-cyan-surface);
+  --color-brand-cyan-surface-hover: var(--brand-cyan-surface-hover);
   --color-brand-cyan-line: var(--brand-cyan-line);
   --color-brand-cyan-ink: var(--brand-cyan-ink);
   --color-brand-cyan-foreground: var(--brand-cyan-foreground);
   --color-brand-violet: var(--brand-violet);
   --color-brand-violet-soft: var(--brand-violet-soft);
+  --color-brand-violet-surface: var(--brand-violet-surface);
+  --color-brand-violet-surface-hover: var(--brand-violet-surface-hover);
   --color-brand-violet-line: var(--brand-violet-line);
   --color-brand-violet-ink: var(--brand-violet-ink);
   --color-brand-violet-foreground: var(--brand-violet-foreground);
+  --color-brand-berry: var(--brand-berry);
+  --color-brand-berry-soft: var(--brand-berry-soft);
+  --color-brand-berry-surface: var(--brand-berry-surface);
+  --color-brand-berry-surface-hover: var(--brand-berry-surface-hover);
+  --color-brand-berry-line: var(--brand-berry-line);
+  --color-brand-berry-ink: var(--brand-berry-ink);
+  --color-brand-berry-foreground: var(--brand-berry-foreground);
   --color-brand-contrast: var(--brand-contrast);
   --color-canvas-graphite: var(--canvas-graphite);
   --color-canvas-wine: var(--canvas-wine);
@@ -356,10 +416,10 @@
   .app-backdrop {
     background-color: var(--background);
     background-image:
-      linear-gradient(125deg, rgb(35 35 255 / 0.11) 0%, transparent 31%),
-      linear-gradient(305deg, rgb(98 214 211 / 0.09) 0%, transparent 35%),
-      linear-gradient(110deg, #ffffff 0%, #f7f7fa 48%, #f1f4f8 100%);
-    box-shadow: inset 0 0 180px rgb(35 35 255 / 0.04);
+      linear-gradient(125deg, rgb(35 35 255 / 0.06) 0%, transparent 31%),
+      linear-gradient(305deg, rgb(98 214 211 / 0.05) 0%, transparent 35%),
+      linear-gradient(110deg, #f7f7fa 0%, #edf0f5 48%, #e6ebf2 100%);
+    box-shadow: inset 0 0 180px rgb(35 35 255 / 0.02);
   }
 
   .dark .app-backdrop {
@@ -392,5 +452,300 @@
     margin: 0;
     padding: 0;
     background: transparent !important;
+  }
+
+  /* ── Rich text: shared typography for authored content ────────────────────
+     Applied to read-only renderings (.rich-text) and the Tiptap editing
+     surface (.tiptap) so authoring and delivery look identical. */
+  .rich-text,
+  .tiptap {
+    font-size: 0.9375rem;
+    line-height: 1.75;
+    color: var(--foreground);
+    overflow-wrap: break-word;
+  }
+
+  .rich-text > *:first-child,
+  .tiptap > *:first-child {
+    margin-top: 0;
+  }
+
+  .rich-text > *:last-child,
+  .tiptap > *:last-child {
+    margin-bottom: 0;
+  }
+
+  .rich-text p,
+  .tiptap p {
+    margin-block: 0.5em;
+  }
+
+  .rich-text h1,
+  .tiptap h1 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1.25;
+    margin-block: 1em 0.5em;
+  }
+
+  .rich-text h2,
+  .tiptap h2 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    line-height: 1.3;
+    margin-block: 1em 0.5em;
+  }
+
+  .rich-text h3,
+  .tiptap h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    line-height: 1.35;
+    margin-block: 0.9em 0.45em;
+  }
+
+  .rich-text ul,
+  .tiptap ul {
+    list-style: disc;
+    padding-left: 1.4em;
+    margin-block: 0.5em;
+    display: grid;
+    gap: 0.2em;
+  }
+
+  .rich-text ol,
+  .tiptap ol {
+    list-style: decimal;
+    padding-left: 1.4em;
+    margin-block: 0.5em;
+    display: grid;
+    gap: 0.2em;
+  }
+
+  .rich-text li::marker,
+  .tiptap li::marker {
+    color: var(--muted-foreground);
+  }
+
+  .rich-text ul[data-type="taskList"],
+  .tiptap ul[data-type="taskList"] {
+    list-style: none;
+    padding-left: 0.2em;
+  }
+
+  .rich-text ul[data-type="taskList"] li,
+  .tiptap ul[data-type="taskList"] li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6em;
+  }
+
+  .rich-text ul[data-type="taskList"] li > label,
+  .tiptap ul[data-type="taskList"] li > label {
+    margin-top: 0.28em;
+  }
+
+  .rich-text ul[data-type="taskList"] li > div,
+  .tiptap ul[data-type="taskList"] li > div {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .rich-text blockquote,
+  .tiptap blockquote {
+    border-left: 3px solid var(--brand-violet-line);
+    background: var(--brand-violet-soft);
+    border-radius: 0 0.5rem 0.5rem 0;
+    padding: 0.55em 1em;
+    margin-block: 0.75em;
+    color: var(--muted-foreground);
+  }
+
+  .rich-text blockquote p,
+  .tiptap blockquote p {
+    margin-block: 0.25em;
+  }
+
+  .rich-text code,
+  .tiptap code {
+    font-family: var(--font-mono);
+    font-size: 0.875em;
+    background: var(--muted);
+    color: var(--brand-violet-ink);
+    border-radius: 0.375rem;
+    padding: 0.1em 0.35em;
+  }
+
+  .rich-text pre,
+  .tiptap pre {
+    background: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    padding: 0.9em 1.1em;
+    overflow-x: auto;
+    margin-block: 0.75em;
+  }
+
+  .rich-text pre code,
+  .tiptap pre code {
+    background: transparent;
+    padding: 0;
+    color: inherit;
+    border-radius: 0;
+  }
+
+  .rich-text a,
+  .tiptap a {
+    color: var(--brand-violet-ink);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .rich-text hr,
+  .tiptap hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin-block: 1.25em;
+  }
+
+  .rich-text img,
+  .tiptap img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 0.75rem;
+    border: 1px solid var(--border);
+    margin-block: 0.5em;
+  }
+
+  .rich-text table,
+  .tiptap table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-block: 0.75em;
+    font-size: 0.9em;
+    table-layout: auto;
+  }
+
+  .rich-text th,
+  .tiptap th {
+    background: var(--muted);
+    font-weight: 600;
+    text-align: left;
+  }
+
+  .rich-text th,
+  .rich-text td,
+  .tiptap th,
+  .tiptap td {
+    border: 1px solid var(--border);
+    padding: 0.45em 0.7em;
+    vertical-align: top;
+  }
+
+  .rich-text table .selectedCell,
+  .tiptap table .selectedCell {
+    background: var(--brand-violet-soft);
+  }
+
+  /* Math nodes (KaTeX output is injected as HTML by the renderer / node view) */
+  .rich-text .math-inline,
+  .tiptap .math-inline {
+    display: inline-block;
+    padding: 0 0.15em;
+    vertical-align: middle;
+  }
+
+  .rich-text .math-block,
+  .tiptap .math-block {
+    display: block;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 0.3em 0;
+    margin-block: 0.6em;
+    text-align: center;
+  }
+
+  /* Math node views (inside the editor) */
+  .math-render {
+    display: inline-block;
+  }
+
+  .math-edit-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.35rem;
+    height: 1.35rem;
+    margin-left: 0.3em;
+    vertical-align: middle;
+    border-radius: 0.375rem;
+    border: 1px solid var(--brand-violet-line);
+    background: var(--brand-violet-soft);
+    color: var(--brand-violet-ink);
+    cursor: pointer;
+  }
+
+  .math-edit-button:hover {
+    background: var(--brand-violet-line);
+  }
+
+  .math-empty {
+    color: var(--muted-foreground);
+    opacity: 0.7;
+  }
+
+  .math-error {
+    color: var(--destructive);
+  }
+
+  /* ── Rich text editor surface ───────────────────────────────────────────── */
+  .rich-text-editor .tiptap {
+    min-height: var(--rich-editor-min-height, 9rem);
+    padding: 0.875rem 1rem;
+    outline: none;
+    caret-color: var(--brand-violet-ink);
+  }
+
+  .rich-text-editor .tiptap p.is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    color: var(--muted-foreground);
+    float: left;
+    height: 0;
+    pointer-events: none;
+  }
+
+  .rich-text-editor .tiptap .math-inline,
+  .rich-text-editor .tiptap .math-block {
+    border-radius: 0.375rem;
+    outline: 1px solid transparent;
+    transition:
+      outline-color 120ms ease,
+      background-color 120ms ease;
+  }
+
+  .rich-text-editor .tiptap .ProseMirror-selectednode.math-inline,
+  .rich-text-editor .tiptap .ProseMirror-selectednode.math-block {
+    outline-color: var(--brand-violet-line);
+    background: var(--brand-violet-soft);
+  }
+
+  .rich-text-editor .tiptap img.ProseMirror-selectednode {
+    outline: 2px solid var(--brand-violet-line);
+  }
+
+  /* ── Exam playground (app/playground) ──────────────────────────────────── */
+  .exam-serif {
+    font-family: Georgia, "Times New Roman", "Noto Serif", serif;
+  }
+
+  .paper-sheet {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    box-shadow: 0 1px 2px color-mix(in oklch, var(--foreground) 6%, transparent);
+  }
+
+  .paper-rule {
+    border-bottom: 1px solid var(--border);
   }
 }

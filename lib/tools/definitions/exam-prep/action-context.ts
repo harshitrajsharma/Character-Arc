@@ -1,6 +1,9 @@
 import "server-only"
 
-import { getWorkspaceIdentity, requireActiveToolInstallation } from "@/lib/workspaces/workspace-access"
+import {
+  getWorkspaceIdentity,
+  requireActiveToolInstallation,
+} from "@/lib/workspaces/workspace-access"
 
 export class ExamPrepActionContextError extends Error {
   constructor(message: string) {
@@ -11,7 +14,10 @@ export class ExamPrepActionContextError extends Error {
 
 export async function getExamPrepActionContext(workspaceSlug: string) {
   const workspace = await getWorkspaceIdentity(workspaceSlug)
-  const installation = await requireActiveToolInstallation(workspaceSlug, "core.exam-prep")
+  const installation = await requireActiveToolInstallation(
+    workspaceSlug,
+    "core.exam-prep"
+  )
 
   return {
     workspaceId: workspace.id,
@@ -23,7 +29,7 @@ export async function getExamPrepActionContext(workspaceSlug: string) {
 
 export async function getExamPrepWriteContext(workspaceSlug: string) {
   const context = await getExamPrepActionContext(workspaceSlug)
-  
+
   if (context.role === "VIEWER") {
     throw new ExamPrepActionContextError(
       "You do not have permission to modify Exam Prep data in this workspace."

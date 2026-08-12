@@ -21,9 +21,15 @@ describe("Subject Progress Policy", () => {
   })
 
   test("normalizeSubjectProgressPolicy handles null and empty", () => {
-    expect(normalizeSubjectProgressPolicy(null)).toEqual(defaultSubjectProgressPolicy)
-    expect(normalizeSubjectProgressPolicy(undefined)).toEqual(defaultSubjectProgressPolicy)
-    expect(normalizeSubjectProgressPolicy({})).toEqual(defaultSubjectProgressPolicy)
+    expect(normalizeSubjectProgressPolicy(null)).toEqual(
+      defaultSubjectProgressPolicy
+    )
+    expect(normalizeSubjectProgressPolicy(undefined)).toEqual(
+      defaultSubjectProgressPolicy
+    )
+    expect(normalizeSubjectProgressPolicy({})).toEqual(
+      defaultSubjectProgressPolicy
+    )
   })
 
   test("normalizeSubjectProgressPolicy completes partial settings with defaults", () => {
@@ -52,8 +58,12 @@ describe("Subject Progress Policy", () => {
   })
 
   test("normalizeSubjectProgressPolicy falls back to defaults for invalid setting structures", () => {
-    expect(normalizeSubjectProgressPolicy({ revisionTarget: 101 })).toEqual(defaultSubjectProgressPolicy)
-    expect(normalizeSubjectProgressPolicy({ practiceTarget: -1 })).toEqual(defaultSubjectProgressPolicy)
+    expect(normalizeSubjectProgressPolicy({ revisionTarget: 101 })).toEqual(
+      defaultSubjectProgressPolicy
+    )
+    expect(normalizeSubjectProgressPolicy({ practiceTarget: -1 })).toEqual(
+      defaultSubjectProgressPolicy
+    )
   })
 
   test("validateSubjectProgressPolicy accepts valid settings", () => {
@@ -69,8 +79,12 @@ describe("Subject Progress Policy", () => {
   })
 
   test("validateSubjectProgressPolicy throws error on invalid settings", () => {
-    expect(() => validateSubjectProgressPolicy({ revisionTarget: 101 })).toThrow()
-    expect(() => validateSubjectProgressPolicy({ chapterTestTarget: -5 })).toThrow()
+    expect(() =>
+      validateSubjectProgressPolicy({ revisionTarget: 101 })
+    ).toThrow()
+    expect(() =>
+      validateSubjectProgressPolicy({ chapterTestTarget: -5 })
+    ).toThrow()
     expect(() =>
       validateSubjectProgressPolicy({
         revisionTarget: 8,
@@ -95,7 +109,11 @@ describe("Subject Progress Policy", () => {
       subjectTestTarget: 2,
     }
 
-    const validation = validateToolActionInput(examPrepManifest, "subject.update-settings", validSettings)
+    const validation = validateToolActionInput(
+      examPrepManifest,
+      "subject.update-settings",
+      validSettings
+    )
     expect(validation.success).toBe(true)
     if (validation.success) {
       expect(validation.data).toEqual(validSettings)
@@ -116,7 +134,11 @@ describe("Subject Progress Policy", () => {
       subjectTestTarget: 2,
     }
 
-    const validation = validateToolActionInput(examPrepManifest, "subject.update-settings", invalidSettings)
+    const validation = validateToolActionInput(
+      examPrepManifest,
+      "subject.update-settings",
+      invalidSettings
+    )
     expect(validation.success).toBe(false)
   })
 })

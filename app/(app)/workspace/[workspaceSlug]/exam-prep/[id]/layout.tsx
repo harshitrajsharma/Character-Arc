@@ -28,13 +28,20 @@ export default async function ExamDetailLayout({
 
   // Both are cache()-wrapped -- cache hits from the parent exam-prep/layout.tsx
   const workspace = await getWorkspaceIdentity(workspaceSlug)
-  const installation = await requireActiveToolInstallation(workspaceSlug, "core.exam-prep")
+  const installation = await requireActiveToolInstallation(
+    workspaceSlug,
+    "core.exam-prep"
+  )
 
   // getExamDetail is now cache()-wrapped -- first call here; pages that also
   // call it with the same args receive the memoized result for free.
   const { exam, issue } = await getExamDetail(workspace.id, workspaceSlug, id)
 
-  if (issue === "not_found" || !exam || exam.originToolInstallationId !== installation.id) {
+  if (
+    issue === "not_found" ||
+    !exam ||
+    exam.originToolInstallationId !== installation.id
+  ) {
     notFound()
   }
 

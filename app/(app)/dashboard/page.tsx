@@ -1,24 +1,13 @@
 import type { Metadata } from "next"
 import Link from "next/link"
-import {
-  BlocksIcon,
-  BookOpenCheckIcon,
-  CircleAlertIcon,
-  CompassIcon,
-  PlugZapIcon,
-  PlusIcon,
-  SparklesIcon,
-  TargetIcon,
-  type LucideIcon,
-} from "lucide-react"
+import { BlocksIcon, CircleAlertIcon, CompassIcon, PlusIcon, SparklesIcon, TargetIcon, WrenchIcon } from "lucide-react"
 
 import { AuthFeedback } from "@/components/auth/auth-feedback"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
-import { Button, buttonVariants } from "@/components/ui/button"
+import { buttonVariants } from "@/components/ui/button"
 import {
   Card,
-  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
@@ -31,55 +20,19 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty"
+import { mapToolIcon } from "@/components/tools/tool-catalog-card"
+import { workspaceRoutes } from "@/lib/routes/workspace-tools"
 import { requireVerifiedClaims } from "@/lib/auth/session"
 import { prisma } from "@/lib/prisma"
 import { cn } from "@/lib/utils"
+import { getCurrentArcItems } from "@/lib/dashboard/current-arcs"
+import { CurrentArcGrid } from "@/components/dashboard/current-arc-grid"
 
 export const metadata: Metadata = { title: "Dashboard" }
 
 type DashboardPageProps = {
   searchParams: Promise<{ notice?: string }>
 }
-
-type ToolPreview = {
-  title: string
-  description: string
-  icon: LucideIcon
-  iconBg: string
-  iconColor: string
-}
-
-const toolPreviews: ToolPreview[] = [
-  {
-    title: "Goals and paths",
-    description:
-      "Keep future options, decisions, and the next milestone visible.",
-    icon: TargetIcon,
-    iconBg: "bg-brand-neon-soft",
-    iconColor: "text-brand-neon-ink",
-  },
-  {
-    title: "Exam preparation",
-    description:
-      "Track subjects, practice, attempts, and evidence of progress.",
-    icon: BookOpenCheckIcon,
-    iconBg: "bg-brand-cyan-soft",
-    iconColor: "text-brand-cyan-ink",
-  },
-  {
-    title: "Connections",
-    description: "Bring calendars and external AI agents into your system.",
-    icon: PlugZapIcon,
-    iconBg: "bg-brand-violet-soft",
-    iconColor: "text-brand-violet-ink",
-  },
-]
-
-const colorForVariant = {
-  neon: "border-brand-neon-line bg-brand-neon-soft/40",
-  cyan: "border-brand-cyan-line bg-brand-cyan-soft/40",
-  violet: "border-brand-violet-line bg-brand-violet-soft/40",
-} as const
 
 function firstName(displayName: string | null | undefined, email: unknown) {
   if (displayName?.trim()) {
@@ -98,7 +51,12 @@ export default async function DashboardPage({
   const [profile, membership] = await Promise.all([
     prisma.profile.findUnique({
       where: { id: claims.sub },
-      select: { displayName: true, avatarUrl: true, timezone: true, locale: true },
+      select: {
+        displayName: true,
+        avatarUrl: true,
+        timezone: true,
+        locale: true,
+      },
     }),
     prisma.workspaceMember.findFirst({
       where: { userId: claims.sub },
@@ -109,15 +67,45 @@ export default async function DashboardPage({
   const workspace = membership
     ? await prisma.workspace.findUnique({
         where: { id: membership.workspaceId },
-        select: { id: true, name: true, slug: true, kind: true, createdAt: true },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          kind: true,
+          createdAt: true,
+          toolInstallations: {
+            where: {
+              status: "ACTIVE",
+            },
+            select: {
+              id: true,
+              toolDefinition: {
+                select: {
+                  key: true,
+                  name: true,
+                  description: true,
+                  icon: true,
+                },
+              },
+            },
+          },
+        },
       })
     : null
+
+  const currentArcs = workspace
+    ? await getCurrentArcItems({
+        workspaceId: workspace.id,
+        workspaceSlug: workspace.slug,
+        installations: workspace.toolInstallations,
+      })
+    : []
 
   const setupFailed = !profile || !membership || !workspace
   const name = firstName(profile?.displayName, claims.email)
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 pt-24 pb-8 md:px-6 xl:px-10">
+    <main className="mx-auto w-full max-w-6xl px-4 md:px-6 xl:px-12 pt-24 pb-8">
       <div className="rounded-4xl border border-brand-violet-line bg-brand-violet-soft/30 px-6 py-8 sm:px-8 sm:py-10">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div className="max-w-2xl">
@@ -161,7 +149,9 @@ export default async function DashboardPage({
             </span>
             <div className="min-w-0">
               <p className="truncate text-sm font-medium">{workspace?.name}</p>
-              <p className="text-xs text-muted-foreground">Personal workspace</p>
+              <p className="text-xs text-muted-foreground">
+                Personal workspace
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-3 px-5 py-4">
@@ -197,85 +187,125 @@ export default async function DashboardPage({
       </div>
 
       <section aria-labelledby="current-arc-title" className="mt-12">
-        <Empty className="mx-auto max-w-xl">
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <TargetIcon aria-hidden="true" />
-            </EmptyMedia>
-            <EmptyTitle id="current-arc-title">
-              Choose your current arc
-            </EmptyTitle>
-            <EmptyDescription>
-              Start with the part of life you want to move forward. Your first
-              installed tool will turn it into a clear, repeatable loop.
-            </EmptyDescription>
-          </EmptyHeader>
-          <EmptyContent>
-            <Link
-              href="/tools"
-              className={buttonVariants({ variant: "secondary" })}
+        <div className="mb-6 flex items-end justify-between gap-4">
+          <div>
+            <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+              Focus
+            </p>
+            <h2
+              id="current-arc-title"
+              className="mt-1 font-heading text-2xl font-semibold"
             >
-              <PlusIcon aria-hidden="true" />
-              Choose a starting tool
+              Current arc
+            </h2>
+          </div>
+          {workspace?.toolInstallations.length ? (
+            <Link
+              href={workspaceRoutes.home(workspace.slug)}
+              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Open workspace
             </Link>
-          </EmptyContent>
-        </Empty>
+          ) : null}
+        </div>
+
+        {currentArcs.length > 0 ? (
+          <CurrentArcGrid items={currentArcs} />
+        ) : (
+          <Empty className="mx-auto max-w-xl">
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                <TargetIcon aria-hidden="true" />
+              </EmptyMedia>
+              <EmptyTitle>Choose your current arc</EmptyTitle>
+              <EmptyDescription>
+                Start with the part of life you want to move forward. Create an
+                exam plan, open an arc, or find new capabilities to install.
+              </EmptyDescription>
+            </EmptyHeader>
+            <EmptyContent>
+              <div className="flex flex-wrap justify-center gap-4">
+                {workspace?.toolInstallations[0] && (
+                  <Link
+                    href={
+                      workspaceRoutes.toolHome(
+                        workspace.slug,
+                        workspace.toolInstallations[0].toolDefinition.key
+                      ) || "#"
+                    }
+                    className={buttonVariants({ variant: "default" })}
+                  >
+                    Open {workspace.toolInstallations[0].toolDefinition.name}
+                  </Link>
+                )}
+                <Link
+                  href="/tools"
+                  className={buttonVariants({ variant: "secondary" })}
+                >
+                  <PlusIcon aria-hidden="true" />
+                  Find a tool
+                </Link>
+              </div>
+            </EmptyContent>
+          </Empty>
+        )}
       </section>
 
       <section id="tools" className="mt-14 scroll-mt-24">
         <div className="mb-6 flex items-end justify-between gap-4">
           <div>
             <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-              Tools
+              Installed Tools
             </p>
             <h2 className="mt-1 font-heading text-2xl font-semibold">
-              Choose your first useful loop
+              Active Contexts
             </h2>
           </div>
-          <Badge variant="secondary" className="shrink-0">
-            Foundation
-          </Badge>
+          {workspace && workspace.toolInstallations.length === 0 && (
+            <Badge variant="secondary" className="shrink-0">
+              None Installed
+            </Badge>
+          )}
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {toolPreviews.map((tool) => {
-            const Icon = tool.icon
-
-            return (
-              <Card
-                key={tool.title}
-                size="sm"
-                className="group/card transition-all duration-200 hover:shadow-lg"
-              >
-                <CardHeader>
-                  <div className="flex items-start gap-3">
-                    <span
-                      className={cn(
-                        "flex size-10 shrink-0 items-center justify-center rounded-xl",
-                        tool.iconBg,
-                        tool.iconColor
-                      )}
-                    >
-                      <Icon className="size-5" aria-hidden="true" />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <CardTitle>{tool.title}</CardTitle>
-                      <CardDescription className="mt-1.5 line-clamp-2">
-                        {tool.description}
-                      </CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex w-fit items-center gap-1.5 rounded-full border border-foreground/5 bg-muted/50 px-3 py-1 text-xs font-medium text-muted-foreground transition-colors group-hover/card:bg-muted">
-                    <span className="size-1.5 rounded-full bg-brand-amber" />
-                    Coming next
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
+        {workspace && workspace.toolInstallations.length > 0 ? (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {workspace.toolInstallations.map((inst) => {
+              const def = inst.toolDefinition
+              const Icon = mapToolIcon(def.icon) || WrenchIcon
+              const toolHome = workspaceRoutes.toolHome(workspace.slug, def.key) || "#"
+  
+              return (
+                <Link key={inst.id} href={toolHome} className="outline-none focus-visible:ring-3 focus-visible:ring-brand-neon-line rounded-xl">
+                  <Card
+                    size="sm"
+                    className="group/card transition-all duration-200 hover:border-brand-neon-line hover:shadow-md cursor-pointer"
+                  >
+                    <CardHeader>
+                      <div className="flex items-start gap-3">
+                        <span className="group-hover/card:bg-brand-neon-bg flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground group-hover/card:text-brand-neon-line transition-colors">
+                          <Icon className="size-5" aria-hidden="true" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <CardTitle>{def.name}</CardTitle>
+                          <CardDescription className="mt-1.5 line-clamp-2">
+                            {def.description}
+                          </CardDescription>
+                        </div>
+                      </div>
+                    </CardHeader>
+                  </Card>
+                </Link>
+              )
+            })}
+          </div>
+        ) : (
+          <div className="flex min-h-32 flex-col items-center justify-center gap-3 rounded-2xl border border-dashed text-center">
+            <p className="text-sm text-muted-foreground">
+              Install tools from the catalog to build your workspace.
+            </p>
+          </div>
+        )}
       </section>
     </main>
   )

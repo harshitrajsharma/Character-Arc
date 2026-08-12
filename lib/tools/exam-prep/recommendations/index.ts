@@ -1,4 +1,8 @@
-export { generateRecommendations, subjectToEngineInput, WEAK_TEST_HEURISTIC_THRESHOLD } from "./engine"
+export {
+  generateRecommendations,
+  subjectToEngineInput,
+  WEAK_TEST_HEURISTIC_THRESHOLD,
+} from "./engine"
 export type {
   Recommendation,
   RecommendationEngineInput,
@@ -6,3 +10,17 @@ export type {
   RecommendationType,
   RecommendationUrgency,
 } from "./types"
+export {
+  generateExamSubjectRecommendations,
+  MAX_VISIBLE_EXAM_SUBJECT_RECOMMENDATIONS,
+} from "./exam-subjects-engine"
+export type {
+  ExamSubjectRecommendation,
+  ExamSubjectRecommendationCounts,
+  ExamSubjectRecommendationGroups,
+  ExamSubjectRecommendationLane,
+  ExamSubjectRecommendationSource,
+  ExamSubjectRecommendationStage,
+  ExamSubjectRecommendationsInput,
+  ExamSubjectRecommendationsOutput,
+} from "./exam-subjects-types"

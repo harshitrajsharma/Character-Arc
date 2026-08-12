@@ -44,8 +44,8 @@ function validSubjectRecordInput() {
 // ─── Manifest version ──────────────────────────────────────────────────────
 
 describe("Exam Prep manifest version", () => {
-  test("is bumped to 1.5.0", () => {
-    expect(examPrepManifest.release.version).toBe("1.5.0")
+  test("is bumped to 1.11.0", () => {
+    expect(examPrepManifest.release.version).toBe("1.11.0")
   })
 })
 
@@ -110,7 +110,9 @@ describe("test-record.create input validation", () => {
   })
 
   test("marksObtained > totalMarks rejected by validation helper", () => {
-    expect(() => validateTestRecordMarks(15, 10)).toThrow(/Marks obtained must be between 0 and total marks/)
+    expect(() => validateTestRecordMarks(15, 10)).toThrow(
+      /Marks obtained must be between 0 and total marks/
+    )
   })
 
   test("negative marksObtained is rejected by manifest", () => {
@@ -163,7 +165,11 @@ describe("test-record.create input validation", () => {
     )
     expect(result.success).toBe(false)
     if (!result.success) {
-      expect(result.issues.some((i) => i.code === "required" && i.path.includes("subjectId"))).toBe(true)
+      expect(
+        result.issues.some(
+          (i) => i.code === "required" && i.path.includes("subjectId")
+        )
+      ).toBe(true)
     }
   })
 
@@ -323,12 +329,12 @@ describe("test-record.delete input validation", () => {
 
 // ─── Handler binding verification ──────────────────────────────────────────
 
-describe("Handler bindings at 1.5.0", () => {
-  test("all exam-prep handler binding keys use version 1.5.0", async () => {
+describe("Handler bindings at 1.11.0", () => {
+  test("all exam-prep handler binding keys use version 1.11.0", async () => {
     // We import the module to inspect the handler map. The handlers map is
     // private, so we validate it indirectly by importing the manifest and
     // checking the version, which the execute pipeline validates at runtime.
-    expect(examPrepManifest.release.version).toBe("1.5.0")
+    expect(examPrepManifest.release.version).toBe("1.11.0")
 
     // Verify all new canonical actions are declared in the manifest
     const actionKeys = examPrepManifest.actions.map((a) => a.key)
@@ -341,18 +347,24 @@ describe("Handler bindings at 1.5.0", () => {
   })
 
   test("actions declare exam-prep.exam as receipt root and do not advertise TestRecord as Block", () => {
-    const createAction = examPrepManifest.actions.find((a) => a.key === "test-record.create")!
-    const updateAction = examPrepManifest.actions.find((a) => a.key === "test-record.update")!
-    const deleteAction = examPrepManifest.actions.find((a) => a.key === "test-record.delete")!
-    
+    const createAction = examPrepManifest.actions.find(
+      (a) => a.key === "test-record.create"
+    )!
+    const updateAction = examPrepManifest.actions.find(
+      (a) => a.key === "test-record.update"
+    )!
+    const deleteAction = examPrepManifest.actions.find(
+      (a) => a.key === "test-record.delete"
+    )!
+
     expect(createAction.output.rootBlockTypeKey).toBe("exam-prep.exam")
     expect(createAction.output.createsBlockTypeKeys).toEqual([])
     expect(createAction.output.writesBlockTypeKeys).toEqual(["exam-prep.exam"])
-    
+
     expect(updateAction.output.rootBlockTypeKey).toBe("exam-prep.exam")
     expect(updateAction.output.createsBlockTypeKeys).toEqual([])
     expect(updateAction.output.writesBlockTypeKeys).toEqual(["exam-prep.exam"])
-    
+
     expect(deleteAction.output.rootBlockTypeKey).toBe("exam-prep.exam")
     expect(deleteAction.output.createsBlockTypeKeys).toEqual([])
     expect(deleteAction.output.writesBlockTypeKeys).toEqual(["exam-prep.exam"])
@@ -398,7 +410,10 @@ describe("Marks validation via manifest schema", () => {
 describe("test-actions.ts wrapper refactor", () => {
   test("wrappers do not directly import prisma.testRecord mutation methods", async () => {
     // Read the source file to verify no direct prisma.testRecord.create/update/delete calls
-    const source = await fs.readFile("lib/tools/exam-prep/actions/test-actions.ts", "utf8")
+    const source = await fs.readFile(
+      "lib/tools/exam-prep/actions/test-actions.ts",
+      "utf8"
+    )
 
     // The wrapper mutations should not contain direct prisma calls for TestRecord CUD
     // (read actions and ScheduledTest actions are allowed to use prisma directly)

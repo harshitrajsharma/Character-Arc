@@ -1,4 +1,4 @@
 export interface EditSubjectData {
-  name: string;
-  weightage: number;
-} 
+  name: string
+  weightage: number
+}

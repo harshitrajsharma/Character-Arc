@@ -5,10 +5,8 @@ import { redirect } from "next/navigation"
 import { z } from "zod"
 import { workspaceRoutes } from "@/lib/routes/workspace-tools"
 
-import {
-  executeToolAction,
-  ToolActionExecutionError,
-} from "@/lib/tools/execute-tool-action"
+import { executeToolAction } from "@/lib/tools/execute-tool-action"
+import { ToolActionExecutionError } from "@/lib/tools/errors"
 
 const arcContentFieldsSchema = z.object({
   title: z.string().trim().min(1).max(120),

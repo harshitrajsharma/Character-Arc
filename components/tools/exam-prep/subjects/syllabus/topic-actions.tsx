@@ -1,9 +1,9 @@
-'use client';
+"use client"
 
-import { useState } from "react";
-import { Star, Pencil, Trash2, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { useState } from "react"
+import { Star, Pencil, Trash2, Loader2 } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -13,7 +13,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+} from "@/components/ui/alert-dialog"
 import {
   Dialog,
   DialogContent,
@@ -21,18 +21,21 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { cn } from "@/lib/utils";
-import type { TopicUpdateData, TopicResponse } from "@/types/progressapp/domain";
-
+} from "@/components/ui/dialog"
+import { cn } from "@/lib/utils"
+import type { TopicUpdateData, TopicResponse } from "@/types/progressapp/domain"
 
 interface TopicActionsProps {
-  topicId: string;
-  topicName: string;
-  isImportant: boolean;
-  onUpdate: (chapterId: string, topicId: string, data: TopicUpdateData) => Promise<TopicResponse>;
-  onDelete: (topicId: string) => void;
-  chapterId: string;
+  topicId: string
+  topicName: string
+  isImportant: boolean
+  onUpdate: (
+    chapterId: string,
+    topicId: string,
+    data: TopicUpdateData
+  ) => Promise<TopicResponse>
+  onDelete: (topicId: string) => void
+  chapterId: string
 }
 
 export function TopicActions({
@@ -41,75 +44,77 @@ export function TopicActions({
   isImportant,
   onUpdate,
   onDelete,
-  chapterId
+  chapterId,
 }: TopicActionsProps) {
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [showEditDialog, setShowEditDialog] = useState(false);
-  const [editedName, setEditedName] = useState(topicName);
-  const [isUpdating, setIsUpdating] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [showEditDialog, setShowEditDialog] = useState(false)
+  const [editedName, setEditedName] = useState(topicName)
+  const [isUpdating, setIsUpdating] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const handleUpdate = async (data: TopicUpdateData) => {
-    setIsUpdating(true);
+    setIsUpdating(true)
     try {
-      const response = await onUpdate(chapterId, topicId, data);
-      return response;
+      const response = await onUpdate(chapterId, topicId, data)
+      return response
     } finally {
-      setIsUpdating(false);
+      setIsUpdating(false)
     }
-  };
+  }
 
   const handleEditSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (editedName.trim() === "") return;
-    
-    const response = await handleUpdate({ name: editedName.trim() });
+    e.preventDefault()
+    if (editedName.trim() === "") return
+
+    const response = await handleUpdate({ name: editedName.trim() })
     if (response.success) {
-      setShowEditDialog(false);
+      setShowEditDialog(false)
     }
-  };
+  }
 
   const handleDeleteTopic = async () => {
-    setIsDeleting(true);
+    setIsDeleting(true)
     try {
-      onDelete(topicId);
-      setShowDeleteDialog(false);
+      onDelete(topicId)
+      setShowDeleteDialog(false)
     } finally {
-      setIsDeleting(false);
+      setIsDeleting(false)
     }
-  };
+  }
 
   return (
-    <div className="flex items-center gap-1 ml-auto">
+    <div className="ml-auto flex items-center gap-1">
       {/* Star button - always visible */}
       <Button
         variant="ghost"
         size="icon"
         className={cn(
-          "h-8 w-8 transition-colors hover:text-yellow-400",
-          isImportant ? "text-yellow-500 hover:text-yellow-600" : "opacity-0 group-hover:opacity-100"
+          "h-8 w-8 transition-colors hover:text-brand-amber",
+          isImportant
+            ? "text-brand-amber-ink hover:text-brand-amber"
+            : "opacity-0 group-hover:opacity-100"
         )}
         onClick={() => handleUpdate({ important: !isImportant })}
         disabled={isUpdating}
       >
-        <Star className={cn("h-4 w-4 ", isImportant && "fill-current")} />
+        <Star className={cn("h-4 w-4", isImportant && "fill-current")} />
       </Button>
 
       {/* Other action buttons - only visible on hover */}
-      <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+      <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8"
+          className="h-8 w-8 hover:text-brand-amber"
           onClick={() => setShowEditDialog(true)}
           disabled={isUpdating}
         >
-          <Pencil className="h-4 w-4 hover:text-yellow-400" />
+          <Pencil className="h-4 w-4" />
         </Button>
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+          className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
           onClick={() => setShowDeleteDialog(true)}
           disabled={isUpdating}
         >
@@ -143,7 +148,7 @@ export function TopicActions({
               >
                 {isUpdating ? (
                   <>
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Saving...
                   </>
                 ) : (
@@ -160,20 +165,21 @@ export function TopicActions({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Topic</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete &quot;{topicName}&quot;? This action cannot be undone.
-              All progress for this topic will be permanently deleted.
+              Are you sure you want to delete &quot;{topicName}&quot;? This
+              action cannot be undone. All progress for this topic will be
+              permanently deleted.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteTopic}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="text-destructive-foreground bg-destructive hover:bg-destructive/90"
               disabled={isDeleting}
             >
               {isDeleting ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Deleting...
                 </>
               ) : (
@@ -184,5 +190,5 @@ export function TopicActions({
         </AlertDialogContent>
       </AlertDialog>
     </div>
-  );
-} 
+  )
+}

@@ -2,6 +2,7 @@
 import { describe, expect, test } from "bun:test"
 
 import {
+  calculateTestScoreEvidence,
   calculateExpectedMarksEvidence,
   calculateSubjectTestProgress,
   calculateWeightedAverageMarks,
@@ -75,7 +76,7 @@ describe("TestRecord progress evidence", () => {
 
 describe("Expected marks evidence", () => {
   test("balances chapters equally and weights subject tests 60/40", () => {
-    const result = calculateExpectedMarksEvidence({
+    const result = calculateTestScoreEvidence({
       chapterIds: ["chapter-1", "chapter-2"],
       records: [
         record("chapter-1-a", 80, 100, "chapter-1"),
@@ -90,6 +91,7 @@ describe("Expected marks evidence", () => {
     expect(result.chapterAveragePercentage).toBe(75)
     expect(result.subjectAveragePercentage).toBe(80)
     expect(result.percentage).toBe(78)
+    expect(result.weightedMarksContribution).toBe(15.6)
     expect(result.expectedMarks).toBe(15.6)
     expect(result.validChapterRecords).toBe(3)
     expect(result.validSubjectRecords).toBe(2)

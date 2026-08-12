@@ -2,7 +2,8 @@ export const focusRingTokens = {
   base: "outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
   subtle:
     "outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
-  inset: "outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+  inset:
+    "outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
   danger:
     "outline-none focus-visible:ring-2 focus-visible:ring-destructive focus-visible:ring-offset-2 focus-visible:ring-offset-background",
 } as const
@@ -39,8 +40,7 @@ export const typographyTokens = {
 
 export const statusTokens = {
   neutral: {
-    badge:
-      "border-border bg-muted text-muted-foreground hover:bg-muted/80",
+    badge: "border-border bg-muted text-muted-foreground hover:bg-muted/80",
     surface: "border-border bg-muted/50 text-muted-foreground",
     text: "text-muted-foreground",
     dot: "bg-muted-foreground",

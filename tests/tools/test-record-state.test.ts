@@ -69,12 +69,18 @@ function createSubject(): SubjectWithRelations {
   }
 }
 
-function createRecord(overrides: Partial<NormalizedTestRecord> = {}): NormalizedTestRecord {
+function createRecord(
+  overrides: Partial<NormalizedTestRecord> = {}
+): NormalizedTestRecord {
   return {
     id: "88a0111e-43d0-4464-83c0-a5132c6bd4f8",
     examId: "98a0111e-43d0-4464-83c0-a5132c6bd4f9",
     subjectId: "58a0111e-43d0-4464-83c0-a5132c6bd4f5",
     chapterId: "68a0111e-43d0-4464-83c0-a5132c6bd4f6",
+    scheduledTestId: null,
+    scope: "chapter",
+    targetChapterIds: ["68a0111e-43d0-4464-83c0-a5132c6bd4f6"],
+    attemptedAt: now.toISOString(),
     title: "Arrays test",
     marksObtained: 8,
     totalMarks: 10,
@@ -92,24 +98,55 @@ describe("shared TestRecord subject state", () => {
 
     expect(source.testRecords).toEqual([])
     expect(source.chapters[0].testRecords).toEqual([])
-    expect(result.testRecords?.map((record) => record.id)).toEqual([createRecord().id])
-    expect(result.chapters[0].testRecords?.map((record) => record.id)).toEqual([createRecord().id])
+    expect(result.testRecords?.map((record) => record.id)).toEqual([
+      createRecord().id,
+    ])
+    expect(result.chapters[0].testRecords?.map((record) => record.id)).toEqual([
+      createRecord().id,
+    ])
     expect(result.chapters[1]).toBe(source.chapters[1])
   })
 
   test("subject records remain only at the subject root", () => {
-    const result = upsertTestRecord(createSubject(), createRecord({ chapterId: null }))
+    const result = upsertTestRecord(
+      createSubject(),
+      createRecord({ chapterId: null, scope: "subject", targetChapterIds: [] })
+    )
 
     expect(result.testRecords).toHaveLength(1)
-    expect(result.chapters.every((chapter) => chapter.testRecords?.length === 0)).toBe(true)
+    expect(
+      result.chapters.every((chapter) => chapter.testRecords?.length === 0)
+    ).toBe(true)
+  })
+
+  test("places one multi-chapter result in each selected chapter", () => {
+    const result = upsertTestRecord(
+      createSubject(),
+      createRecord({
+        chapterId: null,
+        scope: "multi-chapter",
+        targetChapterIds: [
+          "68a0111e-43d0-4464-83c0-a5132c6bd4f6",
+          "78a0111e-43d0-4464-83c0-a5132c6bd4f7",
+        ],
+      })
+    )
+
+    expect(result.testRecords).toHaveLength(1)
+    expect(result.chapters[0].testRecords).toHaveLength(1)
+    expect(result.chapters[1].testRecords).toHaveLength(1)
   })
 
   test("updating an existing ID replaces it and moves chapter scope", () => {
     const first = upsertTestRecord(createSubject(), createRecord())
-    const moved = upsertTestRecord(first, createRecord({
-      chapterId: "78a0111e-43d0-4464-83c0-a5132c6bd4f7",
-      marksObtained: 9,
-    }))
+    const moved = upsertTestRecord(
+      first,
+      createRecord({
+        chapterId: "78a0111e-43d0-4464-83c0-a5132c6bd4f7",
+        targetChapterIds: ["78a0111e-43d0-4464-83c0-a5132c6bd4f7"],
+        marksObtained: 9,
+      })
+    )
 
     expect(moved.testRecords).toHaveLength(1)
     expect(moved.testRecords?.[0].marksObtained).toBe(9)
@@ -127,9 +164,12 @@ describe("shared TestRecord subject state", () => {
 
   test("ignores records for another subject", () => {
     const source = createSubject()
-    const result = upsertTestRecord(source, createRecord({
-      subjectId: "a8a0111e-43d0-4464-83c0-a5132c6bdfa0",
-    }))
+    const result = upsertTestRecord(
+      source,
+      createRecord({
+        subjectId: "a8a0111e-43d0-4464-83c0-a5132c6bdfa0",
+      })
+    )
 
     expect(result).toBe(source)
   })
@@ -137,15 +177,24 @@ describe("shared TestRecord subject state", () => {
 
 describe("TestRecord views use canonical shared state", () => {
   test("views do not refetch TestRecords on mount", async () => {
-    const chapterView = await readFile("components/tools/exam-prep/subjects/tests/chapter-test-view.tsx", "utf8")
-    const subjectView = await readFile("components/tools/exam-prep/subjects/tests/subject-test-view.tsx", "utf8")
+    const chapterView = await readFile(
+      "components/tools/exam-prep/subjects/tests/chapter-test-view.tsx",
+      "utf8"
+    )
+    const subjectView = await readFile(
+      "components/tools/exam-prep/subjects/tests/subject-test-view.tsx",
+      "utf8"
+    )
 
     expect(chapterView).not.toContain("getTestRecordsForChapterAction")
     expect(subjectView).not.toContain("getTestRecordsForSubjectAction")
   })
 
   test("subject target is not expanded by scheduled test count", async () => {
-    const subjectView = await readFile("components/tools/exam-prep/subjects/tests/subject-test-view.tsx", "utf8")
+    const subjectView = await readFile(
+      "components/tools/exam-prep/subjects/tests/subject-test-view.tsx",
+      "utf8"
+    )
 
     expect(subjectView).not.toContain("Math.max")
     expect(subjectView).not.toContain("scheduledTests.length")

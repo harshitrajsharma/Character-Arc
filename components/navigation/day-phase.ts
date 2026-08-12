@@ -1,10 +1,5 @@
 export type DayPhaseKey =
-  | "night"
-  | "dawn"
-  | "morning"
-  | "afternoon"
-  | "golden"
-  | "evening"
+  "night" | "dawn" | "morning" | "afternoon" | "golden" | "evening"
 
 export type DayPhase = {
   key: DayPhaseKey

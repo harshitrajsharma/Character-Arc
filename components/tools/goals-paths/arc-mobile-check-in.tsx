@@ -75,7 +75,9 @@ export function ArcMobileCheckIn({
           <DrawerHeader className="border-b border-border p-5 text-left">
             <DrawerTitle>Record an honest signal</DrawerTitle>
             <DrawerDescription>
-              {"Update progress, note what changed, or adjust this Arc's status."}
+              {
+                "Update progress, note what changed, or adjust this Arc's status."
+              }
             </DrawerDescription>
           </DrawerHeader>
           <div className="min-h-0 overflow-y-auto p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">

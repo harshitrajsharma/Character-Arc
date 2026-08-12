@@ -1,10 +1,23 @@
 "use client"
 
-import { CheckCircle2, Clock, Lock, Sparkles, Star } from "lucide-react"
+import {
+  BookOpen,
+  CheckCircle2,
+  CircleDot,
+  Clock,
+  FlaskConical,
+  Lock,
+  RotateCcw,
+  Sparkles,
+  Star,
+} from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import type { StudyPathStep, StudyPathStepStatus } from "@/lib/tools/exam-prep/study-path"
+import type {
+  StudyPathStep,
+  StudyPathStepStatus,
+} from "@/lib/tools/exam-prep/study-path"
 import {
   type NavigationTarget,
   getActionLabelForStep,
@@ -16,40 +29,83 @@ export const statusConfig: Record<
   {
     label: string
     icon: typeof CheckCircle2
+    /** Full-color classes for actionable statuses; muted set applied when locked/done. */
+    textClass: string
     badgeClass: string
-    iconClass: string
   }
 > = {
   completed: {
     label: "Completed",
     icon: CheckCircle2,
-    badgeClass: "bg-success-soft text-success-ink border-success-line",
-    iconClass: "text-success-ink",
+    textClass: "text-success-ink",
+    badgeClass: "border-success-line bg-success-soft text-success-ink",
   },
   ready: {
     label: "Ready",
     icon: Sparkles,
-    badgeClass: "bg-brand-violet-soft text-brand-violet-ink border-brand-violet-line",
-    iconClass: "text-brand-violet-ink",
+    textClass: "text-brand-violet-ink",
+    badgeClass: "border-brand-violet-line bg-brand-violet-soft text-brand-violet-ink",
   },
   due: {
-    label: "Due",
+    label: "Due now",
     icon: Clock,
-    badgeClass: "bg-brand-amber-soft text-brand-amber-ink border-brand-amber-line",
-    iconClass: "text-brand-amber-ink",
+    textClass: "text-destructive",
+    badgeClass: "border-destructive/30 bg-destructive/10 text-destructive",
   },
   locked: {
     label: "Locked",
     icon: Lock,
-    badgeClass: "bg-muted text-muted-foreground border-border",
-    iconClass: "text-muted-foreground",
+    textClass: "text-muted-foreground",
+    badgeClass: "border-border bg-muted text-muted-foreground",
   },
   overachieved: {
     label: "Overachieved",
     icon: Star,
-    badgeClass: "bg-brand-amber-soft text-brand-amber-ink border-brand-amber-line",
-    iconClass: "text-brand-amber-ink",
+    textClass: "text-brand-amber-ink",
+    badgeClass: "border-brand-amber-line bg-brand-amber-soft text-brand-amber-ink",
   },
+}
+
+export const phaseConfig = {
+  learn: {
+    label: "Learn",
+    icon: BookOpen,
+    iconClass: "text-brand-cyan-ink",
+    dotClass: "bg-brand-cyan",
+    buttonClass:
+      "border-brand-cyan-line bg-brand-cyan-soft text-brand-cyan-ink hover:border-brand-cyan hover:bg-brand-cyan-surface-hover hover:text-brand-cyan-ink! dark:hover:border-brand-cyan dark:hover:bg-brand-cyan-surface-hover! dark:hover:text-brand-cyan-ink!",
+  },
+  revise: {
+    label: "Revise",
+    icon: RotateCcw,
+    iconClass: "text-brand-neon-ink",
+    dotClass: "bg-brand-neon",
+    buttonClass:
+      "border-brand-neon-line bg-brand-neon-soft text-brand-neon-ink hover:border-brand-neon hover:bg-brand-neon-surface-hover hover:text-brand-neon-ink! dark:hover:border-brand-neon dark:hover:bg-brand-neon-surface-hover! dark:hover:text-brand-neon-ink!",
+  },
+  practice: {
+    label: "Practice",
+    icon: FlaskConical,
+    iconClass: "text-brand-amber-ink",
+    dotClass: "bg-brand-amber",
+    buttonClass:
+      "border-brand-amber-line bg-brand-amber-soft text-brand-amber-ink hover:border-brand-amber hover:bg-brand-amber-surface-hover hover:text-brand-amber-ink! dark:hover:border-brand-amber dark:hover:bg-brand-amber-surface-hover! dark:hover:text-brand-amber-ink!",
+  },
+  test: {
+    label: "Test",
+    icon: CircleDot,
+    iconClass: "text-brand-violet-ink",
+    dotClass: "bg-brand-violet",
+    buttonClass:
+      "border-brand-violet-line bg-brand-violet-soft text-brand-violet-ink hover:border-brand-violet hover:bg-brand-violet-surface-hover hover:text-brand-violet-ink! dark:hover:border-brand-violet dark:hover:bg-brand-violet-surface-hover! dark:hover:text-brand-violet-ink!",
+  },
+}
+
+export function getPhaseForKind(kind: StudyPathStep["kind"]) {
+  if (kind === "learn") return "learn"
+  if (kind === "revise") return "revise"
+  if (kind === "practice") return "practice"
+  return "test"
 }
 
 export interface UpNextCardProps {
@@ -60,68 +116,95 @@ export interface UpNextCardProps {
 export function UpNextCard({ step, onNavigate }: UpNextCardProps) {
   const statusInfo = statusConfig[step.status] || statusConfig.ready
   const StatusIcon = statusInfo.icon
+  const phaseKey = getPhaseForKind(step.kind)
+  const phaseInfo = phaseConfig[phaseKey]
+  const PhaseIcon = phaseInfo.icon
+
   const actionLabel = getActionLabelForStep(step.kind)
+  const isLocked = step.status === "locked"
+  const isDone = step.status === "completed" || step.status === "overachieved"
 
   return (
     <div
       className={cn(
-        "flex flex-col justify-between gap-3 rounded-lg border border-border bg-card p-3.5 shadow-sm transition-colors",
-        "hover:border-border/80 focus-within:ring-1 focus-within:ring-ring"
+        "flex flex-col justify-between gap-3 rounded-xl border border-border bg-card p-3.5 shadow-sm transition-colors",
+        "hover:border-border/80",
+        (isLocked || isDone) && "opacity-70"
       )}
       role="listitem"
     >
-      <div className="space-y-2">
-        <div className="flex flex-wrap items-center justify-between gap-1.5">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <Badge
-              variant="outline"
-              className={cn("px-2 py-0.5 text-[11px] font-medium gap-1 border", statusInfo.badgeClass)}
-            >
-              <StatusIcon className={cn("h-3 w-3 shrink-0", statusInfo.iconClass)} aria-hidden="true" />
-              <span>{statusInfo.label}</span>
-            </Badge>
-
-            {step.isHighYield && (
-              <Badge
-                variant="outline"
-                className="bg-brand-amber-soft text-brand-amber-ink border-brand-amber-line px-2 py-0.5 text-[11px] font-medium gap-1"
-              >
-                <Star className="h-3 w-3 fill-current shrink-0" aria-hidden="true" />
-                <span>High yield</span>
-              </Badge>
+      <div className="space-y-2.5">
+        {/* Header: phase + status */}
+        <div className="flex items-center justify-between gap-2">
+          <span
+            className={cn(
+              "inline-flex items-center gap-1.5 text-[11px] font-semibold tracking-wider uppercase",
+              isLocked || isDone ? "text-muted-foreground" : phaseInfo.iconClass
             )}
-          </div>
+          >
+            <span
+              aria-hidden
+              className={cn(
+                "size-1.5 rounded-full",
+                isLocked || isDone ? "bg-muted-foreground/60" : phaseInfo.dotClass
+              )}
+            />
+            {phaseInfo.label}
+          </span>
+
+          <Badge
+            variant="outline"
+            className={cn(
+              "gap-1 border px-2 py-0.5 text-[11px] font-medium",
+              statusInfo.badgeClass
+            )}
+          >
+            <StatusIcon className="size-3 shrink-0" aria-hidden="true" />
+            {statusInfo.label}
+          </Badge>
         </div>
 
-        <div className="space-y-1">
-          <h3 className="text-sm font-semibold leading-snug text-foreground break-words">
-            {step.title}
-          </h3>
+        {/* Title */}
+        <h3
+          className={cn(
+            "text-sm leading-snug font-semibold break-words",
+            isLocked || isDone ? "text-muted-foreground" : "text-foreground"
+          )}
+        >
+          {step.title}
+        </h3>
 
-          <p className="text-xs leading-relaxed text-muted-foreground break-words">
+        {/* Reason caption */}
+        {step.reason && !isDone ? (
+          <p className="text-xs leading-relaxed break-words text-muted-foreground">
             {step.reason}
-            {step.evidence && step.evidence !== "Not required" && (
-              <span className="ml-1 font-medium text-foreground">
-                • {step.evidence}
-              </span>
-            )}
           </p>
-        </div>
+        ) : null}
+
+        {/* Evidence — separate quiet line */}
+        {step.evidence && step.evidence !== "Not required" && !isDone ? (
+          <p className="flex items-center gap-1.5 text-xs text-muted-foreground/80">
+            <Star className="size-3 shrink-0" aria-hidden="true" />
+            {step.evidence}
+          </p>
+        ) : null}
       </div>
 
+      {/* Footer action strip */}
       <div className="pt-1">
         <Button
           variant="outline"
           size="sm"
           className={cn(
-            "w-full h-11 sm:h-9 px-3 text-xs font-semibold shrink-0 gap-1.5",
-            "border-brand-violet-line bg-brand-violet-soft text-brand-violet-ink hover:bg-brand-violet hover:text-brand-violet-foreground",
-            "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+            "h-10 w-full shrink-0 gap-1.5 px-3 text-xs font-semibold sm:h-9",
+            isLocked ? "border-border bg-muted text-muted-foreground hover:bg-muted" : phaseInfo.buttonClass,
+            "focus-visible:ring-2 focus-visible:ring-offset-1"
           )}
           onClick={() => onNavigate(getNavigationTargetForStep(step))}
           aria-label={`${actionLabel}: ${step.title}`}
+          disabled={isLocked || isDone}
         >
-          <span>{actionLabel}</span>
+          <span>{isLocked ? "Locked" : isDone ? "Done" : actionLabel}</span>
         </Button>
       </div>
     </div>

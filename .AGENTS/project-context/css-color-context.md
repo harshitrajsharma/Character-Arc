@@ -60,15 +60,23 @@ semantic derivatives generated with `color-mix(in oklch, ...)`.
 | Violet | Structured learning, interpretation, exploration   | Exams, quizzes, skill analysis, generated insight  |
 | Amber  | Time, attention, momentum, milestones              | Deadlines, connectors, reminders, day progress     |
 
+> **Legacy alias:** the mock-tests tool UI predates this contract and uses a
+> `brand-berry` family (`bg-brand-berry-soft`, `text-brand-berry-ink`, ...).
+> `--brand-berry-*` is defined in `app/globals.css` as an alias of the violet
+> family (the designated exams/structured-learning family), not as a new hue.
+> Prefer `brand-violet-*` in new code.
+
 Every family has these roles:
 
-| Suffix       | Example                      | Use                                                         |
-| ------------ | ---------------------------- | ----------------------------------------------------------- |
-| Base         | `bg-brand-cyan`              | Small solid icon tiles, progress marks, selected indicators |
-| `soft`       | `bg-brand-cyan-soft`         | Low-emphasis tinted background                              |
-| `line`       | `border-brand-cyan-line`     | Tinted border, track, divider, or focus-adjacent line       |
-| `ink`        | `text-brand-cyan-ink`        | Readable tinted text on neutral or soft backgrounds         |
-| `foreground` | `text-brand-cyan-foreground` | Text or icons placed directly on the base color             |
+| Suffix          | Example                       | Use                                                         |
+| --------------- | ----------------------------- | ----------------------------------------------------------- |
+| Base            | `bg-brand-cyan`               | Small solid icon tiles, progress marks, selected indicators |
+| `soft`          | `bg-brand-cyan-soft`          | Low-emphasis tinted background                              |
+| `surface`       | `bg-brand-cyan-surface`       | Tinted repeated cards or rows inside a neutral tool panel   |
+| `surface-hover` | `bg-brand-cyan-surface-hover` | Hover or keyboard-focus surface for a tinted repeated item  |
+| `line`          | `border-brand-cyan-line`      | Tinted border, track, divider, or focus-adjacent line       |
+| `ink`           | `text-brand-cyan-ink`         | Readable tinted text on neutral or soft backgrounds         |
+| `foreground`    | `text-brand-cyan-foreground`  | Text or icons placed directly on the base color             |
 
 Correct composition:
 
@@ -224,6 +232,8 @@ it does not repaint the entire interface.
 2. Choose the closest brand family from the table above.
 3. Use `soft` for backgrounds, `line` for boundaries, `ink` for readable tinted
    text, and the base only for small strong marks.
+   Use `surface` and `surface-hover` only for repeated interactive entities that
+   need stronger category recognition than a quiet section tint.
 4. Keep routine controls and text neutral.
 5. Keep status colors semantically correct even when they differ from the
    feature family.

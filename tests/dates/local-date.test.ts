@@ -2,6 +2,7 @@
 import { describe, expect, test } from "bun:test"
 
 import {
+  formatDateInTimeZone,
   formatIsoLocalDate,
   parseIsoLocalDate,
 } from "../../lib/dates/local-date"
@@ -29,5 +30,31 @@ describe("local date helpers", () => {
     const date = parseIsoLocalDate("2028-02-29")
 
     expect(date && formatIsoLocalDate(date)).toBe("2028-02-29")
+  })
+
+  test("round-trips the date picker's earliest default year", () => {
+    const date = parseIsoLocalDate("1900-01-01")
+
+    expect(date?.getFullYear()).toBe(1900)
+    expect(date && formatIsoLocalDate(date)).toBe("1900-01-01")
+  })
+
+  test("formats one instant in the exam timezone", () => {
+    const instant = new Date("2026-08-01T20:30:00.000Z")
+
+    expect(formatDateInTimeZone(instant, "Asia/Kolkata")).toBe("2026-08-02")
+    expect(formatDateInTimeZone(instant, "America/New_York")).toBe(
+      "2026-08-01"
+    )
+  })
+
+  test("falls back safely when a stored timezone is invalid", () => {
+    expect(
+      formatDateInTimeZone(
+        new Date("2026-08-01T20:30:00.000Z"),
+        "Not/A_Timezone",
+        "UTC"
+      )
+    ).toBe("2026-08-01")
   })
 })

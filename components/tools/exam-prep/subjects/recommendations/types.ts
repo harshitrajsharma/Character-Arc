@@ -1,5 +1,8 @@
 import type { SyllabusStage } from "@/components/tools/exam-prep/subjects/syllabus/syllabus-model"
-import type { StudyPathStepKind, StudyPathStep } from "@/lib/tools/exam-prep/study-path"
+import type {
+  StudyPathStepKind,
+  StudyPathStep,
+} from "@/lib/tools/exam-prep/study-path"
 
 export function isPendingStudyPathStep(step: StudyPathStep): boolean {
   return step.status !== "completed" && step.status !== "overachieved"
@@ -13,7 +16,9 @@ export interface NavigationTarget {
   timestamp: number
 }
 
-export function getNavigationTargetForStep(step: StudyPathStep): NavigationTarget {
+export function getNavigationTargetForStep(
+  step: StudyPathStep
+): NavigationTarget {
   let stage: SyllabusStage = "learning"
   if (step.kind === "learn") {
     stage = "learning"
@@ -21,14 +26,23 @@ export function getNavigationTargetForStep(step: StudyPathStep): NavigationTarge
     stage = "revision"
   } else if (step.kind === "practice") {
     stage = "practice"
-  } else if (step.kind === "chapter-test" || step.kind === "subject-test" || step.kind === "remediation") {
+  } else if (
+    step.kind === "chapter-test" ||
+    step.kind === "subject-test" ||
+    step.kind === "remediation"
+  ) {
     stage = "test"
   }
 
   return {
     stage,
     chapterId: step.kind === "subject-test" ? undefined : step.chapterId,
-    topicId: (step.kind === "learn" || step.kind === "revise" || step.kind === "practice") ? step.topicId : undefined,
+    topicId:
+      step.kind === "learn" ||
+      step.kind === "revise" ||
+      step.kind === "practice"
+        ? step.topicId
+        : undefined,
     type: step.kind,
     timestamp: Date.now(),
   }
