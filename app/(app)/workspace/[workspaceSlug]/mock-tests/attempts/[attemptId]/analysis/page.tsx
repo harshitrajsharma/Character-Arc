@@ -109,8 +109,8 @@ export default async function AttemptAnalysisPage({
         </div>
 
         {isEvaluated ? (
-          <div className="flex flex-wrap items-center gap-3 border-t border-border bg-brand-berry-soft/20 px-6 py-4">
-            <LightbulbIcon className="size-5 shrink-0 text-brand-berry-ink" aria-hidden="true" />
+          <div className="flex flex-wrap items-center gap-3 border-t border-border bg-brand-violet-soft/20 px-6 py-4">
+            <LightbulbIcon className="size-5 shrink-0 text-brand-violet-ink" aria-hidden="true" />
             <p className="min-w-0 flex-1 text-sm leading-6">{analysis.recommendation}</p>
             <Button
               variant="outline"
@@ -162,7 +162,7 @@ export default async function AttemptAnalysisPage({
                     </div>
                     <div className="h-1.5 w-20 overflow-hidden rounded-full bg-muted">
                       <div
-                        className="h-full rounded-full bg-brand-berry"
+                        className="h-full rounded-full bg-brand-violet"
                         style={{ width: `${Math.min(100, topic.proficiency)}%` }}
                       />
                     </div>

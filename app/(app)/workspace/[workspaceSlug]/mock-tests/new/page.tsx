@@ -22,7 +22,7 @@ export default async function NewMockTestPage({
         title="New mock test"
         description="Give your test a blueprint first. You can add questions, set marks, and publish it afterwards."
         icon={<ListChecksIcon aria-hidden="true" />}
-        iconClassName="bg-brand-berry-soft text-brand-berry-ink"
+        iconClassName="bg-brand-violet-soft text-brand-violet-ink"
       />
       <div className="mt-8 rounded-lg border bg-card p-6">
         <NewAssessmentForm workspaceSlug={workspaceSlug} />
