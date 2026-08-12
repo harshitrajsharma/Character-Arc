@@ -243,15 +243,8 @@
 
   /* berry is a legacy alias of the violet family used by the mock-tests
      tool UI. Kept as an alias (not a new hue) so existing utilities such as
-     bg-brand-berry-soft keep working and stay on the exams/structured-learning
+     Legacy notes removed
      family. Prefer brand-violet-* in new code. */
-  --brand-berry: var(--brand-violet);
-  --brand-berry-soft: var(--brand-violet-soft);
-  --brand-berry-surface: var(--brand-violet-surface);
-  --brand-berry-surface-hover: var(--brand-violet-surface-hover);
-  --brand-berry-line: var(--brand-violet-line);
-  --brand-berry-ink: var(--brand-violet-ink);
-  --brand-berry-foreground: var(--brand-violet-foreground);
 
   --success-soft: color-mix(in oklch, var(--success) 12%, var(--background));
   --success-line: color-mix(in oklch, var(--success) 30%, var(--background));
@@ -325,13 +318,6 @@
   --color-brand-violet-line: var(--brand-violet-line);
   --color-brand-violet-ink: var(--brand-violet-ink);
   --color-brand-violet-foreground: var(--brand-violet-foreground);
-  --color-brand-berry: var(--brand-berry);
-  --color-brand-berry-soft: var(--brand-berry-soft);
-  --color-brand-berry-surface: var(--brand-berry-surface);
-  --color-brand-berry-surface-hover: var(--brand-berry-surface-hover);
-  --color-brand-berry-line: var(--brand-berry-line);
-  --color-brand-berry-ink: var(--brand-berry-ink);
-  --color-brand-berry-foreground: var(--brand-berry-foreground);
   --color-brand-contrast: var(--brand-contrast);
   --color-canvas-graphite: var(--canvas-graphite);
   --color-canvas-wine: var(--canvas-wine);
