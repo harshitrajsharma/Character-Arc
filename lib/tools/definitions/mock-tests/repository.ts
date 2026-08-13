@@ -926,3 +926,35 @@ export async function getWeakTopics(
     evidenceCount: row.evidenceCount,
   }))
 }
+
+export const getAttemptForExamRoom = cache(
+  async (
+    attemptId: string
+  ): Promise<{ attempt: PlayerAttempt; workspaceSlug: string } | null> => {
+    const parsed = z.uuid().safeParse(attemptId)
+    if (!parsed.success) return null
+
+    const attemptRow = await prisma.attempt.findUnique({
+      where: { id: attemptId },
+      select: {
+        id: true,
+        workspaceId: true,
+        userId: true,
+        workspace: { select: { slug: true } },
+      },
+    })
+    if (!attemptRow) return null
+
+    const playerAttempt = await getAttemptForPlayer(
+      attemptRow.workspaceId,
+      attemptRow.id,
+      attemptRow.userId
+    )
+    if (!playerAttempt) return null
+
+    return {
+      attempt: playerAttempt,
+      workspaceSlug: attemptRow.workspace.slug,
+    }
+  }
+)

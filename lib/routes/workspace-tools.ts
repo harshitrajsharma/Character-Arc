@@ -1,5 +1,7 @@
 export const workspaceRoutes = {
   home: (slug: string) => `/workspace/${encodeURIComponent(slug)}`,
+  settings: (slug: string) => `/workspace/${encodeURIComponent(slug)}/settings`,
+  mcpSettings: (slug: string) => `/workspace/${encodeURIComponent(slug)}/settings?tab=mcp`,
   tools: {
     home: "/tools",
     detail: (toolSlug: string) => `/tools/${encodeURIComponent(toolSlug)}`,
@@ -44,6 +46,8 @@ export const workspaceRoutes = {
   mockTests: {
     home: (slug: string) =>
       `/workspace/${encodeURIComponent(slug)}/mock-tests`,
+    authoring: (slug: string) =>
+      `/workspace/${encodeURIComponent(slug)}/mock-tests/authoring`,
     new: (slug: string) =>
       `/workspace/${encodeURIComponent(slug)}/mock-tests/new`,
     detail: (slug: string, assessmentId: string) =>
@@ -79,3 +83,6 @@ export function resolveToolDestination({
   if (!installed) return catalogRoute
   return workspaceRoutes.toolHome(workspaceSlug, toolKey) ?? catalogRoute
 }
+
+
+

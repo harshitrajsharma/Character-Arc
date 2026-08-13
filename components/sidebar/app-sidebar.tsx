@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { useParams, usePathname } from "next/navigation"
+import Link from "next/link"
 import type { getAppShellData } from "@/lib/workspaces/workspace-access"
 
 import { NavMain } from "@/components/sidebar/nav-main"
@@ -10,13 +11,18 @@ import { TeamSwitcher } from "@/components/sidebar/team-switcher"
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar"
 import {
   HomeIcon,
   BlocksIcon,
   WrenchIcon,
+  SettingsIcon,
 } from "lucide-react"
 
 type AppShellData = NonNullable<Awaited<ReturnType<typeof getAppShellData>>>
@@ -68,7 +74,24 @@ export function AppSidebar({
       <SidebarContent>
         <NavWorkspaces workspaces={memberships} />
       </SidebarContent>
+      {currentSlug ? (
+        <SidebarFooter>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                isActive={pathname.includes("/settings")}
+                tooltip="MCP & Settings"
+                render={<Link href={`/workspace/${currentSlug}/settings`} />}
+              >
+                <SettingsIcon />
+                <span>MCP & Settings</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarFooter>
+      ) : null}
       <SidebarRail />
     </Sidebar>
   )
 }
+

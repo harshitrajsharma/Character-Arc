@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Writes progress evidence from a graded attempt into the shared progress
  * system. This is the bridge between the mock-tests tool and exam-prep:
  * questions targeted at exam-prep chapter/topic blocks produce
@@ -26,14 +26,14 @@ function round4(value: number): number {
   return Math.round(value * 10000) / 10000
 }
 
-/** Confidence heuristic: more attempts → more confidence in the estimate. */
+/** Confidence heuristic: more attempts -> more confidence in the estimate. */
 function confidenceForCount(count: number): number {
   return round2(Math.min(95, 40 + count * 10))
 }
 
 /**
- * Creates one ProgressEvidence row per (question, target block) and rebuilds
- * the TopicProgress projection for every touched block. Returns evidence ids.
+ * Creates ProgressEvidence rows efficiently via createMany per (question, target block)
+ * and rebuilds the TopicProgress projection for every touched block. Returns evidence ids.
  */
 export async function writeAttemptEvidence(
   tx: Prisma.TransactionClient,
@@ -45,6 +45,7 @@ export async function writeAttemptEvidence(
     questions: QuestionEvidenceInput[]
   }
 ): Promise<string[]> {
+  const evidenceRows: Prisma.ProgressEvidenceCreateManyInput[] = []
   const evidenceIds: string[] = []
   const blockKeys = new Set<string>()
 
@@ -56,30 +57,34 @@ export async function writeAttemptEvidence(
       const maxValue = round4(question.marks * factor)
       const id = crypto.randomUUID()
 
-      await tx.progressEvidence.create({
-        data: {
-          id,
-          workspaceId: args.workspaceId,
-          userId: args.userId,
-          blockId: target.blockId,
-          attemptId: args.attemptId,
-          sourceType: EvidenceSourceType.ASSESSMENT_ATTEMPT,
-          evidenceKey: "mock-tests.attempt",
-          numericValue,
-          maxValue,
-          confidence: round2(factor),
-          properties: {
-            questionId: question.questionId,
-            isCorrect: question.isCorrect,
-            awardedMarks: question.awardedMarks,
-            marks: question.marks,
-          },
-          occurredAt: args.occurredAt,
+      evidenceRows.push({
+        id,
+        workspaceId: args.workspaceId,
+        userId: args.userId,
+        blockId: target.blockId,
+        attemptId: args.attemptId,
+        sourceType: EvidenceSourceType.ASSESSMENT_ATTEMPT,
+        evidenceKey: "mock-tests.attempt",
+        numericValue,
+        maxValue,
+        confidence: round2(factor),
+        properties: {
+          questionId: question.questionId,
+          isCorrect: question.isCorrect,
+          awardedMarks: question.awardedMarks,
+          marks: question.marks,
         },
+        occurredAt: args.occurredAt,
       })
       evidenceIds.push(id)
       blockKeys.add(target.blockId)
     }
+  }
+
+  if (evidenceRows.length > 0) {
+    await tx.progressEvidence.createMany({
+      data: evidenceRows,
+    })
   }
 
   for (const blockId of blockKeys) {

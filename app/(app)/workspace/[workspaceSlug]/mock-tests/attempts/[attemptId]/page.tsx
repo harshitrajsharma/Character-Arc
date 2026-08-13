@@ -1,4 +1,4 @@
-import type { Metadata } from "next"
+﻿import type { Metadata } from "next"
 import { notFound, redirect } from "next/navigation"
 
 import { AttemptPlayer } from "@/components/tools/mock-tests/attempt-player"
@@ -34,9 +34,9 @@ export default async function AttemptPage({
   }
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-4 pt-24 pb-8 sm:pb-10 md:px-6 xl:px-10">
+    <main className="mx-auto w-full max-w-7xl px-4 pt-20 pb-8 sm:pb-10 md:px-6 xl:px-8">
       {attempt.instructions ? (
-        <p className="mb-5 whitespace-pre-wrap rounded-lg border border-border/70 bg-muted/30 px-4 py-3 text-sm leading-6 text-muted-foreground">
+        <p className="mb-4 whitespace-pre-wrap rounded-xl border border-border/80 bg-muted/20 px-4 py-3 text-xs leading-relaxed text-muted-foreground shadow-2xs">
           {attempt.instructions}
         </p>
       ) : null}

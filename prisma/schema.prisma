@@ -216,6 +216,7 @@ model Profile {
   skills            UserSkill[]
   toolInstallations ToolInstallation[] @relation("ToolInstaller")
   toolRuns          ToolRun[]          @relation("ToolRunActor")
+  createdMcpTokens McpToken[]        @relation("McpTokenCreator")
   scheduledTests    ScheduledTest[]
   testRecords       TestRecord[]
 
@@ -267,6 +268,7 @@ model Workspace {
   scheduledTestTargets ScheduledTestChapter[]
   testRecordTargets    TestRecordChapter[]
   testRecords          TestRecord[]
+  mcpTokens            McpToken[]
 
   @@index([createdById])
   @@index([kind, archivedAt])
@@ -1122,3 +1124,25 @@ model TestRecordChapter {
   @@index([workspaceId, chapterId])
   @@map("test_record_chapters")
 }
+
+
+model McpToken {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspaceId String    @map("workspace_id") @db.Uuid
+  createdById String    @map("created_by_id") @db.Uuid
+  name        String
+  keyHash     String    @unique @map("key_hash")
+  keyPrefix   String    @map("key_prefix")
+  lastUsedAt  DateTime? @map("last_used_at") @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  revokedAt   DateTime? @map("revoked_at") @db.Timestamptz(3)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy Profile   @relation("McpTokenCreator", fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, revokedAt])
+  @@index([createdById])
+  @@map("mcp_tokens")
+}
+
+

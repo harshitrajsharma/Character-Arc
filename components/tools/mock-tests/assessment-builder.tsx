@@ -17,6 +17,7 @@ import {
   LayersIcon,
   ListChecksIcon,
   Loader2Icon,
+  PlayIcon,
   PlusIcon,
   SearchIcon,
   Trash2Icon,
@@ -49,7 +50,9 @@ import { createIdempotencyKey } from "@/lib/forms/idempotency-key"
 import {
   saveQuestionsAction,
   updateAssessmentAction,
+  publishAssessmentAction,
 } from "@/lib/tools/mock-tests/actions/assessment-actions"
+import { createAttemptAction } from "@/lib/tools/mock-tests/actions/attempt-actions"
 import {
   questionKindLabel,
   formatNumber,
@@ -404,6 +407,7 @@ function StudentPaperPreview({
     return [...map.entries()]
   }, [entries])
 
+  
   return (
     <div className="space-y-6">
       <div className="rounded-lg border border-border bg-card px-4 py-4 sm:px-5">
@@ -777,6 +781,76 @@ export function AssessmentBuilder({
     })
   }
 
+  function handlePublishAndStartExam() {
+    if (entries.length === 0) {
+      toast.warning("Incomplete Paper", {
+        description: "Add at least one question before publishing & attempting.",
+      })
+      return
+    }
+
+    if (!validateQuestionValues()) return
+
+    const durationMinutes = duration.trim() === "" ? null : Number(duration)
+    const marks = totalMarks.trim() === "" ? null : Number(totalMarks)
+
+    const questions = entries.map((entry) => ({
+      questionId: entry.id,
+      section: entry.section ? entry.section.trim() : null,
+      position: entry.position,
+      marks: entry.marks,
+      negativeMarks: entry.negativeMarks,
+    }))
+
+    startSaving(async () => {
+      try {
+        const detailsResult = await updateAssessmentAction({
+          workspaceSlug,
+          assessmentId: assessment.id,
+          expectedRevision: revision,
+          title: title.trim(),
+          instructions: instructions.trim() === "" ? null : instructions.trim(),
+          durationMinutes,
+          totalMarks: marks,
+          idempotencyKey: detailsKey,
+        })
+        const questionsResult = await saveQuestionsAction({
+          workspaceSlug,
+          assessmentId: assessment.id,
+          expectedRevision: detailsResult.revision,
+          questions,
+          idempotencyKey: questionsKey,
+        })
+
+        const currentRev = questionsResult.revision
+        setRevision(currentRev)
+
+        if (assessment.status !== "published") {
+          await publishAssessmentAction({
+            workspaceSlug,
+            assessmentId: assessment.id,
+            expectedRevision: currentRev,
+            idempotencyKey: createIdempotencyKey(),
+          })
+        }
+
+        const attemptRes = await createAttemptAction({
+          workspaceSlug,
+          assessmentId: assessment.id,
+          idempotencyKey: createIdempotencyKey(),
+        })
+
+        toast.success("Exam paper published! Entering CBT Exam Room...")
+        router.push(`/mock-test/${encodeURIComponent(attemptRes.attemptId)}`)
+      } catch (error) {
+        setDetailsKey(createIdempotencyKey())
+        setQuestionsKey(createIdempotencyKey())
+        reportSaveError(error, "Failed to publish & start exam.")
+      }
+    })
+  }
+
+
   return (
     <div className="space-y-6">
       {/* Blueprint strip */}
@@ -818,6 +892,10 @@ export function AssessmentBuilder({
             >
               <PlusIcon data-icon="inline-start" aria-hidden="true" />
               Add from bank
+            </Button>
+            <Button onClick={handlePublishAndStartExam} disabled={saving} className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-1 text-xs">
+              <PlayIcon className="size-3.5 fill-white stroke-none" />
+              Publish & Attempt Now
             </Button>
             <Button onClick={handleSaveAll} disabled={!isDirty || saving}>
               {saving ? (
@@ -1592,7 +1670,7 @@ export function AssessmentBuilder({
               className="w-full"
               render={
                 <Link
-                  href={workspaceRoutes.mockTests.questionNew(workspaceSlug)}
+                  href={`${workspaceRoutes.mockTests.questionNew(workspaceSlug)}?fromAssessmentId=${encodeURIComponent(assessment.id)}`}
                 />
               }
             >

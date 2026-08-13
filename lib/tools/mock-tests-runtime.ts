@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Runtime helpers for core.mock-tests action executors: idempotent tool runs,
  * serializable transactions, and installation authorization. Modeled on the
  * exam-prep scheduled-test runtime, but scoped to the `core.mock-tests`
@@ -66,6 +66,7 @@ export async function withMockTestsSerializableTransaction<T>(
     try {
       return await prisma.$transaction(operation, {
         isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        timeout: 30000,
       })
     } catch (error) {
       lastError = error
@@ -378,3 +379,4 @@ export async function failMockTestsRunAndThrow(
   if (isPublicError) throw error
   throw new ToolActionExecutionError(message, "RUN_FAILED")
 }
+

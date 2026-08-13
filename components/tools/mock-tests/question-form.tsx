@@ -133,9 +133,11 @@ function emptyOptions(count: number): OptionRow[] {
 export function QuestionForm({
   workspaceSlug,
   questionId,
+  fromAssessmentId,
   initial,
   targetableBlocks,
 }: {
+  fromAssessmentId?: string
   workspaceSlug: string
   questionId?: string
   initial?: {
@@ -404,7 +406,9 @@ export function QuestionForm({
         idempotencyKey,
       }
 
-      const questionsHref = workspaceRoutes.mockTests.questions(workspaceSlug)
+      const questionsHref = fromAssessmentId
+        ? workspaceRoutes.mockTests.edit(workspaceSlug, fromAssessmentId)
+        : workspaceRoutes.mockTests.questions(workspaceSlug)
 
       startTransition(async () => {
         try {
@@ -439,7 +443,7 @@ export function QuestionForm({
               setSubmitAttempted(false)
               setIdempotencyKey(createIdempotencyKey())
             } else {
-              toast.success("Question created")
+              toast.success(fromAssessmentId ? "Question created! Returning to test builder..." : "Question created")
               router.push(questionsHref)
             }
           }
@@ -604,8 +608,7 @@ export function QuestionForm({
           )}
         >
           {/* Authoring Surface Card */}
-          <Card className="border-0 bg-transparent shadow-none ring-0 overflow-visible">
-            <CardContent className="flex flex-col gap-6 p-0">
+          
           {/* SECTION: Question Setup */}
           <section className="space-y-3">
             <div className="rounded-xl border border-border bg-muted/30 px-4 py-4 sm:px-5 lg:px-6 lg:py-5">
@@ -622,7 +625,7 @@ export function QuestionForm({
               <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-[minmax(11rem,0.85fr)_minmax(11rem,0.85fr)_minmax(16rem,1.3fr)] lg:gap-6">
                 {/* Question Type */}
                 <div className="flex min-w-0 flex-col gap-1">
-                  <Label htmlFor="question-type" className="text-xs font-medium text-muted-foreground">
+                  <Label htmlFor="question-type" className="text-xs font-bold text-foreground">
                     Question type
                   </Label>
                   <Select
@@ -651,7 +654,7 @@ export function QuestionForm({
 
                 {/* Difficulty */}
                 <div className="flex min-w-0 flex-col gap-1">
-                  <Label htmlFor="question-difficulty" className="text-xs font-medium text-muted-foreground">
+                  <Label htmlFor="question-difficulty" className="text-xs font-bold text-foreground">
                     Difficulty
                   </Label>
                   <Select
@@ -708,7 +711,7 @@ export function QuestionForm({
 
                 {/* Exam Prep Topics */}
                 <div className="flex min-w-0 flex-col gap-1 sm:col-span-2 lg:col-auto">
-                  <Label className="text-xs font-medium text-muted-foreground">
+                  <Label className="text-xs font-bold text-foreground">
                     Exam Prep topics <span className="font-normal text-muted-foreground/70">(optional)</span>
                   </Label>
                   <TopicSelectorDialog
@@ -995,7 +998,7 @@ export function QuestionForm({
                     {/* Interactive Correct Answer Key Strip */}
                     <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-xs font-medium text-muted-foreground">
+                        <span className="text-xs font-bold text-foreground">
                           Mark Correct Answer:
                         </span>
                         <div className="flex items-center gap-1.5">
@@ -1191,8 +1194,7 @@ export function QuestionForm({
               </div>
             )}
           </section>
-            </CardContent>
-          </Card>
+            
         </div>
 
         {/* Live Student Preview Column */}

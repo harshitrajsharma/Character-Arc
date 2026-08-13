@@ -1,9 +1,9 @@
-import type { Metadata } from "next"
+﻿import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import Link from "next/link"
 import {
+  ArrowLeftIcon,
   CheckCircle2Icon,
-  ChevronRightIcon,
   ListChecksIcon,
   LightbulbIcon,
   SparklesIcon,
@@ -11,17 +11,17 @@ import {
   XCircleIcon,
 } from "lucide-react"
 
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { RichContent } from "@/components/tools/mock-tests/editor/rich-content"
-import { questionKindLabel, formatNumber } from "@/lib/tools/mock-tests/kind-labels"
+import { formatNumber } from "@/lib/tools/mock-tests/kind-labels"
 import { getAttemptAnalysis } from "@/lib/tools/definitions/mock-tests/repository"
 import { workspaceRoutes } from "@/lib/routes/workspace-tools"
 import {
   getWorkspaceIdentity,
   requireActiveToolInstallation,
 } from "@/lib/workspaces/workspace-access"
+import { AnalysisReviewList } from "@/components/tools/mock-tests/analysis-review-list"
+import { StartAttemptButton } from "@/components/tools/mock-tests/start-attempt-button"
 
 export const metadata: Metadata = { title: "Attempt Analysis" }
 
@@ -47,44 +47,64 @@ export default async function AttemptAnalysisPage({
   const isEvaluated = analysis.status === "EVALUATED"
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 pt-24 pb-8 sm:pb-10 md:px-6 xl:px-10">
+    <main className="mx-auto w-full max-w-6xl px-4 pt-20 pb-8 sm:pb-10 md:px-6 xl:px-10 space-y-6">
+      {/* Top Header Navigation Strip */}
+      <div className="flex items-center justify-between gap-4 border-b border-border pb-4">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 text-xs gap-1.5 text-muted-foreground hover:text-foreground"
+          render={<Link href={workspaceRoutes.mockTests.home(workspaceSlug)} />}
+        >
+          <ArrowLeftIcon className="size-3.5" />
+          Back to Mock Tests Dashboard
+        </Button>
+
+        <div className="flex items-center gap-2">
+          <StartAttemptButton
+            workspaceSlug={workspaceSlug}
+            assessmentId={analysis.assessmentId}
+          />
+        </div>
+      </div>
+
       {/* Score card */}
-      <section className="overflow-hidden rounded-2xl border bg-card">
+      <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-xs">
         <div className="grid gap-6 p-6 sm:p-8 md:grid-cols-[1.2fr_1fr] md:items-center">
           <div>
             <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-              <ListChecksIcon className="size-4" aria-hidden="true" />
+              <ListChecksIcon className="size-4 text-brand-violet-ink" aria-hidden="true" />
               {analysis.assessmentTitle}
             </p>
             <h1 className="mt-1 font-heading text-3xl font-semibold sm:text-4xl">
-              {isEvaluated ? "Attempt analysis" : "Attempt in review"}
+              {isEvaluated ? "Attempt Analysis" : "Attempt in Review"}
             </h1>
             <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground">
               {isEvaluated
-                ? "Instant, explainable feedback on every question — including what the correct answer was and why."
+                ? "Instant, explainable feedback on every question — including correct answers, derivations, and weak topics."
                 : "Your answers are saved. The result will appear here once grading completes."}
             </p>
 
             <div className="mt-5 flex flex-wrap gap-2">
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
                 <CheckCircle2Icon className="size-3.5" aria-hidden="true" />
-                {analysis.correctCount} correct
+                {analysis.correctCount} Correct
               </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-destructive/20 bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-destructive/20 bg-destructive/10 px-3 py-1 text-xs font-semibold text-destructive">
                 <XCircleIcon className="size-3.5" aria-hidden="true" />
-                {analysis.incorrectCount} incorrect
+                {analysis.incorrectCount} Incorrect
               </span>
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2.5 py-1 text-xs font-medium text-muted-foreground">
-                {analysis.unansweredCount} unanswered
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-3 py-1 text-xs font-semibold text-muted-foreground">
+                {analysis.unansweredCount} Unanswered
               </span>
             </div>
           </div>
 
-          <div className="rounded-xl border border-border/70 bg-muted/30 p-5 text-center">
-            <p className="text-sm font-medium text-muted-foreground">
-              Your score
+          <div className="rounded-xl border border-border/80 bg-muted/30 p-5 text-center shadow-2xs">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Your Score
             </p>
-            <p className="mt-1 font-mono text-4xl font-bold tabular-nums">
+            <p className="mt-1 font-mono text-4xl font-bold tabular-nums text-foreground">
               {formatNumber(analysis.score)}
               <span className="text-lg font-medium text-muted-foreground">
                 {" "}
@@ -101,8 +121,7 @@ export default async function AttemptAnalysisPage({
             </p>
             {analysis.accuracy !== null && isEvaluated ? (
               <p className="mt-1 text-xs text-muted-foreground">
-                {formatNumber(analysis.accuracy)}% accuracy on attempted
-                questions
+                {formatNumber(analysis.accuracy)}% accuracy on attempted questions
               </p>
             ) : null}
           </div>
@@ -111,16 +130,17 @@ export default async function AttemptAnalysisPage({
         {isEvaluated ? (
           <div className="flex flex-wrap items-center gap-3 border-t border-border bg-brand-violet-soft/20 px-6 py-4">
             <LightbulbIcon className="size-5 shrink-0 text-brand-violet-ink" aria-hidden="true" />
-            <p className="min-w-0 flex-1 text-sm leading-6">{analysis.recommendation}</p>
+            <p className="min-w-0 flex-1 text-xs sm:text-sm leading-relaxed text-foreground">{analysis.recommendation}</p>
             <Button
               variant="outline"
               size="sm"
+              className="h-8 text-xs font-medium"
               render={
                 <Link href={workspaceRoutes.mockTests.new(workspaceSlug)} />
               }
             >
-              <SparklesIcon data-icon="inline-start" aria-hidden="true" />
-              New test
+              <SparklesIcon data-icon="inline-start" className="size-3.5 text-brand-violet-ink" aria-hidden="true" />
+              New Test Blueprint
             </Button>
           </div>
         ) : null}
@@ -129,40 +149,35 @@ export default async function AttemptAnalysisPage({
       {isEvaluated ? (
         <>
           {analysis.weakTopics.length > 0 ? (
-            <section aria-labelledby="weak-topics-title" className="mt-8">
-              <div className="flex items-end justify-between gap-4 border-b border-border pb-4">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Focus next
-                  </p>
-                  <h2
-                    id="weak-topics-title"
-                    className="mt-1 font-heading text-xl font-semibold"
-                  >
-                    Weak topics
-                  </h2>
-                </div>
+            <section aria-labelledby="weak-topics-title" className="mt-8 space-y-3">
+              <div className="border-b border-border pb-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Focus Next
+                </p>
+                <h2 id="weak-topics-title" className="mt-0.5 font-heading text-xl font-bold text-foreground">
+                  Weak Topics Analysis
+                </h2>
               </div>
-              <ul className="mt-4 grid gap-3 sm:grid-cols-2">
+              <ul className="grid gap-3 sm:grid-cols-2">
                 {analysis.weakTopics.map((topic) => (
                   <li
                     key={topic.blockId}
-                    className="flex items-center gap-3 rounded-lg border bg-card px-4 py-3"
+                    className="flex items-center gap-3 rounded-xl border border-border bg-card p-3.5 shadow-2xs"
                   >
-                    <TargetIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                    <TargetIcon className="size-4 shrink-0 text-brand-violet-ink" aria-hidden="true" />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">
-                        {topic.title ?? "Untitled topic"}
+                      <p className="truncate text-xs font-semibold text-foreground">
+                        {topic.title ?? "Untitled Topic"}
                       </p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
                         Proficiency {formatNumber(topic.proficiency)}% ·{" "}
                         {topic.evidenceCount}{" "}
                         {topic.evidenceCount === 1 ? "attempt" : "attempts"}
                       </p>
                     </div>
-                    <div className="h-1.5 w-20 overflow-hidden rounded-full bg-muted">
+                    <div className="h-1.5 w-20 overflow-hidden rounded-full bg-muted shrink-0">
                       <div
-                        className="h-full rounded-full bg-brand-violet"
+                        className="h-full rounded-full bg-brand-violet-ink"
                         style={{ width: `${Math.min(100, topic.proficiency)}%` }}
                       />
                     </div>
@@ -173,22 +188,17 @@ export default async function AttemptAnalysisPage({
           ) : null}
 
           {analysis.sections.length > 1 ? (
-            <section aria-labelledby="sections-title" className="mt-8">
-              <div className="flex items-end justify-between gap-4 border-b border-border pb-4">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Where the marks went
-                  </p>
-                  <h2
-                    id="sections-title"
-                    className="mt-1 font-heading text-xl font-semibold"
-                  >
-                    Section breakdown
-                  </h2>
-                </div>
+            <section aria-labelledby="sections-title" className="mt-8 space-y-3">
+              <div className="border-b border-border pb-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Where Marks Went
+                </p>
+                <h2 id="sections-title" className="mt-0.5 font-heading text-xl font-bold text-foreground">
+                  Sectional Performance Breakdown
+                </h2>
               </div>
-              <div className="mt-4 overflow-hidden rounded-lg border bg-card">
-                <div className="hidden grid-cols-[1fr_auto_auto_auto_auto] gap-4 border-b border-border bg-muted/50 px-4 py-2 text-xs font-medium text-muted-foreground md:grid">
+              <div className="overflow-hidden rounded-xl border border-border bg-card shadow-xs">
+                <div className="hidden grid-cols-[1fr_auto_auto_auto_auto] gap-4 border-b border-border bg-muted/40 px-4 py-2.5 text-xs font-semibold text-muted-foreground md:grid">
                   <span>Section</span>
                   <span className="w-16 text-right">Questions</span>
                   <span className="w-16 text-right">Correct</span>
@@ -200,24 +210,20 @@ export default async function AttemptAnalysisPage({
                     key={section.section}
                     className="grid gap-1 border-b border-border px-4 py-3 last:border-b-0 md:grid-cols-[1fr_auto_auto_auto_auto] md:items-center md:gap-4"
                   >
-                    <p className="text-sm font-medium">
-                      {section.section === "__all__"
-                        ? "All questions"
-                        : section.section}
+                    <p className="text-xs font-semibold text-foreground">
+                      {section.section === "__all__" ? "All questions" : section.section}
                     </p>
-                    <p className="text-sm tabular-nums text-muted-foreground md:w-16 md:text-right">
+                    <p className="text-xs tabular-nums text-muted-foreground md:w-16 md:text-right">
                       {section.questionCount}
                     </p>
-                    <p className="text-sm tabular-nums text-muted-foreground md:w-16 md:text-right">
+                    <p className="text-xs tabular-nums text-muted-foreground md:w-16 md:text-right">
                       {section.correctCount}
                     </p>
-                    <p className="text-sm font-medium tabular-nums md:w-20 md:text-right">
+                    <p className="text-xs font-mono font-bold tabular-nums md:w-20 md:text-right">
                       {formatNumber(section.score)} / {formatNumber(section.maxScore)}
                     </p>
-                    <p className="text-sm tabular-nums text-muted-foreground md:w-20 md:text-right">
-                      {section.accuracy !== null
-                        ? `${formatNumber(section.accuracy)}%`
-                        : "—"}
+                    <p className="text-xs tabular-nums text-muted-foreground md:w-20 md:text-right font-medium">
+                      {section.accuracy !== null ? `${formatNumber(section.accuracy)}%` : "—"}
                     </p>
                   </div>
                 ))}
@@ -225,201 +231,8 @@ export default async function AttemptAnalysisPage({
             </section>
           ) : null}
 
-          <section aria-labelledby="review-title" className="mt-8">
-            <div className="flex items-end justify-between gap-4 border-b border-border pb-4">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  Question by question
-                </p>
-                <h2
-                  id="review-title"
-                  className="mt-1 font-heading text-xl font-semibold"
-                >
-                  Review answers
-                </h2>
-              </div>
-            </div>
-
-            <ol className="mt-4 space-y-4">
-              {analysis.questions.map((question, index) => {
-                const isUnanswered =
-                  question.selectedKeys.length === 0 &&
-                  !question.answerText
-                const isCorrect = question.isCorrect === true
-                const isIncorrect = question.isCorrect === false
-                return (
-                  <li
-                    key={question.questionId}
-                    className="overflow-hidden rounded-lg border bg-card"
-                  >
-                    <div className="flex items-start gap-3 border-b border-border px-4 py-3">
-                      <span
-                        className={cn(
-                          "mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full",
-                          isCorrect
-                            ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                            : isIncorrect
-                              ? "bg-destructive/15 text-destructive"
-                              : "bg-muted text-muted-foreground"
-                        )}
-                      >
-                        {isCorrect ? (
-                          <CheckCircle2Icon className="size-4" aria-hidden="true" />
-                        ) : isIncorrect ? (
-                          <XCircleIcon className="size-4" aria-hidden="true" />
-                        ) : (
-                          <span className="text-xs font-bold">{index + 1}</span>
-                        )}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium">
-                          Question {index + 1}
-                          {question.section ? (
-                            <span className="ml-2 text-xs font-normal text-muted-foreground">
-                              {question.section}
-                            </span>
-                          ) : null}
-                        </p>
-                        <div className="mt-1 flex flex-wrap items-center gap-2">
-                          <Badge variant="outline">
-                            {questionKindLabel(question.kind)}
-                          </Badge>
-                          <span className="text-xs text-muted-foreground">
-                            {formatNumber(question.awardedMarks)} /{" "}
-                            {formatNumber(question.marks)} marks
-                            {question.negativeMarks < 0
-                              ? ` · -${formatNumber(-question.negativeMarks)} negative`
-                              : ""}
-                          </span>
-                        </div>
-                      </div>
-                      <ChevronRightIcon
-                        className="mt-1 size-4 text-muted-foreground"
-                        aria-hidden="true"
-                      />
-                    </div>
-
-                    <div className="px-4 py-4">
-                      <RichContent
-                        html={question.stem}
-                        className="text-sm leading-6"
-                      />
-
-                      {question.options.length > 0 ? (
-                        <ul className="mt-4 space-y-2">
-                          {question.options.map((option) => {
-                            const selected = question.selectedKeys.includes(
-                              option.key
-                            )
-                            const correct = question.correctKeys.includes(
-                              option.key
-                            )
-                            return (
-                              <li
-                                key={option.key}
-                                className={cn(
-                                  "flex items-start gap-3 rounded-xl border px-3.5 py-2.5 text-sm",
-                                  correct
-                                    ? "border-emerald-500/30 bg-emerald-500/5"
-                                    : selected
-                                      ? "border-destructive/30 bg-destructive/5"
-                                      : "border-border"
-                                )}
-                              >
-                                <span
-                                  className={cn(
-                                    "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full border font-mono text-xs font-semibold",
-                                    correct
-                                      ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                                      : selected
-                                        ? "border-destructive/50 bg-destructive/10 text-destructive"
-                                        : "border-border text-muted-foreground"
-                                  )}
-                                >
-                                  {option.key}
-                                </span>
-                                <RichContent
-                                  html={option.content}
-                                  className="min-w-0 flex-1 leading-6"
-                                />
-                                {correct ? (
-                                  <span className="shrink-0 text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                                    Correct answer
-                                  </span>
-                                ) : selected ? (
-                                  <span className="shrink-0 text-xs font-medium text-destructive">
-                                    Your answer
-                                  </span>
-                                ) : null}
-                              </li>
-                            )
-                          })}
-                        </ul>
-                      ) : question.kind === "NUMERIC" ? (
-                        <p className="mt-4 text-sm">
-                          <span className="text-muted-foreground">
-                            Your answer:{" "}
-                          </span>
-                          <span className="font-mono font-medium">
-                            {question.answerText ?? "—"}
-                          </span>
-                          <span className="mx-3 text-muted-foreground">·</span>
-                          <span className="text-muted-foreground">
-                            Correct:{" "}
-                          </span>
-                          <span className="font-mono font-medium text-emerald-600 dark:text-emerald-400">
-                            {question.numericAnswer !== null &&
-                            question.numericAnswer !== undefined
-                              ? formatNumber(question.numericAnswer)
-                              : "—"}
-                          </span>
-                        </p>
-                      ) : (
-                        <div className="mt-4 text-sm">
-                          <p>
-                            <span className="text-muted-foreground">
-                              Your answer:{" "}
-                            </span>
-                            <span className="whitespace-pre-wrap font-medium">
-                              {question.answerText ?? "—"}
-                            </span>
-                          </p>
-                          {question.modelAnswer ? (
-                            <p className="mt-1">
-                              <span className="text-muted-foreground">
-                                Model answer:{" "}
-                              </span>
-                              <span className="whitespace-pre-wrap font-medium text-emerald-600 dark:text-emerald-400">
-                                {question.modelAnswer}
-                              </span>
-                            </p>
-                          ) : null}
-                        </div>
-                      )}
-
-                      {isUnanswered ? (
-                        <p className="mt-3 text-xs font-medium text-muted-foreground">
-                          Unanswered — counted as incorrect.
-                        </p>
-                      ) : null}
-
-                      {question.explanation ? (
-                        <div className="mt-4 rounded-xl border border-border/70 bg-muted/30 px-4 py-3">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                            Explanation
-                          </p>
-                          <RichContent
-                            html={question.explanation}
-                            className="mt-1.5 text-sm leading-6"
-                          />
-                        </div>
-                      ) : null}
-                    </div>
-                  </li>
-                )
-              })}
-            </ol>
-          </section>
+          {/* Interactive Question-by-Question Review Component with Filter Pills */}
+          <AnalysisReviewList questions={analysis.questions} />
         </>
       ) : null}
     </main>
