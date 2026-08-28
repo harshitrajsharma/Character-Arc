@@ -37,7 +37,6 @@ import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import { reportSaveError } from "@/components/tools/mock-tests/save-error"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -467,6 +466,7 @@ export function QuestionForm({
       idempotencyKey,
       validate,
       workspaceSlug,
+      fromAssessmentId,
       isEdit,
       questionId,
       router,
@@ -677,31 +677,31 @@ export function QuestionForm({
                       </SelectItem>
                       <SelectItem value="1">
                         <span className="flex items-center gap-2">
-                          <span className="size-2 rounded-full bg-emerald-500" />
+                          <span className="size-2 rounded-full bg-muted-foreground/40" />
                           Level 1 · Easy
                         </span>
                       </SelectItem>
                       <SelectItem value="2">
                         <span className="flex items-center gap-2">
-                          <span className="size-2 rounded-full bg-emerald-500" />
+                          <span className="size-2 rounded-full bg-muted-foreground/40" />
                           Level 2 · Easy
                         </span>
                       </SelectItem>
                       <SelectItem value="3">
                         <span className="flex items-center gap-2">
-                          <span className="size-2 rounded-full bg-amber-500" />
+                          <span className="size-2 rounded-full bg-brand-amber" />
                           Level 3 · Medium
                         </span>
                       </SelectItem>
                       <SelectItem value="4">
                         <span className="flex items-center gap-2">
-                          <span className="size-2 rounded-full bg-rose-500" />
+                          <span className="size-2 rounded-full bg-success" />
                           Level 4 · Hard
                         </span>
                       </SelectItem>
                       <SelectItem value="5">
                         <span className="flex items-center gap-2">
-                          <span className="size-2 rounded-full bg-rose-600" />
+                          <span className="size-2 rounded-full bg-success" />
                           Level 5 · Advanced
                         </span>
                       </SelectItem>
@@ -892,8 +892,8 @@ export function QuestionForm({
               <>
                 {/* Real-time Answer Selection Validation Warning */}
                 {submitAttempted && answerKeys.length === 0 ? (
-                  <div className="flex items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-2.5 text-xs text-amber-800 dark:text-amber-300" role="alert">
-                    <AlertTriangleIcon className="size-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden="true" />
+                  <div className="flex items-center gap-2 rounded-lg border border-brand-amber-line bg-brand-amber-soft p-2.5 text-xs text-brand-amber-ink" role="alert">
+                    <AlertTriangleIcon className="size-4 shrink-0 text-brand-amber-ink" aria-hidden="true" />
                     <span>Select at least one correct answer before creating the question.</span>
                   </div>
                 ) : null}
@@ -965,7 +965,7 @@ export function QuestionForm({
                               className={cn(
                                 "flex items-start gap-2.5 rounded-lg border p-2.5 text-xs transition-colors",
                                 isCorrect
-                                  ? "border-emerald-500/60 bg-emerald-500/10 text-emerald-950 dark:text-emerald-200"
+                                  ? "border-success-line bg-success-soft text-success-ink"
                                   : "border-border/80 bg-card text-foreground"
                               )}
                             >
@@ -973,7 +973,7 @@ export function QuestionForm({
                                 className={cn(
                                   "flex size-5 shrink-0 items-center justify-center rounded font-mono text-[10px] font-bold border",
                                   isCorrect
-                                    ? "bg-emerald-600 text-white border-emerald-600"
+                                    ? "bg-success text-success-foreground border-success"
                                     : "bg-muted text-muted-foreground border-border"
                                 )}
                               >
@@ -987,7 +987,7 @@ export function QuestionForm({
                                 )}
                               </div>
                               {isCorrect ? (
-                                <CheckIcon className="size-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                                <CheckIcon className="size-3.5 text-success-ink shrink-0 mt-0.5" />
                               ) : null}
                             </div>
                           )
@@ -1011,10 +1011,10 @@ export function QuestionForm({
                                 onClick={() => toggleAnswer(opt.key)}
                                 aria-pressed={isCorrect}
                                 className={cn(
-                                  "flex size-8 items-center justify-center rounded-lg border font-mono text-xs font-bold transition-all",
+                                  "flex size-11 items-center justify-center rounded-lg border font-mono text-xs font-bold transition-all sm:size-8",
                                   isCorrect
-                                    ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
-                                    : "bg-muted text-muted-foreground border-border hover:border-emerald-500/50 hover:text-foreground"
+                                    ? "bg-success text-success-foreground border-success shadow-xs"
+                                    : "bg-muted text-muted-foreground border-border hover:border-success-line hover:text-foreground"
                                 )}
                                 title={`Click to toggle option ${opt.key} as correct`}
                               >

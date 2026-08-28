@@ -1,9 +1,18 @@
 import { prisma } from "../lib/prisma"
 import { getFirstPartyToolManifest } from "../lib/tools/registry"
+import type { Prisma } from "../generated/prisma/client"
 import { ToolGrantEffect } from "../generated/prisma/client"
 import {
   getGateCsDemoIdempotencyKey,
 } from "./seed-gate-cs-demo.helpers"
+
+type StoredReleaseManifest = {
+  defaultGrants?: ReadonlyArray<{
+    permissionKey?: string
+    effect?: string
+    constraints?: Prisma.InputJsonValue
+  }>
+}
 
 type PrincipalToolExecutor =
   typeof import("../lib/tools/execute-tool-action").executeToolActionForPrincipal
@@ -34,7 +43,7 @@ async function main() {
   const actorId = users[0].id
   console.log(`Target User ID: ${actorId} (${userEmail})`)
 
-  let member = await prisma.workspaceMember.findFirst({
+  const member = await prisma.workspaceMember.findFirst({
     where: { userId: actorId, role: "OWNER" },
     include: { workspace: true },
   })
@@ -96,7 +105,10 @@ async function main() {
   console.log(`Tool installation active. Installation ID: ${installation.id}`)
 
   // Copy default grants
-  const manifestData = release.manifest as any
+  const manifestData: StoredReleaseManifest =
+    release.manifest && typeof release.manifest === "object"
+      ? (release.manifest as StoredReleaseManifest)
+      : {}
   const defaultGrants = Array.isArray(manifestData?.defaultGrants)
     ? manifestData.defaultGrants
     : []

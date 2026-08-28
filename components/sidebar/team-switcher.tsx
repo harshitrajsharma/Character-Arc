@@ -47,7 +47,12 @@ export function TeamSwitcher({
         <div className="flex items-center gap-1">
           <DropdownMenu>
             <DropdownMenuTrigger
-              render={<SidebarMenuButton className="w-fit px-1.5" />}
+              render={
+                <SidebarMenuButton
+                  className="w-fit px-1.5"
+                  tooltip={activeWorkspace.name}
+                />
+              }
             >
               <div className="flex aspect-square size-5 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
                 {activeWorkspace.kind === "PERSONAL" ? <UserIcon className="size-3.5" /> : <BuildingIcon className="size-3.5" />}
@@ -83,6 +88,7 @@ export function TeamSwitcher({
           </DropdownMenu>
           <SidebarTrigger className="ml-auto group-data-[collapsible=icon]:hidden" />
         </div>
+        <SidebarTrigger className="mt-1 hidden w-full justify-center group-data-[collapsible=icon]:flex" />
       </SidebarMenuItem>
     </SidebarMenu>
   )

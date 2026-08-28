@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import * as React from "react"
 import { DownloadIcon, ShareIcon, PlusSquareIcon, XIcon, CheckCircle2Icon } from "lucide-react"
@@ -17,6 +17,63 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>
 }
 
+let standaloneMediaQuery: MediaQueryList | null = null
+
+function getStandaloneMediaQuery() {
+  if (!standaloneMediaQuery) {
+    standaloneMediaQuery = window.matchMedia("(display-mode: standalone)")
+  }
+  return standaloneMediaQuery
+}
+
+function subscribeToStandalone(onChange: () => void) {
+  const query = getStandaloneMediaQuery()
+  query.addEventListener("change", onChange)
+  return () => {
+    query.removeEventListener("change", onChange)
+  }
+}
+
+function getStandaloneSnapshot() {
+  return (
+    getStandaloneMediaQuery().matches ||
+    ("standalone" in navigator &&
+      (navigator as unknown as { standalone: boolean }).standalone === true)
+  )
+}
+
+function getServerSnapshot() {
+  return false
+}
+
+const DISMISSAL_KEY = "character_arc_pwa_dismissed"
+
+const dismissalListeners = new Set<() => void>()
+
+function subscribeToDismissal(listener: () => void) {
+  dismissalListeners.add(listener)
+  return () => {
+    dismissalListeners.delete(listener)
+  }
+}
+
+function getDismissalSnapshot() {
+  return localStorage.getItem(DISMISSAL_KEY) === "true"
+}
+
+function persistDismissed() {
+  localStorage.setItem(DISMISSAL_KEY, "true")
+  dismissalListeners.forEach((listener) => listener())
+}
+
+function subscribeToNoop() {
+  return () => {}
+}
+
+function getIosSnapshot() {
+  return /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase())
+}
+
 interface PwaInstallPromptProps {
   variant?: "banner" | "sidebar" | "button"
   className?: string
@@ -27,33 +84,26 @@ export function PwaInstallPrompt({
   className,
 }: PwaInstallPromptProps) {
   const [deferredPrompt, setDeferredPrompt] = React.useState<BeforeInstallPromptEvent | null>(null)
-  const [isInstalled, setIsInstalled] = React.useState<boolean>(false)
-  const [isIos, setIsIos] = React.useState<boolean>(false)
+  const [appInstalled, setAppInstalled] = React.useState<boolean>(false)
+  const isStandalone = React.useSyncExternalStore(
+    subscribeToStandalone,
+    getStandaloneSnapshot,
+    getServerSnapshot
+  )
+  const isInstalled = appInstalled || isStandalone
+  const isIos = React.useSyncExternalStore(
+    subscribeToNoop,
+    getIosSnapshot,
+    getServerSnapshot
+  )
   const [showIosGuide, setShowIosGuide] = React.useState<boolean>(false)
-  const [isDismissed, setIsDismissed] = React.useState<boolean>(false)
+  const isDismissed = React.useSyncExternalStore(
+    subscribeToDismissal,
+    getDismissalSnapshot,
+    getServerSnapshot
+  )
 
   React.useEffect(() => {
-    // Check standalone state
-    const isStandalone =
-      window.matchMedia("(display-mode: standalone)").matches ||
-      ("standalone" in navigator && (navigator as unknown as { standalone: boolean }).standalone === true)
-
-    if (isStandalone) {
-      setIsInstalled(true)
-      return
-    }
-
-    // Check localStorage dismissal
-    const dismissed = localStorage.getItem("character_arc_pwa_dismissed") === "true"
-    if (dismissed) {
-      setIsDismissed(true)
-    }
-
-    // Check iOS platform
-    const userAgent = window.navigator.userAgent.toLowerCase()
-    const isIosDevice = /iphone|ipad|ipod/.test(userAgent)
-    setIsIos(isIosDevice)
-
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault()
       setDeferredPrompt(e as BeforeInstallPromptEvent)
@@ -62,7 +112,7 @@ export function PwaInstallPrompt({
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt)
 
     const handleAppInstalled = () => {
-      setIsInstalled(true)
+      setAppInstalled(true)
       setDeferredPrompt(null)
     }
     window.addEventListener("appinstalled", handleAppInstalled)
@@ -84,14 +134,13 @@ export function PwaInstallPrompt({
     deferredPrompt.prompt()
     const choiceResult = await deferredPrompt.userChoice
     if (choiceResult.outcome === "accepted") {
-      setIsInstalled(true)
+      setAppInstalled(true)
     }
     setDeferredPrompt(null)
   }
 
   const handleDismiss = () => {
-    setIsDismissed(true)
-    localStorage.setItem("character_arc_pwa_dismissed", "true")
+    persistDismissed()
   }
 
   if (isInstalled) {
@@ -145,7 +194,7 @@ export function PwaInstallPrompt({
                   1
                 </span>
                 <p className="flex items-center gap-1.5 leading-snug">
-                  Tap the <ShareIcon className="inline size-4 text-brand-cyan-ink" /> <strong>Share</strong> button in Safari's bottom toolbar.
+                  Tap the <ShareIcon className="inline size-4 text-brand-cyan-ink" /> <strong>Share</strong> button in Safari&apos;s bottom toolbar.
                 </p>
               </div>
               <div className="flex items-start gap-3 rounded-lg border border-border/60 bg-muted/40 p-3">
@@ -219,7 +268,7 @@ export function PwaInstallPrompt({
                   1
                 </span>
                 <p className="flex items-center gap-1.5 leading-snug">
-                  Tap the <ShareIcon className="inline size-4 text-brand-cyan-ink" /> <strong>Share</strong> button in Safari's bottom toolbar.
+                  Tap the <ShareIcon className="inline size-4 text-brand-cyan-ink" /> <strong>Share</strong> button in Safari&apos;s bottom toolbar.
                 </p>
               </div>
               <div className="flex items-start gap-3 rounded-lg border border-border/60 bg-muted/40 p-3">
@@ -250,7 +299,7 @@ export function PwaInstallPrompt({
     <>
       <div
         className={cn(
-          "fixed bottom-4 right-4 z-50 flex max-w-sm items-center justify-between gap-3 rounded-2xl border border-brand-neon-line bg-card/95 p-3.5 shadow-xl backdrop-blur-md transition-all sm:bottom-6 sm:right-6",
+          "fixed bottom-20 right-4 z-50 flex max-w-sm items-center justify-between gap-3 rounded-2xl border border-brand-neon-line bg-card/95 p-3.5 shadow-xl backdrop-blur-md transition-all sm:bottom-6 sm:right-6",
           className
         )}
       >
@@ -298,7 +347,7 @@ export function PwaInstallPrompt({
                 1
               </span>
               <p className="flex items-center gap-1.5 leading-snug">
-                Tap the <ShareIcon className="inline size-4 text-brand-cyan-ink" /> <strong>Share</strong> button in Safari's bottom toolbar.
+                Tap the <ShareIcon className="inline size-4 text-brand-cyan-ink" /> <strong>Share</strong> button in Safari&apos;s bottom toolbar.
               </p>
             </div>
             <div className="flex items-start gap-3 rounded-lg border border-border/60 bg-muted/40 p-3">

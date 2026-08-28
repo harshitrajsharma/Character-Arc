@@ -1,8 +1,9 @@
 import { Navbar } from "@/components/navigation/navbar"
+import { MobileBottomBar } from "@/components/navigation/mobile-bottom-bar"
+import { SettingsProvider } from "@/components/settings/settings-provider"
 import { requireVerifiedClaims } from "@/lib/auth/session"
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/sidebar/app-sidebar"
-import { MobileSidebarTrigger } from "@/components/sidebar/mobile-sidebar-trigger"
 import { getAppShellData } from "@/lib/workspaces/workspace-access"
 
 function claimString(value: unknown) {
@@ -30,18 +31,21 @@ export default async function AppLayout({
     .toUpperCase()
 
   const memberships = await getAppShellData()
+  const userInfo = { name, email, avatarUrl, initials }
 
   return (
-    <SidebarProvider defaultOpen={false}>
-      <Navbar user={{ name, email, avatarUrl, initials }} memberships={memberships} />
-      <AppSidebar
-        memberships={memberships}
-        collapsible="icon"
-        variant="sidebar"
-        className="top-15! h-[calc(100svh-60px)]! z-40!"
-      />
-      <MobileSidebarTrigger />
-      <SidebarInset>{children}</SidebarInset>
-    </SidebarProvider>
+    <SettingsProvider>
+      <SidebarProvider defaultOpen={false}>
+        <Navbar user={userInfo} memberships={memberships} />
+        <AppSidebar
+          memberships={memberships}
+          collapsible="icon"
+          variant="sidebar"
+          className="top-15! h-[calc(100svh-60px)]! z-40!"
+        />
+        <SidebarInset className="pb-20 sm:pb-0">{children}</SidebarInset>
+        <MobileBottomBar user={userInfo} memberships={memberships} />
+      </SidebarProvider>
+    </SettingsProvider>
   )
 }

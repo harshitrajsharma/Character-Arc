@@ -82,7 +82,7 @@ export function ExamDetailHeader({
         <div className="min-w-0 space-y-2">
           {/* Top Badge & Status Indicator */}
           <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-muted-foreground sm:text-sm">
-            <span className="inline-flex items-center gap-1.5 text-brand-neon-ink">
+            <span className="inline-flex items-center gap-1.5 text-brand-violet-ink">
               <GraduationCapIcon
                 className="size-4 shrink-0"
                 aria-hidden="true"
@@ -92,8 +92,8 @@ export function ExamDetailHeader({
             <span
               className={
                 target.hasActualDate
-                  ? "inline-flex items-center rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400"
-                  : "inline-flex items-center rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-600 dark:bg-amber-500/20 dark:text-amber-400"
+                  ? "inline-flex items-center rounded-full border border-success-line bg-success-soft px-2 py-0.5 text-[11px] font-medium text-success-ink"
+                  : "inline-flex items-center rounded-full border border-brand-amber-line bg-brand-amber-soft px-2 py-0.5 text-[11px] font-medium text-brand-amber-ink"
               }
             >
               {target.hasActualDate ? "Confirmed" : "Estimated"}
@@ -140,8 +140,6 @@ export function ExamDetailHeader({
         {/* Right Column: Clean Hero Monospace Timer & View Switcher Toolbar */}
         <div className="min-w-0 border-t border-border/50 pt-5 sm:pt-6 lg:border-t-0 lg:pt-0">
           <ExamCountdown
-            workspaceSlug={workspaceSlug}
-            examId={exam.id}
             expectedStartDate={exam.expectedStartDate}
             officialStartAt={exam.officialStartAt}
             scheduleStatus={exam.scheduleStatus}

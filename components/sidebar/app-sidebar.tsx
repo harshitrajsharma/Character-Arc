@@ -2,7 +2,6 @@
 
 import * as React from "react"
 import { useParams, usePathname } from "next/navigation"
-import Link from "next/link"
 import type { getAppShellData } from "@/lib/workspaces/workspace-access"
 
 import { NavMain } from "@/components/sidebar/nav-main"
@@ -25,6 +24,8 @@ import {
   SettingsIcon,
 } from "lucide-react"
 
+import { useSettings } from "@/components/settings/settings-provider"
+
 type AppShellData = NonNullable<Awaited<ReturnType<typeof getAppShellData>>>
 
 export function AppSidebar({
@@ -35,6 +36,7 @@ export function AppSidebar({
 }) {
   const pathname = usePathname()
   const params = useParams()
+  const { openSettings } = useSettings()
   const currentSlug =
     typeof params?.workspaceSlug === "string"
       ? params.workspaceSlug
@@ -79,12 +81,11 @@ export function AppSidebar({
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton
-                isActive={pathname.includes("/settings")}
-                tooltip="MCP & Settings"
-                render={<Link href={`/workspace/${currentSlug}/settings`} />}
+                tooltip="Settings"
+                onClick={() => openSettings("workspace", currentSlug)}
               >
                 <SettingsIcon />
-                <span>MCP & Settings</span>
+                <span>Settings</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>

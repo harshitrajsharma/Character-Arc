@@ -39,13 +39,14 @@ function WorkspaceNavItem({
 }) {
   const isActive = workspace.slug === currentSlug
   const [isOpen, setIsOpen] = React.useState(isActive)
+  const [wasActive, setWasActive] = React.useState(isActive)
 
-  // Open automatically if this workspace becomes active
-  React.useEffect(() => {
+  if (wasActive !== isActive) {
+    setWasActive(isActive)
     if (isActive) {
       setIsOpen(true)
     }
-  }, [isActive])
+  }
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>

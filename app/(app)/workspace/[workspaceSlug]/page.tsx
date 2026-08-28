@@ -66,7 +66,7 @@ export default async function WorkspaceHome({
               </h2>
             </div>
           </div>
-          <CurrentArcGrid items={currentArcs.slice(0, 3)} />
+          <CurrentArcGrid items={currentArcs.slice(0, 3)} workspaceSlug={workspaceSlug} />
         </section>
       ) : null}
 

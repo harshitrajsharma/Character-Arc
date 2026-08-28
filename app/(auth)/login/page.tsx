@@ -48,8 +48,8 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             className="h-11 w-full space-x-2 border-border bg-card/70 text-foreground hover:bg-muted hover:text-foreground"
             pendingLabel="Opening Google..."
           >
-            <Image alt="google" src="/g-logo.png" height={16} width={16} />
-            <p>Continue with Google</p>
+            <Image alt="" src="/g-logo.png" height={16} width={16} />
+            Continue with Google
           </SubmitButton>
         </form>
 
@@ -80,7 +80,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
                 </FieldLabel>
                 <Link
                   href="/forgot-password"
-                  className="text-xs font-medium text-muted-foreground hover:text-foreground"
+                  className="inline-flex min-h-11 items-center text-xs font-medium text-muted-foreground hover:text-foreground sm:min-h-0"
                 >
                   Forgot password?
                 </Link>
@@ -106,7 +106,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           New to Character Arc?{" "}
           <Link
             href={`/signup?next=${encodeURIComponent(next)}`}
-            className="font-medium text-foreground underline-offset-4 hover:underline"
+            className="inline-flex min-h-11 items-center font-medium text-foreground underline-offset-4 hover:underline sm:min-h-0"
           >
             Create an account
           </Link>

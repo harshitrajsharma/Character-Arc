@@ -11,6 +11,8 @@ import { ArcProgressPanel } from "@/components/tools/goals-paths/arc-progress-pa
 import { ArcRouteNarrative } from "@/components/tools/goals-paths/arc-route-narrative"
 import { buttonVariants } from "@/components/ui/button"
 import { getArcDetail } from "@/lib/tools/definitions/goals-paths/repository"
+import { ContextBreadcrumbs } from "@/components/navigation/context-breadcrumbs"
+import { workspaceRoutes } from "@/lib/routes/workspace-tools"
 
 export const metadata: Metadata = { title: "Arc" }
 
@@ -45,7 +47,18 @@ export default async function ArcDetailPage({ params }: ArcDetailPageProps) {
   }))
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 pt-24 pb-12 md:px-6 xl:px-10">
+    <main className="mx-auto w-full max-w-6xl px-4 pt-20 pb-12 sm:pt-24 md:px-6 xl:px-10">
+      <ContextBreadcrumbs
+        segments={[
+          { label: "Workspace", href: `/workspace/${encodeURIComponent(workspaceSlug)}` },
+          { label: "Goals & Paths", href: workspaceRoutes.goalsPaths.home(workspaceSlug) },
+          { label: arc.title },
+        ]}
+        backHref={workspaceRoutes.goalsPaths.home(workspaceSlug)}
+        backLabel="Back to Goals & Paths"
+        className="mb-6 rounded-2xl border border-border/60 bg-background/50"
+      />
+
       <ArcDetailHeader
         workspaceSlug={workspaceSlug}
         title={arc.title}

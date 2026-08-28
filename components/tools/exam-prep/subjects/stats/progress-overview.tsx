@@ -156,7 +156,7 @@ export function ProgressOverview({
               aria-valuenow={overall}
               aria-valuemin={0}
               aria-valuemax={100}
-              className="h-1.5 rounded-full bg-foreground shadow-sm transition-all duration-500 md:h-2 dark:bg-white"
+              className="h-1.5 rounded-full bg-foreground shadow-sm transition-all duration-500 md:h-2"
               style={{
                 width: `${overall}%`,
                 transform: `translateX(${overall === 0 ? "-100%" : "0"})`,

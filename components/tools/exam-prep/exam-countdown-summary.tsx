@@ -32,7 +32,7 @@ export function ExamCountdownSummary({ examDate }: ExamCountdownSummaryProps) {
 
   if (daysRemaining <= 0) {
     return (
-      <div className="flex min-h-11 items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 text-sm font-medium text-amber-foreground">
+      <div className="flex min-h-11 items-center gap-2 rounded-lg border border-brand-amber-line bg-brand-amber-soft px-3 text-sm font-medium text-brand-amber-ink">
         <TrophyIcon className="size-4" aria-hidden="true" />
         <span>{daysRemaining === 0 ? "Exam today" : "Exam date passed"}</span>
       </div>

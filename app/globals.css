@@ -402,18 +402,46 @@
   .app-backdrop {
     background-color: var(--background);
     background-image:
-      linear-gradient(125deg, rgb(35 35 255 / 0.06) 0%, transparent 31%),
-      linear-gradient(305deg, rgb(98 214 211 / 0.05) 0%, transparent 35%),
-      linear-gradient(110deg, #f7f7fa 0%, #edf0f5 48%, #e6ebf2 100%);
-    box-shadow: inset 0 0 180px rgb(35 35 255 / 0.02);
+      linear-gradient(
+        125deg,
+        color-mix(in oklch, var(--brand-neon) 6%, transparent) 0%,
+        transparent 31%
+      ),
+      linear-gradient(
+        305deg,
+        color-mix(in oklch, var(--brand-cyan) 5%, transparent) 0%,
+        transparent 35%
+      ),
+      linear-gradient(
+        110deg,
+        var(--background) 0%,
+        color-mix(in oklch, var(--foreground) 2%, var(--background)) 48%,
+        color-mix(in oklch, var(--foreground) 4%, var(--background)) 100%
+      );
+    box-shadow: inset 0 0 180px
+      color-mix(in oklch, var(--brand-neon) 2%, transparent);
   }
 
   .dark .app-backdrop {
     background-image:
-      linear-gradient(125deg, rgb(35 35 255 / 0.13) 0%, transparent 29%),
-      linear-gradient(305deg, rgb(35 35 255 / 0.07) 0%, transparent 34%),
-      linear-gradient(110deg, #0f1118 0%, #17171c 48%, #101419 100%);
-    box-shadow: inset 0 0 180px rgb(0 0 0 / 0.3);
+      linear-gradient(
+        125deg,
+        color-mix(in oklch, var(--brand-neon) 13%, transparent) 0%,
+        transparent 29%
+      ),
+      linear-gradient(
+        305deg,
+        color-mix(in oklch, var(--brand-neon) 7%, transparent) 0%,
+        transparent 34%
+      ),
+      linear-gradient(
+        110deg,
+        color-mix(in oklch, var(--foreground) 1%, var(--background)) 0%,
+        color-mix(in oklch, var(--foreground) 4%, var(--background)) 48%,
+        color-mix(in oklch, var(--foreground) 2%, var(--background)) 100%
+      );
+    box-shadow: inset 0 0 180px
+      color-mix(in oklch, var(--brand-contrast) 30%, transparent);
   }
 
   .field-separator {

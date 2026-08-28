@@ -1,6 +1,6 @@
 ﻿"use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
 import { useRouter } from "next/navigation"
 import {
   AlertTriangleIcon,
@@ -13,11 +13,6 @@ import {
   ListFilterIcon,
   PanelRightCloseIcon,
   PanelRightOpenIcon,
-  Maximize2Icon,
-  Minimize2Icon,
-  ZoomInIcon,
-  ZoomOutIcon,
-  KeyboardIcon,
   InfoIcon,
   Loader2Icon,
   SendIcon,
@@ -26,6 +21,17 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -35,6 +41,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import { createIdempotencyKey } from "@/lib/forms/idempotency-key"
 import {
@@ -55,6 +62,20 @@ type AnswerState = {
   visited: boolean
 }
 
+type SaveStatus = "idle" | "saving" | "saved" | "error"
+
+const paletteCellBase =
+  "relative flex size-10 sm:size-8 items-center justify-center rounded-lg font-mono text-xs font-bold transition-all shadow-2xs select-none border"
+
+const paletteCellState = {
+  answeredAndMarked:
+    "border-brand-violet-line bg-brand-violet-surface text-brand-violet-ink after:content-[''] after:absolute after:bottom-0.5 after:right-0.5 after:size-1.5 after:rounded-full after:bg-brand-amber",
+  marked: "border-brand-amber-line bg-brand-amber-soft text-brand-amber-ink",
+  answered: "border-brand-violet-line bg-brand-violet-surface text-brand-violet-ink",
+  notAnswered: "border-input bg-background text-foreground",
+  notVisited: "border-border bg-muted/40 text-muted-foreground hover:border-foreground/40",
+} as const
+
 function formatTimer(totalSeconds: number): string {
   const safe = Math.max(0, totalSeconds)
   const hours = Math.floor(safe / 3600)
@@ -66,6 +87,16 @@ function formatTimer(totalSeconds: number): string {
   return hours > 0 ? `${hh}:${mm}:${ss}` : `${mm}:${ss}`
 }
 
+const subscribeToMounted = () => () => {}
+
+function getMountedSnapshot() {
+  return true
+}
+
+function getServerMountedSnapshot() {
+  return false
+}
+
 export function AttemptPlayer({
   workspaceSlug,
   attempt,
@@ -75,10 +106,11 @@ export function AttemptPlayer({
 }) {
   const router = useRouter()
 
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => {
-    setMounted(true)
-  }, [])
+  const mounted = useSyncExternalStore(
+    subscribeToMounted,
+    getMountedSnapshot,
+    getServerMountedSnapshot
+  )
   const [current, setCurrent] = useState(0)
   const [answers, setAnswers] = useState<Record<string, AnswerState>>(() => {
     const initial: Record<string, AnswerState> = {}
@@ -95,6 +127,7 @@ export function AttemptPlayer({
   const [submitting, setSubmitting] = useState(false)
   const [abandoning, setAbandoning] = useState(false)
   const [showSubmitModal, setShowSubmitModal] = useState(false)
+  const [abandonOpen, setAbandonOpen] = useState(false)
   const [activeSection, setActiveSection] = useState<string>("ALL")
   const submitStarted = useRef(false)
   const questionStartedAt = useRef<Record<string, number>>({})
@@ -102,65 +135,78 @@ export function AttemptPlayer({
 
   const currentQuestion = attempt.questions[current]
 
-  const [fontSize, setFontSize] = useState<"sm" | "md" | "lg">("md")
-  const [isFullscreen, setIsFullscreen] = useState(false)
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle")
+  const latestSaveId = useRef(0)
+  const pendingSaveQuestionId = useRef<string | null>(null)
+  const saveErrorNotified = useRef(false)
+
+  const answersRef = useRef(answers)
+  useEffect(() => {
+    answersRef.current = answers
+  }, [answers])
+
   const [paletteFilter, setPaletteFilter] = useState<"ALL" | "ANSWERED" | "UNANSWERED" | "REVIEW">("ALL")
   const [isPaletteCollapsed, setIsPaletteCollapsed] = useState(false)
 
-  function toggleFullscreen() {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {})
-    } else {
-      document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {})
+  const shortcutHandlers = useRef({
+    toggleOption,
+    handleSaveAndNext,
+    handleMarkForReviewAndNext,
+    handleClearResponse,
+  })
+  useEffect(() => {
+    shortcutHandlers.current = {
+      toggleOption,
+      handleSaveAndNext,
+      handleMarkForReviewAndNext,
+      handleClearResponse,
     }
-  }
+  })
 
-  // Keyboard Shortcuts for Authentic CBT Exam Room (1-4, Enter, M, C)
   useEffect(() => {
     function handleGlobalKeyDown(e: KeyboardEvent) {
-      if (showSubmitModal) return
+      if (showSubmitModal || abandonOpen) return
       const target = e.target as HTMLElement | null
-      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) {
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable ||
+          Boolean(target.closest('button, select, a, [role="radio"], [role="radiogroup"]')))
+      ) {
         return
       }
 
-      if (e.key === "1" || e.key === "a" || e.key === "A") {
+      const isChoiceKind =
+        currentQuestion?.kind === "SINGLE_CHOICE" ||
+        currentQuestion?.kind === "MULTIPLE_CHOICE" ||
+        currentQuestion?.kind === "TRUE_FALSE"
+
+      if (e.key >= "1" && e.key <= "4") {
         e.preventDefault()
-        if (currentQuestion && (currentQuestion.kind === "SINGLE_CHOICE" || currentQuestion.kind === "MULTIPLE_CHOICE" || currentQuestion.kind === "TRUE_FALSE")) {
-          if (currentQuestion.options[0]) toggleOption(currentQuestion.options[0].key, Date.now())
-        }
-      } else if (e.key === "2" || e.key === "b" || e.key === "B") {
-        e.preventDefault()
-        if (currentQuestion && (currentQuestion.kind === "SINGLE_CHOICE" || currentQuestion.kind === "MULTIPLE_CHOICE" || currentQuestion.kind === "TRUE_FALSE")) {
-          if (currentQuestion.options[1]) toggleOption(currentQuestion.options[1].key, Date.now())
-        }
-      } else if (e.key === "3" || e.key === "c" || e.key === "C") {
-        if (!e.ctrlKey && !e.metaKey) {
-          e.preventDefault()
-          if (currentQuestion && (currentQuestion.kind === "SINGLE_CHOICE" || currentQuestion.kind === "MULTIPLE_CHOICE" || currentQuestion.kind === "TRUE_FALSE")) {
-            if (currentQuestion.options[2]) toggleOption(currentQuestion.options[2].key, Date.now())
-          }
-        }
-      } else if (e.key === "4" || e.key === "d" || e.key === "D") {
-        e.preventDefault()
-        if (currentQuestion && (currentQuestion.kind === "SINGLE_CHOICE" || currentQuestion.kind === "MULTIPLE_CHOICE" || currentQuestion.kind === "TRUE_FALSE")) {
-          if (currentQuestion.options[3]) toggleOption(currentQuestion.options[3].key, Date.now())
+        if (currentQuestion && isChoiceKind) {
+          const option = currentQuestion.options[Number(e.key) - 1]
+          if (option) shortcutHandlers.current.toggleOption(option.key, Date.now())
         }
       } else if (e.key === "Enter") {
         e.preventDefault()
-        handleSaveAndNext(Date.now())
+        shortcutHandlers.current.handleSaveAndNext(Date.now())
       } else if (e.key === "m" || e.key === "M") {
         e.preventDefault()
-        handleMarkForReviewAndNext(Date.now())
+        shortcutHandlers.current.handleMarkForReviewAndNext(Date.now())
+      } else if (e.key === "c" || e.key === "C") {
+        if (!e.ctrlKey && !e.metaKey) {
+          e.preventDefault()
+          shortcutHandlers.current.handleClearResponse(Date.now())
+        }
       }
     }
 
     window.addEventListener("keydown", handleGlobalKeyDown)
     return () => window.removeEventListener("keydown", handleGlobalKeyDown)
-  }, [currentQuestion, current, answers, showSubmitModal])
+  }, [currentQuestion, current, answers, showSubmitModal, abandonOpen])
 
 
-  // Distinct Sections list
   const sections = useMemo(() => {
     const set = new Set<string>()
     attempt.questions.forEach((q) => {
@@ -169,14 +215,12 @@ export function AttemptPlayer({
     return Array.from(set)
   }, [attempt.questions])
 
-  // Remaining time for timed tests
   const [remainingSeconds, setRemainingSeconds] = useState<number | null>(() => {
     if (!attempt.durationMinutes) return null
     const end = new Date(attempt.startedAt).getTime() + attempt.durationMinutes * 60_000
     return Math.max(0, Math.floor((end - Date.now()) / 1000))
   })
 
-  // NTA / GATE Standard Palette Status counts
   const paletteStats = useMemo(() => {
     let answered = 0
     let notAnswered = 0
@@ -218,6 +262,50 @@ export function AttemptPlayer({
     questionStartedAt.current[questionId] = now
   }
 
+  async function runSave(questionId: string, merged: AnswerState, isRetry = false) {
+    const saveId = ++latestSaveId.current
+    setSaveStatus("saving")
+    try {
+      await recordAnswerAction({
+        workspaceSlug,
+        attemptId: attempt.attemptId,
+        questionId,
+        selectedOptionKeys: merged.selectedKeys,
+        answerText: merged.answerText,
+        timeSpentSeconds: questionTimeSpent.current[questionId] ?? 0,
+        idempotencyKey: createIdempotencyKey(),
+      })
+      if (latestSaveId.current !== saveId) return
+      saveErrorNotified.current = false
+      setSaveStatus("saved")
+      const failedQuestionId = pendingSaveQuestionId.current
+      pendingSaveQuestionId.current = null
+      if (!isRetry && failedQuestionId && failedQuestionId !== questionId) {
+        const failedState = answersRef.current[failedQuestionId]
+        if (failedState) void runSave(failedQuestionId, failedState, true)
+      }
+    } catch {
+      if (latestSaveId.current !== saveId) return
+      pendingSaveQuestionId.current = questionId
+      setSaveStatus("error")
+      if (!saveErrorNotified.current) {
+        saveErrorNotified.current = true
+        toast.error("Answers may not be saved", {
+          description:
+            "Your latest change could not reach the server. It will retry on your next change.",
+        })
+      }
+    }
+  }
+
+  function retryPendingSave() {
+    const questionId = pendingSaveQuestionId.current
+    if (!questionId || submitStarted.current || submitting || abandoning) return
+    const state = answersRef.current[questionId]
+    if (!state) return
+    void runSave(questionId, state, true)
+  }
+
   function persistAnswer(
     questionId: string,
     patch: { selectedKeys?: string[]; answerText?: string | null; isMarkedForReview?: boolean },
@@ -240,17 +328,7 @@ export function AttemptPlayer({
       ...currentAnswers,
       [questionId]: merged,
     }))
-    void recordAnswerAction({
-      workspaceSlug,
-      attemptId: attempt.attemptId,
-      questionId,
-      selectedOptionKeys: merged.selectedKeys,
-      answerText: merged.answerText,
-      timeSpentSeconds: questionTimeSpent.current[questionId] ?? 0,
-      idempotencyKey: createIdempotencyKey(),
-    }).catch(() => {
-      // Best-effort persistence
-    })
+    void runSave(questionId, merged)
   }
 
   function toggleOption(key: string, now: number) {
@@ -350,13 +428,14 @@ export function AttemptPlayer({
     }
   }
 
-  async function handleAbandon() {
-    if (submitStarted.current) return
-    const confirmed = window.confirm(
-      "Are you sure you want to abandon this test? This action cannot be undone and your test will not be graded."
-    )
-    if (!confirmed) return
+  function handleAbandonClick() {
+    if (submitStarted.current || abandoning) return
+    setAbandonOpen(true)
+  }
 
+  async function handleConfirmAbandon() {
+    if (submitStarted.current || abandoning) return
+    setAbandonOpen(false)
     submitStarted.current = true
     setAbandoning(true)
     try {
@@ -396,6 +475,7 @@ export function AttemptPlayer({
         if (!submitStarted.current) {
           submitStarted.current = true
           setSubmitting(true)
+          toast.info("Time is up. Submitting your attempt…")
           void startSubmit()
         }
       }
@@ -428,7 +508,7 @@ export function AttemptPlayer({
       {/* Official CBT Exam Header Bar */}
       <header className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3 shadow-xs">
         <div className="flex items-center gap-3">
-          <div className="flex size-9 items-center justify-center rounded-xl bg-slate-800 text-slate-200 font-bold text-sm">
+          <div className="flex size-9 items-center justify-center rounded-xl bg-brand-violet text-brand-violet-foreground font-bold text-sm">
             CBT
           </div>
           <div>
@@ -442,35 +522,89 @@ export function AttemptPlayer({
         </div>
 
         {/* Timer Badge */}
-        {remainingSeconds !== null ? (
-          <div
-            className={cn(
-              "flex items-center gap-2 rounded-xl border px-4 py-2 font-mono text-sm font-bold tabular-nums shadow-2xs transition-colors",
-              remainingSeconds < 300
-                ? "border-destructive/60 bg-destructive/10 text-destructive animate-pulse"
-                : remainingSeconds < 900
-                  ? "border-amber-500/60 bg-amber-500/10 text-amber-700 dark:text-amber-300"
-                  : "border-border bg-muted/40 text-foreground"
-            )}
-          >
-            <ClockIcon className="size-4 shrink-0" aria-hidden="true" />
-            <span>Time Left: {mounted ? formatTimer(remainingSeconds) : "--:--:--"}</span>
-          </div>
-        ) : (
-          <Badge variant="outline" className="font-mono text-xs px-3 py-1">
-            Untimed Practice Mode
-          </Badge>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {saveStatus !== "idle" ? (
+            <span
+              role="status"
+              aria-live="polite"
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-lg border px-2 py-1 text-xs font-medium",
+                saveStatus === "saving" && "border-border bg-muted text-muted-foreground",
+                saveStatus === "saved" && "border-success-line bg-success-soft text-success-ink",
+                saveStatus === "error" && "border-destructive/40 bg-destructive/10 text-destructive"
+              )}
+            >
+              {saveStatus === "saving" ? (
+                <Loader2Icon className="size-3 animate-spin" aria-hidden="true" />
+              ) : saveStatus === "saved" ? (
+                <CheckCircle2Icon className="size-3" aria-hidden="true" />
+              ) : (
+                <AlertTriangleIcon className="size-3" aria-hidden="true" />
+              )}
+              {saveStatus === "saving" ? "Saving…" : saveStatus === "saved" ? "Saved" : "Save failed"}
+            </span>
+          ) : null}
+          {saveStatus === "error" ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="xs"
+              onClick={retryPendingSave}
+              disabled={submitting || abandoning}
+            >
+              Retry
+            </Button>
+          ) : null}
+          {remainingSeconds !== null ? (
+            <div
+              className={cn(
+                "flex items-center gap-2 rounded-xl border px-4 py-2 font-mono text-sm font-bold tabular-nums shadow-2xs transition-colors",
+                remainingSeconds < 300
+                  ? "border-destructive/60 bg-destructive/10 text-destructive animate-pulse"
+                  : remainingSeconds < 900
+                    ? "border-brand-amber-line bg-brand-amber-soft text-brand-amber-ink"
+                    : "border-border bg-muted/40 text-foreground"
+              )}
+            >
+              <ClockIcon className="size-4 shrink-0" aria-hidden="true" />
+              <span>Time Left: {mounted ? formatTimer(remainingSeconds) : "--:--:--"}</span>
+            </div>
+          ) : (
+            <Badge variant="outline" className="font-mono text-xs px-3 py-1">
+              Untimed Practice Mode
+            </Badge>
+          )}
+        </div>
 
         {/* Top Actions */}
         <div className="flex items-center gap-2">
+          {isPaletteCollapsed ? (
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsPaletteCollapsed(false)}
+                    aria-label="Show Question Palette"
+                    className="h-8 min-h-11 text-xs gap-1.5 sm:min-h-8"
+                  >
+                    <PanelRightOpenIcon className="size-3.5" />
+                    Palette
+                  </Button>
+                }
+              />
+              <TooltipContent>Show Question Palette</TooltipContent>
+            </Tooltip>
+          ) : null}
           <Button
             type="button"
-            onClick={handleAbandon}
+            onClick={handleAbandonClick}
             disabled={submitting || abandoning}
             variant="ghost"
             size="sm"
-            className="h-8 text-xs text-muted-foreground hover:text-destructive"
+            className="h-8 min-h-11 text-xs gap-1.5 text-muted-foreground hover:text-destructive sm:min-h-8"
           >
             {abandoning ? <Loader2Icon className="animate-spin size-3.5" /> : <XIcon className="size-3.5" />}
             Abandon
@@ -480,7 +614,7 @@ export function AttemptPlayer({
             onClick={() => handleSubmit(Date.now())}
             disabled={submitting || abandoning}
             size="sm"
-            className="h-8 text-xs bg-slate-800 hover:bg-slate-700 text-white font-semibold shadow-xs"
+            className="h-8 min-h-11 text-xs font-semibold shadow-xs sm:min-h-8"
           >
             {submitting ? <Loader2Icon className="animate-spin size-3.5" /> : <SendIcon className="size-3.5" />}
             Submit Exam
@@ -497,10 +631,11 @@ export function AttemptPlayer({
           <button
             type="button"
             onClick={() => setActiveSection("ALL")}
+            aria-pressed={activeSection === "ALL"}
             className={cn(
               "rounded-lg px-3 py-1.5 text-xs font-medium transition-all",
               activeSection === "ALL"
-                ? "bg-slate-800 text-slate-200 font-bold shadow-2xs"
+                ? "bg-brand-violet text-brand-violet-foreground font-bold shadow-2xs"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
             )}
           >
@@ -511,10 +646,11 @@ export function AttemptPlayer({
               key={sec}
               type="button"
               onClick={() => setActiveSection(sec)}
+              aria-pressed={activeSection === sec}
               className={cn(
                 "rounded-lg px-3 py-1.5 text-xs font-medium transition-all",
                 activeSection === sec
-                  ? "bg-slate-800 text-slate-200 font-bold shadow-2xs"
+                  ? "bg-brand-violet text-brand-violet-foreground font-bold shadow-2xs"
                   : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
               )}
             >
@@ -532,9 +668,12 @@ export function AttemptPlayer({
             {/* Question Header Info */}
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3">
               <div className="flex items-center gap-2">
-                <span className="font-heading text-sm font-bold text-foreground">
+                <h2
+                  id="cbt-question-heading"
+                  className="font-heading text-sm font-bold text-foreground"
+                >
                   Question No. {current + 1}
-                </span>
+                </h2>
                 <span className="text-muted-foreground/30">•</span>
                 <Badge variant="outline" className="text-xs font-medium">
                   {questionKindLabel(currentQuestion.kind)}
@@ -547,7 +686,7 @@ export function AttemptPlayer({
               </div>
 
               <div className="flex items-center gap-3 text-xs font-mono">
-                <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                <span className="font-bold text-brand-violet-ink">
                   +{currentQuestion.marks} Marks
                 </span>
                 {currentQuestion.negativeMarks < 0 ? (
@@ -586,58 +725,61 @@ export function AttemptPlayer({
                         ? "e.g., 42.5"
                         : "Type answer..."
                     }
-                    className="w-full max-w-sm rounded-lg border border-input bg-background px-3.5 py-2 text-sm font-mono outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-500/20"
+                    className="w-full max-w-sm rounded-lg border border-input bg-background px-3.5 py-2 text-sm font-mono outline-none focus:border-ring focus:ring-2 focus:ring-ring/20"
                   />
                   <p className="text-[11px] text-muted-foreground">
-                    Your response is auto-saved as you type.
+                    Answers save automatically.
                   </p>
                 </div>
               ) : (
-                <ul className="space-y-2.5">
+                <div
+                  role="radiogroup"
+                  aria-labelledby="cbt-question-heading"
+                  className="space-y-2.5"
+                >
                   {currentQuestion.options.map((option) => {
                     const selected = answer.selectedKeys.includes(option.key)
                     return (
-                      <li key={option.key}>
-                        <div
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => toggleOption(option.key, Date.now())}
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter" || event.key === " ") {
-                              event.preventDefault()
-                              toggleOption(option.key, Date.now())
-                            }
-                          }}
+                      <div
+                        key={option.key}
+                        role="radio"
+                        aria-checked={selected}
+                        tabIndex={0}
+                        onClick={() => toggleOption(option.key, Date.now())}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault()
+                            toggleOption(option.key, Date.now())
+                          }
+                        }}
+                        className={cn(
+                          "flex w-full cursor-pointer items-start gap-3 rounded-xl border p-3.5 text-left text-xs sm:text-sm transition-all outline-none shadow-2xs select-none",
+                          selected
+                            ? "border-brand-violet-line bg-brand-violet-soft ring-2 ring-brand-violet-line/40 text-foreground"
+                            : "border-border/80 bg-background hover:border-border hover:bg-muted/30 text-foreground"
+                        )}
+                      >
+                        <span
                           className={cn(
-                            "flex w-full cursor-pointer items-start gap-3 rounded-xl border p-3.5 text-left text-xs sm:text-sm transition-all outline-none shadow-2xs select-none",
+                            "mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-lg border font-mono text-xs font-bold transition-colors",
                             selected
-                              ? "border-emerald-500/80 bg-emerald-500/10 ring-2 ring-emerald-500/30 text-foreground"
-                              : "border-border/80 bg-background hover:border-border hover:bg-muted/30 text-foreground"
+                              ? "border-transparent bg-brand-violet text-brand-violet-foreground"
+                              : "border-border bg-muted text-muted-foreground"
                           )}
-                          aria-pressed={selected}
                         >
-                          <span
-                            className={cn(
-                              "mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-lg border font-mono text-xs font-bold transition-colors",
-                              selected
-                                ? "border-emerald-600 bg-emerald-600 text-white"
-                                : "border-border bg-muted text-muted-foreground"
-                            )}
-                          >
-                            {selected ? (
-                              <CheckCircle2Icon className="size-3.5 stroke-[3]" />
-                            ) : (
-                              option.key
-                            )}
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <RichContent html={option.content} className="leading-relaxed" />
-                          </div>
+                          {selected ? (
+                            <CheckCircle2Icon className="size-3.5 stroke-[3]" />
+                          ) : (
+                            option.key
+                          )}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <RichContent html={option.content} className="leading-relaxed" />
                         </div>
-                      </li>
+                      </div>
                     )
                   })}
-                </ul>
+                </div>
               )}
             </div>
           </article>
@@ -651,8 +793,10 @@ export function AttemptPlayer({
                 size="sm"
                 onClick={() => handleMarkForReviewAndNext(Date.now())}
                 className={cn(
-                  "h-9 text-xs gap-1.5 font-medium border-purple-500/40 text-purple-700 dark:text-purple-300 hover:bg-purple-500/10",
-                  answer.isMarkedForReview && "bg-purple-600 text-white hover:bg-purple-600/90"
+                  "min-h-11 text-xs gap-1.5 font-medium sm:min-h-9",
+                  answer.isMarkedForReview
+                    ? "border-brand-amber-line bg-brand-amber text-brand-amber-foreground hover:bg-brand-amber-surface-hover"
+                    : "border-brand-amber-line bg-background text-brand-amber-ink hover:bg-brand-amber-soft"
                 )}
               >
                 <BookmarkIcon className="size-3.5" />
@@ -664,7 +808,7 @@ export function AttemptPlayer({
                 variant="ghost"
                 size="sm"
                 onClick={() => handleClearResponse(Date.now())}
-                className="h-9 text-xs text-muted-foreground hover:text-foreground gap-1.5"
+                className="min-h-11 text-xs text-muted-foreground hover:text-foreground gap-1.5 sm:min-h-9"
               >
                 <EraserIcon className="size-3.5" />
                 Clear Response
@@ -678,7 +822,7 @@ export function AttemptPlayer({
                 size="sm"
                 disabled={current === 0}
                 onClick={() => navigateTo(current - 1, Date.now())}
-                className="h-9 text-xs gap-1"
+                className="min-h-11 text-xs gap-1 sm:min-h-9"
               >
                 <ChevronLeftIcon className="size-3.5" />
                 Previous
@@ -689,7 +833,7 @@ export function AttemptPlayer({
                 size="sm"
                 onClick={() => handleSaveAndNext(Date.now())}
                 disabled={current === attempt.questions.length - 1}
-                className="h-9 text-xs gap-1 bg-slate-800 hover:bg-slate-700 text-white font-semibold"
+                className="min-h-11 text-xs gap-1 font-semibold sm:min-h-9"
               >
                 Save & Next
                 <ChevronRightIcon className="size-3.5" />
@@ -699,104 +843,134 @@ export function AttemptPlayer({
         </div>
 
         {/* Right Column: CBT Question Palette & Candidate Panel */}
-        <aside className={cn("space-y-3 rounded-xl border border-border bg-card p-4 shadow-xs self-start overflow-y-auto max-h-full transition-all", isPaletteCollapsed && "hidden")}>
-          {/* Candidate Badge */}
-          <div className="flex items-center gap-3 border-b border-border pb-3">
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground border">
-              <UserIcon className="size-5" />
+        {!isPaletteCollapsed ? (
+          <aside
+            aria-label="Question Palette"
+            className="space-y-3 rounded-xl border border-border bg-card p-4 shadow-xs self-start overflow-y-auto max-h-full transition-all"
+          >
+            {/* Candidate Badge */}
+            <div className="flex items-center gap-3 border-b border-border pb-3">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground border">
+                <UserIcon className="size-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold text-foreground truncate">Student Candidate</p>
+                <p className="text-[11px] text-muted-foreground truncate">Attempt #{attempt.attemptId.slice(0, 8)}</p>
+              </div>
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-bold text-foreground truncate">Student Candidate</p>
-              <p className="text-[11px] text-muted-foreground truncate">Attempt #{attempt.attemptId.slice(0, 8)}</p>
-            </div>
-          </div>
 
-          <div className="flex items-center justify-between pt-1">
-            <span className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
-              <ListFilterIcon className="size-3.5 text-slate-200" /> Question Palette
-            </span>
-            <div className="flex items-center gap-1.5">
-              <Badge variant="outline" className="text-[10px] font-mono font-semibold">
-                {attempt.questions.length} Qs
-              </Badge>
-              <Button
+            <div className="flex items-center justify-between pt-1">
+              <span className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
+                <ListFilterIcon className="size-3.5 text-brand-violet-ink" /> Question Palette
+              </span>
+              <div className="flex items-center gap-1.5">
+                <Badge variant="outline" className="text-[10px] font-mono font-semibold">
+                  {attempt.questions.length} Qs
+                </Badge>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  onClick={() => setIsPaletteCollapsed(true)}
+                  title="Hide Palette (Expand Question Width)"
+                  aria-label="Hide Palette"
+                  className="size-7 text-muted-foreground hover:text-foreground"
+                >
+                  <PanelRightCloseIcon className="size-4" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Official NTA / GATE Color Code Legend */}
+            <div className="grid grid-cols-2 gap-2 text-[11px] border-y border-border py-2.5 text-muted-foreground">
+              <div className="flex items-center gap-1.5">
+                <span className="size-4 rounded border border-brand-violet-line bg-brand-violet-surface text-brand-violet-ink flex items-center justify-center text-[10px] font-bold shrink-0">
+                  {paletteStats.answered}
+                </span>
+                <span>Answered</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="size-4 rounded border border-input bg-background text-foreground flex items-center justify-center text-[10px] font-bold shrink-0">
+                  {paletteStats.notAnswered}
+                </span>
+                <span>Not Answered</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="size-4 rounded border border-brand-amber-line bg-brand-amber-soft text-brand-amber-ink flex items-center justify-center text-[10px] font-bold shrink-0">
+                  {paletteStats.markedForReview}
+                </span>
+                <span>Marked Review</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="size-4 rounded border border-border bg-muted/40 text-muted-foreground flex items-center justify-center text-[10px] font-bold shrink-0">
+                  {paletteStats.notVisited}
+                </span>
+                <span>Not Visited</span>
+              </div>
+              <div className="col-span-2 flex items-center gap-1.5">
+                <span className="relative size-4 rounded border border-brand-violet-line bg-brand-violet-surface text-brand-violet-ink flex items-center justify-center text-[10px] font-bold shrink-0 after:content-[''] after:absolute after:bottom-0 after:right-0 after:size-1.5 after:rounded-full after:bg-brand-amber">
+                  {paletteStats.answeredAndMarked}
+                </span>
+                <span>Answered &amp; Marked Review</span>
+              </div>
+            </div>
+
+
+            {/* Palette Filter Pills */}
+            <div className="flex items-center gap-1 overflow-x-auto text-xs font-bold border-b border-border pb-2.5">
+              <button
                 type="button"
-                variant="ghost"
-                size="icon-xs"
-                onClick={() => setIsPaletteCollapsed(true)}
-                title="Hide Palette (Expand Question Width)"
-                aria-label="Hide Palette"
-                className="size-7 text-muted-foreground hover:text-foreground"
+                onClick={() => setPaletteFilter("ALL")}
+                className={cn(
+                  "min-h-9 whitespace-nowrap rounded-md px-2.5 transition-colors",
+                  paletteFilter === "ALL"
+                    ? "bg-secondary text-secondary-foreground font-bold"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
               >
-                <PanelRightCloseIcon className="size-4" />
-              </Button>
+                All ({attempt.questions.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaletteFilter("ANSWERED")}
+                className={cn(
+                  "min-h-9 whitespace-nowrap rounded-md px-2.5 transition-colors",
+                  paletteFilter === "ANSWERED"
+                    ? "bg-brand-violet-surface text-brand-violet-ink font-bold"
+                    : "text-muted-foreground hover:text-brand-violet-ink"
+                )}
+              >
+                Answered ({paletteStats.answered + paletteStats.answeredAndMarked})
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaletteFilter("REVIEW")}
+                className={cn(
+                  "min-h-9 whitespace-nowrap rounded-md px-2.5 transition-colors",
+                  paletteFilter === "REVIEW"
+                    ? "bg-brand-amber-soft text-brand-amber-ink font-bold"
+                    : "text-muted-foreground hover:text-brand-amber-ink"
+                )}
+              >
+                Review ({paletteStats.markedForReview})
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaletteFilter("UNANSWERED")}
+                className={cn(
+                  "min-h-9 whitespace-nowrap rounded-md px-2.5 transition-colors",
+                  paletteFilter === "UNANSWERED"
+                    ? "bg-accent text-accent-foreground font-bold"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Unanswered ({paletteStats.notAnswered})
+              </button>
             </div>
-          </div>
 
-          {/* Official NTA / GATE Color Code Legend */}
-          <div className="grid grid-cols-2 gap-2 text-[11px] border-y border-border py-2.5 text-muted-foreground">
-            <div className="flex items-center gap-1.5">
-              <span className="size-4 rounded bg-emerald-600 text-white flex items-center justify-center text-[10px] font-bold shrink-0">
-                {paletteStats.answered}
-              </span>
-              <span>Answered</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="size-4 rounded bg-rose-500 text-white flex items-center justify-center text-[10px] font-bold shrink-0">
-                {paletteStats.notAnswered}
-              </span>
-              <span>Not Answered</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="size-4 rounded bg-purple-600 text-white flex items-center justify-center text-[10px] font-bold shrink-0">
-                {paletteStats.markedForReview}
-              </span>
-              <span>Marked Review</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="size-4 rounded border border-border bg-background flex items-center justify-center text-[10px] font-bold text-muted-foreground shrink-0">
-                {paletteStats.notVisited}
-              </span>
-              <span>Not Visited</span>
-            </div>
-          </div>
-
-
-          {/* Palette Filter Pills */}
-          <div className="flex items-center gap-1 overflow-x-auto text-[10px] font-bold border-b border-border pb-2.5">
-            <button
-              type="button"
-              onClick={() => setPaletteFilter("ALL")}
-              className={cn("px-2 py-0.5 rounded transition-colors", paletteFilter === "ALL" ? "bg-slate-800 text-white font-bold" : "text-muted-foreground hover:text-foreground")}
-            >
-              All ({attempt.questions.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setPaletteFilter("ANSWERED")}
-              className={cn("px-2 py-0.5 rounded transition-colors", paletteFilter === "ANSWERED" ? "bg-emerald-600 text-white font-bold" : "text-muted-foreground hover:text-emerald-600")}
-            >
-              Answered ({paletteStats.answered + paletteStats.answeredAndMarked})
-            </button>
-            <button
-              type="button"
-              onClick={() => setPaletteFilter("REVIEW")}
-              className={cn("px-2 py-0.5 rounded transition-colors", paletteFilter === "REVIEW" ? "bg-purple-600 text-white font-bold" : "text-muted-foreground hover:text-purple-600")}
-            >
-              Review ({paletteStats.markedForReview})
-            </button>
-            <button
-              type="button"
-              onClick={() => setPaletteFilter("UNANSWERED")}
-              className={cn("px-2 py-0.5 rounded transition-colors", paletteFilter === "UNANSWERED" ? "bg-rose-500 text-white font-bold" : "text-muted-foreground hover:text-rose-500")}
-            >
-              Unanswered ({paletteStats.notAnswered})
-            </button>
-          </div>
-
-          {/* 5-Column Question Grid Matrix */}
-          <div className="grid grid-cols-5 gap-1.5 pt-1">
-            {visibleQuestions.filter((q) => {
+            {/* 5-Column Question Grid Matrix */}
+            <div className="grid grid-cols-5 gap-1.5 pt-1">
+              {visibleQuestions.filter((q) => {
     const st = answers[q.id]
     const hasAns = st && (q.kind === "SHORT_ANSWER" || q.kind === "NUMERIC" ? Boolean(st.answerText && st.answerText.trim() !== "") : st.selectedKeys.length > 0)
     const isMrk = st?.isMarkedForReview ?? false
@@ -816,47 +990,51 @@ export function AttemptPlayer({
               const isMarked = st?.isMarkedForReview ?? false
               const isVisited = st?.visited ?? false
 
+              const cellState = hasAnswer && isMarked
+                ? paletteCellState.answeredAndMarked
+                : isMarked
+                  ? paletteCellState.marked
+                  : hasAnswer
+                    ? paletteCellState.answered
+                    : isVisited
+                      ? paletteCellState.notAnswered
+                      : paletteCellState.notVisited
+
               return (
                 <button
                   key={q.id}
                   type="button"
                   onClick={() => navigateTo(actualIndex, Date.now())}
                   aria-label={`Go to question ${actualIndex + 1}`}
+                  aria-current={isCurrent ? "true" : undefined}
                   className={cn(
-                    "relative flex size-8 items-center justify-center rounded-lg font-mono text-xs font-bold transition-all shadow-2xs select-none",
-                    isCurrent && "ring-2 ring-slate-400 ring-offset-2 ring-offset-background",
-                    hasAnswer && isMarked
-                      ? "bg-purple-700 text-white border border-purple-800 after:content-[''] after:absolute after:bottom-0.5 after:right-0.5 after:size-1.5 after:rounded-full after:bg-emerald-400"
-                      : isMarked
-                        ? "bg-purple-600 text-white border border-purple-700"
-                        : hasAnswer
-                          ? "bg-emerald-600 text-white border border-emerald-700"
-                          : isVisited
-                            ? "bg-rose-500 text-white border border-rose-600"
-                            : "bg-background text-muted-foreground border border-border hover:border-foreground/40"
+                    paletteCellBase,
+                    cellState,
+                    isCurrent && "ring-2 ring-ring ring-offset-2 ring-offset-background"
                   )}
                 >
                   {actualIndex + 1}
                 </button>
               )
             })}
-          </div>
-
-          {/* Submit Action */}
-          <div className="pt-3 border-t border-border space-y-2">
-            <div className="flex items-center justify-between text-xs text-muted-foreground font-medium">
-              <span>Answered: {paletteStats.answered + paletteStats.answeredAndMarked}/{attempt.questions.length}</span>
             </div>
-            <Button
-              type="button"
-              onClick={() => handleSubmit(Date.now())}
-              className="w-full h-9 text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white shadow-xs"
-            >
-              <SendIcon className="size-3.5 mr-1" />
-              Submit Exam
-            </Button>
-          </div>
-        </aside>
+
+            {/* Submit Action */}
+            <div className="pt-3 border-t border-border space-y-2">
+              <div className="flex items-center justify-between text-xs text-muted-foreground font-medium">
+                <span>Answered: {paletteStats.answered + paletteStats.answeredAndMarked}/{attempt.questions.length}</span>
+              </div>
+              <Button
+                type="button"
+                onClick={() => handleSubmit(Date.now())}
+                className="w-full min-h-11 text-xs font-bold shadow-xs sm:min-h-9"
+              >
+                <SendIcon className="size-3.5 mr-1" />
+                Submit Exam
+              </Button>
+            </div>
+          </aside>
+        ) : null}
       </div>
 
       {/* CBT Submit Confirmation Dialog */}
@@ -864,7 +1042,7 @@ export function AttemptPlayer({
         <DialogContent className="max-w-md border-border bg-card p-6 sm:rounded-2xl space-y-4">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
-              <SendIcon className="size-5 text-slate-200" /> Confirm Exam Submission
+              <SendIcon className="size-5 text-brand-violet-ink" /> Confirm Exam Submission
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
               Are you ready to submit your test? Once submitted, your answers will be evaluated immediately.
@@ -873,8 +1051,8 @@ export function AttemptPlayer({
 
 
           {/* NTA / GATE Evaluation Rule Notice */}
-          <div className="rounded-xl border border-indigo-500/30 bg-indigo-500/10 p-3 text-[11px] text-foreground flex items-start gap-2">
-            <InfoIcon className="size-4 shrink-0 text-indigo-500 mt-0.5" />
+          <div className="rounded-xl border border-brand-violet-line bg-brand-violet-soft p-3 text-[11px] text-foreground flex items-start gap-2">
+            <InfoIcon className="size-4 shrink-0 text-brand-violet-ink mt-0.5" />
             <span>
               <strong>Evaluation Rule Notice:</strong> Questions marked for review with a selected answer <strong>will be evaluated</strong> towards your final score (Standard NTA/GATE CBT Rule).
             </span>
@@ -886,18 +1064,18 @@ export function AttemptPlayer({
               <span className="font-mono font-bold text-foreground">{attempt.questions.length}</span>
             </div>
             <div className="flex justify-between items-center py-1 border-b border-border/70">
-              <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Answered:</span>
-              <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+              <span className="text-brand-violet-ink font-semibold">Answered:</span>
+              <span className="font-mono font-bold text-brand-violet-ink">
                 {paletteStats.answered + paletteStats.answeredAndMarked}
               </span>
             </div>
             <div className="flex justify-between items-center py-1 border-b border-border/70">
-              <span className="text-rose-500 font-semibold">Not Answered:</span>
-              <span className="font-mono font-bold text-rose-500">{paletteStats.notAnswered}</span>
+              <span className="text-foreground font-semibold">Not Answered:</span>
+              <span className="font-mono font-bold text-foreground">{paletteStats.notAnswered}</span>
             </div>
             <div className="flex justify-between items-center py-1 border-b border-border/70">
-              <span className="text-purple-600 font-semibold">Marked for Review:</span>
-              <span className="font-mono font-bold text-purple-600">{paletteStats.markedForReview}</span>
+              <span className="text-brand-amber-ink font-semibold">Marked for Review:</span>
+              <span className="font-mono font-bold text-brand-amber-ink">{paletteStats.markedForReview}</span>
             </div>
             <div className="flex justify-between items-center py-1">
               <span className="text-muted-foreground">Not Visited:</span>
@@ -914,7 +1092,7 @@ export function AttemptPlayer({
               size="sm"
               onClick={handleConfirmSubmit}
               disabled={submitting}
-              className="bg-slate-800 hover:bg-slate-700 text-white font-bold"
+              className="font-bold"
             >
               {submitting ? <Loader2Icon className="animate-spin size-4" /> : null}
               Yes, Submit Test
@@ -922,7 +1100,41 @@ export function AttemptPlayer({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Abandon Attempt Confirmation */}
+      <AlertDialog
+        open={abandonOpen}
+        onOpenChange={(open) => {
+          if (!abandoning) setAbandonOpen(open)
+        }}
+      >
+        <AlertDialogContent size="sm" className="max-w-sm">
+          <AlertDialogHeader>
+            <AlertDialogMedia className="bg-destructive/10 text-destructive">
+              <XIcon />
+            </AlertDialogMedia>
+            <AlertDialogTitle>Abandon this attempt?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This attempt will be marked abandoned. Your answers will not be graded and no score or analysis will be generated. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={abandoning}>Keep Testing</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={handleConfirmAbandon}
+              disabled={abandoning}
+            >
+              {abandoning ? (
+                <Loader2Icon className="animate-spin size-4" />
+              ) : (
+                <XIcon className="size-4" />
+              )}
+              Abandon Attempt
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
-

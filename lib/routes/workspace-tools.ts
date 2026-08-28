@@ -52,6 +52,8 @@ export const workspaceRoutes = {
       `/workspace/${encodeURIComponent(slug)}/mock-tests/new`,
     detail: (slug: string, assessmentId: string) =>
       `/workspace/${encodeURIComponent(slug)}/mock-tests/${encodeURIComponent(assessmentId)}`,
+    assessment: (slug: string, assessmentId: string) =>
+      `/workspace/${encodeURIComponent(slug)}/mock-tests/${encodeURIComponent(assessmentId)}`,
     edit: (slug: string, assessmentId: string) =>
       `/workspace/${encodeURIComponent(slug)}/mock-tests/${encodeURIComponent(assessmentId)}/edit`,
     attemptNew: (slug: string, assessmentId: string) =>

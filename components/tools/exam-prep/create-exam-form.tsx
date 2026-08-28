@@ -64,7 +64,7 @@ export function CreateExamForm({
   if (state.status === "success" && mode === "page") {
     return (
       <div className="mx-auto mt-20 max-w-md text-center">
-        <div className="mx-auto mb-6 flex size-16 items-center justify-center rounded-full bg-brand-neon-soft text-brand-neon-ink">
+        <div className="mx-auto mb-6 flex size-16 items-center justify-center rounded-full bg-brand-violet-soft text-brand-violet-ink">
           <GraduationCapIcon className="size-8" aria-hidden="true" />
         </div>
         <h2 className="font-heading text-2xl font-semibold">Exam created!</h2>

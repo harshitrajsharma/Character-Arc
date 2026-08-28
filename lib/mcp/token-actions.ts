@@ -2,10 +2,21 @@
 
 import { createHash, randomBytes } from "node:crypto"
 import { requireVerifiedClaims } from "@/lib/auth/session"
+import { Prisma } from "@/generated/prisma/client"
 import { prisma } from "@/lib/prisma"
 
 function hashMcpToken(token: string): string {
   return createHash("sha256").update(token).digest("hex")
+}
+
+function isMissingTableError(err: unknown): boolean {
+  if (
+    err instanceof Prisma.PrismaClientKnownRequestError &&
+    err.code === "P2021"
+  ) {
+    return true
+  }
+  return err instanceof Error && err.message.includes("does not exist")
 }
 
 export async function createMcpToken(input: {
@@ -51,8 +62,8 @@ export async function createMcpToken(input: {
       rawSecret,
       createdAt: created.createdAt.toISOString(),
     }
-  } catch (err: any) {
-    if (err?.code === "P2021" || err?.message?.includes("does not exist")) {
+  } catch (err) {
+    if (isMissingTableError(err)) {
       throw new Error("Database table 'mcp_tokens' does not exist yet. Please run 'npx prisma db push' against your database.")
     }
     throw err
@@ -97,7 +108,7 @@ export async function listMcpTokens(workspaceId: string) {
       createdAt: token.createdAt.toISOString(),
       lastUsedAt: token.lastUsedAt ? token.lastUsedAt.toISOString() : null,
     }))
-  } catch (err) {
+  } catch {
     // If the table doesn't exist in Postgres yet, return empty list gracefully
     return []
   }
@@ -134,8 +145,8 @@ export async function revokeMcpToken(input: {
       },
     })
     return { success: true }
-  } catch (err: any) {
-    if (err?.code === "P2021" || err?.message?.includes("does not exist")) {
+  } catch (err) {
+    if (isMissingTableError(err)) {
       throw new Error("Database table 'mcp_tokens' does not exist yet. Please run 'npx prisma db push' against your database.")
     }
     throw err

@@ -70,18 +70,18 @@ export const phaseConfig = {
   learn: {
     label: "Learn",
     icon: BookOpen,
-    iconClass: "text-brand-cyan-ink",
-    dotClass: "bg-brand-cyan",
+    iconClass: "text-brand-violet-ink",
+    dotClass: "bg-brand-violet-line",
     buttonClass:
-      "border-brand-cyan-line bg-brand-cyan-soft text-brand-cyan-ink hover:border-brand-cyan hover:bg-brand-cyan-surface-hover hover:text-brand-cyan-ink! dark:hover:border-brand-cyan dark:hover:bg-brand-cyan-surface-hover! dark:hover:text-brand-cyan-ink!",
+      "border-brand-violet-line bg-brand-violet-soft text-brand-violet-ink hover:border-brand-violet hover:bg-brand-violet-surface-hover hover:text-brand-violet-ink! dark:hover:border-brand-violet dark:hover:bg-brand-violet-surface-hover! dark:hover:text-brand-violet-ink!",
   },
   revise: {
     label: "Revise",
     icon: RotateCcw,
-    iconClass: "text-brand-neon-ink",
-    dotClass: "bg-brand-neon",
+    iconClass: "text-brand-violet-ink",
+    dotClass: "bg-brand-violet-line",
     buttonClass:
-      "border-brand-neon-line bg-brand-neon-soft text-brand-neon-ink hover:border-brand-neon hover:bg-brand-neon-surface-hover hover:text-brand-neon-ink! dark:hover:border-brand-neon dark:hover:bg-brand-neon-surface-hover! dark:hover:text-brand-neon-ink!",
+      "border-brand-violet-line bg-brand-violet-soft text-brand-violet-ink hover:border-brand-violet hover:bg-brand-violet-surface-hover hover:text-brand-violet-ink! dark:hover:border-brand-violet dark:hover:bg-brand-violet-surface-hover! dark:hover:text-brand-violet-ink!",
   },
   practice: {
     label: "Practice",
@@ -95,7 +95,7 @@ export const phaseConfig = {
     label: "Test",
     icon: CircleDot,
     iconClass: "text-brand-violet-ink",
-    dotClass: "bg-brand-violet",
+    dotClass: "bg-brand-violet-line",
     buttonClass:
       "border-brand-violet-line bg-brand-violet-soft text-brand-violet-ink hover:border-brand-violet hover:bg-brand-violet-surface-hover hover:text-brand-violet-ink! dark:hover:border-brand-violet dark:hover:bg-brand-violet-surface-hover! dark:hover:text-brand-violet-ink!",
   },
@@ -118,7 +118,6 @@ export function UpNextCard({ step, onNavigate }: UpNextCardProps) {
   const StatusIcon = statusInfo.icon
   const phaseKey = getPhaseForKind(step.kind)
   const phaseInfo = phaseConfig[phaseKey]
-  const PhaseIcon = phaseInfo.icon
 
   const actionLabel = getActionLabelForStep(step.kind)
   const isLocked = step.status === "locked"
@@ -196,7 +195,7 @@ export function UpNextCard({ step, onNavigate }: UpNextCardProps) {
           variant="outline"
           size="sm"
           className={cn(
-            "h-10 w-full shrink-0 gap-1.5 px-3 text-xs font-semibold sm:h-9",
+            "h-11 w-full shrink-0 gap-1.5 px-3 text-xs font-semibold sm:h-9",
             isLocked ? "border-border bg-muted text-muted-foreground hover:bg-muted" : phaseInfo.buttonClass,
             "focus-visible:ring-2 focus-visible:ring-offset-1"
           )}

@@ -25,6 +25,17 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -45,6 +56,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { SegmentedSelector } from "@/components/ui/segmented-selector"
+import { Spinner } from "@/components/ui/spinner"
 import { cn } from "@/lib/utils"
 import { createIdempotencyKey } from "@/lib/forms/idempotency-key"
 import {
@@ -121,7 +133,7 @@ function questionKindBadgeClass(kind: string): string {
     case "MULTIPLE_CHOICE":
       return "border-brand-violet-line/40 bg-brand-violet-soft text-brand-violet-ink"
     case "TRUE_FALSE":
-      return "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+      return "border-brand-violet-line/40 bg-brand-violet-soft text-brand-violet-ink"
     case "NUMERIC":
       return "border-brand-amber-line/40 bg-brand-amber-soft text-brand-amber-ink"
     case "SHORT_ANSWER":
@@ -135,10 +147,10 @@ function difficultyBadgeClass(difficulty: number | null): string {
   if (difficulty === null)
     return "border-border bg-muted/60 text-muted-foreground"
   if (difficulty <= 2)
-    return "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+    return "border-border bg-muted text-muted-foreground"
   if (difficulty === 3)
-    return "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300"
-  return "border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-300"
+    return "border-brand-amber-line/40 bg-brand-amber-soft text-brand-amber-ink"
+  return "border-success-line/40 bg-success-soft text-success-ink"
 }
 
 function StudentQuestionCard({
@@ -267,9 +279,9 @@ function StudentQuestionCard({
                       className={cn(
                         "mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full border font-mono text-xs font-semibold",
                         showAnswerKey && isCorrect
-                          ? "border-success-ink bg-success-ink text-white"
+                          ? "border-success-ink bg-success-ink text-success-foreground"
                           : isSelected
-                            ? "border-brand-violet-ink bg-brand-violet-ink text-white"
+                            ? "border-brand-violet-ink bg-brand-violet-ink text-brand-violet-foreground"
                             : "border-border bg-muted text-muted-foreground"
                       )}
                     >
@@ -501,6 +513,8 @@ export function AssessmentBuilder({
     assessment.questions[0]?.id ?? null
   )
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({})
+  const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null)
+  const [isRemoving, startRemoving] = useTransition()
 
   const [title, setTitle] = useState(assessment.title)
   const [duration, setDuration] = useState(
@@ -666,6 +680,15 @@ export function AssessmentBuilder({
       const copy = { ...current }
       delete copy[id]
       return copy
+    })
+  }
+
+  function confirmRemove() {
+    const id = pendingRemoveId
+    if (!id) return
+    startRemoving(() => {
+      removeEntry(id)
+      setPendingRemoveId(null)
     })
   }
 
@@ -862,7 +885,7 @@ export function AssessmentBuilder({
               className={cn(
                 "capitalize",
                 assessment.status === "published"
-                  ? "border-brand-neon-line/40 bg-brand-neon-soft text-brand-neon-ink"
+                  ? "border-success-line/40 bg-success-soft text-success-ink"
                   : "border-muted-foreground/30 bg-muted/40 text-muted-foreground"
               )}
             >
@@ -893,8 +916,8 @@ export function AssessmentBuilder({
               <PlusIcon data-icon="inline-start" aria-hidden="true" />
               Add from bank
             </Button>
-            <Button onClick={handlePublishAndStartExam} disabled={saving} className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-1 text-xs">
-              <PlayIcon className="size-3.5 fill-white stroke-none" />
+            <Button onClick={handlePublishAndStartExam} disabled={saving} className="font-bold gap-1 text-xs">
+              <PlayIcon className="size-3.5 fill-current stroke-none" />
               Publish & Attempt Now
             </Button>
             <Button onClick={handleSaveAll} disabled={!isDirty || saving}>
@@ -1262,7 +1285,7 @@ export function AssessmentBuilder({
                               <Button
                                 variant="ghost"
                                 size="icon-sm"
-                                onClick={() => removeEntry(entry.id)}
+                                onClick={() => setPendingRemoveId(entry.id)}
                                 aria-label={`Remove question ${entry.position + 1}`}
                                 className="size-9 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                               >
@@ -1401,7 +1424,7 @@ export function AssessmentBuilder({
                                             className={cn(
                                               "flex size-5 shrink-0 items-center justify-center rounded border font-mono text-[10px] font-bold",
                                               isCorrect
-                                                ? "border-success-ink bg-success-ink text-white"
+                                                ? "border-success-ink bg-success-ink text-success-foreground"
                                                 : "border-border bg-muted text-muted-foreground"
                                             )}
                                           >
@@ -1681,13 +1704,54 @@ export function AssessmentBuilder({
         </SheetContent>
       </Sheet>
 
+      <AlertDialog
+        open={pendingRemoveId !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingRemoveId(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogMedia className="bg-destructive/10 text-destructive">
+              <Trash2Icon aria-hidden="true" />
+            </AlertDialogMedia>
+            <AlertDialogTitle>
+              Remove question from blueprint
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong className="font-medium text-foreground">
+                Q{(entries.find((entry) => entry.id === pendingRemoveId)?.position ?? 0) + 1}
+              </strong>{" "}
+              will drop out of this paper&apos;s roster when you save. The question
+              itself stays in your question bank and can be added back at any
+              time.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isRemoving}>
+              Keep question
+            </AlertDialogCancel>
+            <AlertDialogAction
+              type="button"
+              variant="destructive"
+              disabled={isRemoving}
+              onClick={confirmRemove}
+            >
+              {isRemoving ? <Spinner data-icon="inline-start" /> : null}
+              {isRemoving ? "Removing" : "Remove question"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Mobile sticky action bar */}
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-card/95 px-4 py-3 backdrop-blur supports-backdrop-filter:bg-card/80 lg:hidden">
         <div className="flex gap-2">
           <Button
             variant="outline"
             size="lg"
-            className="flex-1"
+            className="h-11 flex-1"
             onClick={() => setShowBank(true)}
             disabled={saving}
           >
@@ -1695,8 +1759,22 @@ export function AssessmentBuilder({
             Add
           </Button>
           <Button
+            variant="outline"
             size="lg"
-            className="flex-1"
+            className="h-11 flex-1 font-semibold"
+            onClick={handlePublishAndStartExam}
+            disabled={saving || entries.length === 0}
+          >
+            {saving ? (
+              <Loader2Icon className="animate-spin" aria-hidden="true" />
+            ) : (
+              <PlayIcon className="size-4 fill-current stroke-none" aria-hidden="true" />
+            )}
+            Publish
+          </Button>
+          <Button
+            size="lg"
+            className="h-11 flex-1"
             onClick={handleSaveAll}
             disabled={!isDirty || saving}
           >

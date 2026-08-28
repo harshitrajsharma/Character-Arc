@@ -8,6 +8,7 @@ import { ArrowLeftIcon, ArrowRightIcon, UserPlusIcon } from "lucide-react"
 
 import { AuthFeedback } from "@/components/auth/auth-feedback"
 import { AuthInput } from "@/components/auth/auth-input"
+import { AuthSteps } from "@/components/auth/auth-steps"
 import { PasswordInput } from "@/components/auth/password-input"
 import { SubmitButton } from "@/components/auth/submit-button"
 import { Button } from "@/components/ui/button"
@@ -32,27 +33,6 @@ type SignupFlowProps = {
 }
 
 const initialSignUpActionState: SignUpActionState = { status: "idle" }
-
-function StepProgress({ step }: { step: 1 | 2 }) {
-  return (
-    <div
-      className="mb-5 flex items-center gap-3"
-      aria-label={`Step ${step} of 3`}
-    >
-      <span className="text-xs font-medium text-muted-foreground">
-        {step} / 3
-      </span>
-      <div className="flex flex-1 gap-1.5" aria-hidden="true">
-        {[1, 2, 3].map((item) => (
-          <span
-            key={item}
-            className={`h-1 flex-1 rounded-full ${item <= step ? "bg-brand-neon" : "bg-border"}`}
-          />
-        ))}
-      </div>
-    </div>
-  )
-}
 
 export function SignupFlow({
   next,
@@ -87,7 +67,6 @@ export function SignupFlow({
           exit={{ opacity: 0, x: -12 }}
           transition={{ duration: 0.2, ease: "easeOut" }}
         >
-          <StepProgress step={1} />
           <FieldGroup className="gap-5">
             <AuthFeedback error={initialError} notice={initialNotice} />
             <form action={signInWithGoogle}>
@@ -157,7 +136,7 @@ export function SignupFlow({
           exit={{ opacity: 0, x: 12 }}
           transition={{ duration: 0.2, ease: "easeOut" }}
         >
-          <StepProgress step={2} />
+          <AuthSteps current={2} total={3} className="mb-5" />
           <div className="mb-5 flex items-center justify-between gap-4 border-b border-border pb-4">
             <div className="min-w-0">
               <p className="text-xs text-muted-foreground">

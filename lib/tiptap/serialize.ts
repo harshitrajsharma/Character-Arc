@@ -298,7 +298,7 @@ export function richJsonIsEmpty(value: unknown): boolean {
 
 function inlineToNodes(text: string): RichTextNode[] {
   const nodes: RichTextNode[] = []
-  let rest = text
+  const rest = text
   const token =
     /(\$\$[^$\n]+\$\$)|(\$[^$\n]+\$)|(`[^`\n]+`)|(\*\*[^*\n]+\*\*)|(__[^_\n]+__)|(\*[^*\n]+\*)|(_[^_\n]+_)|(\[([^\]]+)\]\((https?:\/\/[^\s)]+)\))/g
   let match: RegExpExecArray | null

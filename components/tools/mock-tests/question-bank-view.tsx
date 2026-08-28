@@ -64,7 +64,7 @@ function questionKindBadgeClass(kind: string): string {
     case "MULTIPLE_CHOICE":
       return "border-brand-violet-line/40 bg-brand-violet-soft text-brand-violet-ink"
     case "TRUE_FALSE":
-      return "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+      return "border-brand-violet-line/40 bg-brand-violet-soft text-brand-violet-ink"
     case "NUMERIC":
       return "border-brand-amber-line/40 bg-brand-amber-soft text-brand-amber-ink"
     case "SHORT_ANSWER":
@@ -259,7 +259,7 @@ export function QuestionBankView({
         <Card className="p-4 shadow-xs border-border/80 bg-card">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-muted-foreground">Reused in Mock Tests</span>
-            <span className="flex size-7 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+            <span className="flex size-7 items-center justify-center rounded-lg bg-brand-violet-soft text-brand-violet-ink">
               <CheckCircle2Icon className="size-3.5" aria-hidden="true" />
             </span>
           </div>
@@ -489,20 +489,20 @@ export function QuestionBankView({
                           className={cn(
                             "inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-medium",
                             item.difficulty <= 2
-                              ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                              ? "bg-muted text-muted-foreground"
                               : item.difficulty === 3
-                                ? "bg-amber-500/10 text-amber-700 dark:text-amber-300"
-                                : "bg-rose-500/10 text-rose-700 dark:text-rose-300"
+                                ? "bg-brand-amber-soft text-brand-amber-ink"
+                                : "bg-success-soft text-success-ink"
                           )}
                         >
                           <span
                             className={cn(
                               "size-1.5 rounded-full",
                               item.difficulty <= 2
-                                ? "bg-emerald-500"
+                                ? "bg-muted-foreground/40"
                                 : item.difficulty === 3
-                                  ? "bg-amber-500"
-                                  : "bg-rose-500"
+                                  ? "bg-brand-amber"
+                                  : "bg-success"
                             )}
                           />
                           Level {item.difficulty}
@@ -614,7 +614,7 @@ export function QuestionBankView({
                                   className={cn(
                                     "flex items-start gap-2.5 rounded-lg border p-3 text-xs transition-colors",
                                     isCorrect
-                                      ? "border-emerald-500/60 bg-emerald-500/10 text-emerald-950 dark:text-emerald-200 shadow-xs"
+                                      ? "border-success-line bg-success-soft text-success-ink shadow-xs"
                                       : "border-border/80 bg-card text-foreground"
                                   )}
                                 >
@@ -622,7 +622,7 @@ export function QuestionBankView({
                                     className={cn(
                                       "flex size-5 shrink-0 items-center justify-center rounded font-mono text-[10px] font-bold border",
                                       isCorrect
-                                        ? "bg-emerald-600 text-white border-emerald-600"
+                                        ? "bg-success text-success-foreground border-success"
                                         : "bg-muted text-muted-foreground border-border"
                                     )}
                                   >
@@ -632,7 +632,7 @@ export function QuestionBankView({
                                     <RichContent html={opt.content} className="text-xs leading-relaxed" />
                                   </div>
                                   {isCorrect ? (
-                                    <CheckCircle2Icon className="size-4 text-emerald-600 shrink-0 mt-0.5" />
+                                    <CheckCircle2Icon className="size-4 text-success-ink shrink-0 mt-0.5" />
                                   ) : null}
                                 </div>
                               )
@@ -642,7 +642,7 @@ export function QuestionBankView({
                       ) : item.numericAnswer !== null ? (
                         <div className="rounded-lg border border-border/80 bg-card p-3 text-xs">
                           <span className="font-semibold text-muted-foreground mr-2">Correct Numeric Answer:</span>
-                          <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                          <span className="font-mono font-bold text-success-ink">
                             {item.numericAnswer}
                           </span>
                         </div>

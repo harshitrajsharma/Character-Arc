@@ -4,10 +4,8 @@ import { useId, useMemo, useState } from "react"
 import Link from "next/link"
 import {
   AlertCircleIcon,
-  ArrowRightIcon,
   ArrowUpDownIcon,
   BookOpenTextIcon,
-  CheckCircle2Icon,
   ChevronRightIcon,
   ClockIcon,
   FilePenLineIcon,
@@ -15,11 +13,8 @@ import {
   ListChecksIcon,
   PlayIcon,
   PlusIcon,
-  RotateCcwIcon,
   SearchIcon,
   SlidersHorizontalIcon,
-  SparklesIcon,
-  TargetIcon,
   TrendingUpIcon,
   TrophyIcon,
 } from "lucide-react"
@@ -36,7 +31,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
-import { formatNumber, questionKindLabel } from "@/lib/tools/mock-tests/kind-labels"
+import { formatNumber } from "@/lib/tools/mock-tests/kind-labels"
 import { workspaceRoutes } from "@/lib/routes/workspace-tools"
 import type {
   MockTestListItem,
@@ -51,11 +46,12 @@ const STATUS_BADGE: Record<string, { label: string; className: string }> = {
   },
   published: {
     label: "Published",
-    className: "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold",
+    className:
+      "border-brand-neon-line/40 bg-brand-neon-soft text-brand-neon-ink font-semibold",
   },
   archived: {
     label: "Archived",
-    className: "border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400",
+    className: "border-brand-amber-line bg-brand-amber-soft text-brand-amber-ink",
   },
 }
 
@@ -187,7 +183,7 @@ export function MockTestsDashboard({
           {canWrite ? (
             <Button
               size="sm"
-              className="h-9 gap-1.5 text-xs font-semibold bg-brand-violet-ink text-white hover:bg-brand-violet-ink/90"
+              className="h-9 gap-1.5 text-xs font-semibold"
               render={<Link href={workspaceRoutes.mockTests.new(workspaceSlug)} />}
             >
               <PlusIcon className="size-3.5 stroke-[2.5]" aria-hidden="true" />
@@ -199,18 +195,18 @@ export function MockTestsDashboard({
 
       {/* Hero Active In-Progress Test Banner (If Student Has Unfinished Attempt) */}
       {activeAttempt ? (
-        <div className="relative overflow-hidden rounded-2xl border border-amber-500/40 bg-amber-500/10 p-5 text-amber-950 dark:text-amber-200 shadow-xs">
+        <div className="relative overflow-hidden rounded-2xl border border-brand-amber-line bg-brand-amber-soft p-5 text-brand-amber-ink shadow-xs">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-3.5">
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400">
-                <ClockIcon className="size-5 animate-spin-slow" aria-hidden="true" />
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-amber-surface text-brand-amber-ink">
+                <ClockIcon className="size-5 animate-spin" aria-hidden="true" />
               </div>
               <div className="space-y-0.5">
                 <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="border-amber-500/40 bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold text-[10px] uppercase">
+                  <Badge variant="outline" className="border-brand-amber-line bg-card text-brand-amber-ink font-bold text-xs uppercase">
                     In Progress
                   </Badge>
-                  <span className="text-xs text-amber-800/80 dark:text-amber-300/80">Started {formatDate(activeAttempt.startedAt)}</span>
+                  <span className="text-xs text-brand-amber-ink">Started {formatDate(activeAttempt.startedAt)}</span>
                 </div>
                 <h3 className="font-heading text-lg font-bold text-foreground">
                   {activeAttempt.assessmentTitle}
@@ -223,10 +219,10 @@ export function MockTestsDashboard({
 
             <Button
               size="sm"
-              className="h-9 px-4 gap-1.5 text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white shadow-xs shrink-0"
+              className="h-9 px-4 gap-1.5 text-xs font-bold bg-brand-amber text-brand-amber-foreground hover:bg-brand-amber-ink shadow-xs shrink-0"
               render={<Link href={`/mock-test/${encodeURIComponent(activeAttempt.id)}`} />}
             >
-              <PlayIcon className="size-3.5 fill-white stroke-none" />
+              <PlayIcon className="size-3.5 fill-current stroke-none" />
               Resume Exam
             </Button>
           </div>
@@ -238,14 +234,14 @@ export function MockTestsDashboard({
         <Card className="p-4 shadow-xs border-border/80 bg-card">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-muted-foreground">Published Tests</span>
-            <span className="flex size-7 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+            <span className="flex size-7 items-center justify-center rounded-lg bg-success-soft text-success-ink">
               <ListChecksIcon className="size-3.5" aria-hidden="true" />
             </span>
           </div>
           <div className="mt-2 font-heading text-2xl font-bold tracking-tight text-foreground">
             {stats.published} <span className="text-xs font-normal text-muted-foreground font-sans">/ {stats.total} total</span>
           </div>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">Ready for student attempts</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">Ready for student attempts</p>
         </Card>
 
         <Card className="p-4 shadow-xs border-border/80 bg-card">
@@ -258,7 +254,7 @@ export function MockTestsDashboard({
           <div className="mt-2 font-heading text-2xl font-bold tracking-tight text-foreground">
             {stats.attemptsCount}
           </div>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">Completed exam attempts</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">Completed exam attempts</p>
         </Card>
 
         <Card className="p-4 shadow-xs border-border/80 bg-card">
@@ -271,7 +267,7 @@ export function MockTestsDashboard({
           <div className="mt-2 font-heading text-2xl font-bold tracking-tight text-foreground">
             {stats.avgAccuracy !== null ? `${stats.avgAccuracy}%` : "—"}
           </div>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">Across all graded tests</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">Across all graded tests</p>
         </Card>
 
         <Card className="p-4 shadow-xs border-border/80 bg-card">
@@ -284,7 +280,7 @@ export function MockTestsDashboard({
           <div className="mt-2 font-heading text-2xl font-bold tracking-tight text-foreground">
             {stats.drafts}
           </div>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">Under construction by authors</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">Under construction by authors</p>
         </Card>
       </div>
 
@@ -298,7 +294,7 @@ export function MockTestsDashboard({
               id={searchId}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search tests by title or exam pattern..."
+              placeholder="Search tests by title..."
               className="pl-9 h-9 text-xs sm:text-sm bg-background"
             />
           </div>
@@ -323,7 +319,7 @@ export function MockTestsDashboard({
         {/* Filter Row */}
         <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-border/70">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
               <SlidersHorizontalIcon className="size-3 text-brand-violet-ink" /> Filter:
             </span>
 
@@ -345,7 +341,7 @@ export function MockTestsDashboard({
               className={cn(
                 "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
                 statusFilter === "published"
-                  ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold"
+                  ? "bg-success-soft text-success-ink font-bold"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
@@ -418,15 +414,15 @@ export function MockTestsDashboard({
                   <div className="space-y-3">
                     {/* Status & Attempt Info Header */}
                     <div className="flex items-center justify-between gap-2">
-                      <Badge variant="outline" className={cn("text-[10px]", status.className)}>
+                      <Badge variant="outline" className={cn("text-xs", status.className)}>
                         {status.label}
                       </Badge>
                       {item.myBestPercentage !== null ? (
-                        <Badge variant="secondary" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-mono text-[10px] font-bold">
+                        <Badge variant="secondary" className="border-success-line bg-success-soft text-success-ink font-mono text-xs font-bold">
                           Best: {Math.round(item.myBestPercentage)}%
                         </Badge>
                       ) : (
-                        <span className="text-[11px] text-muted-foreground italic">Unattempted</span>
+                        <span className="text-xs text-muted-foreground italic">Unattempted</span>
                       )}
                     </div>
 
@@ -482,7 +478,7 @@ export function MockTestsDashboard({
                       ) : canWrite ? (
                         <Button
                           size="xs"
-                          className="h-8 text-xs font-semibold bg-brand-violet-ink text-white hover:bg-brand-violet-ink/90"
+                          className="h-8 text-xs font-semibold"
                           render={<Link href={workspaceRoutes.mockTests.edit(workspaceSlug, item.id)} />}
                         >
                           Add Questions
@@ -525,17 +521,17 @@ export function MockTestsDashboard({
                   >
                     <div className="min-w-0 space-y-0.5">
                       <p className="font-semibold text-foreground truncate">{attempt.assessmentTitle}</p>
-                      <p className="text-[11px] text-muted-foreground">{formatDate(attempt.submittedAt)}</p>
+                      <p className="text-xs text-muted-foreground">{formatDate(attempt.submittedAt)}</p>
                     </div>
 
                     <div>
                       <Badge
                         variant="outline"
                         className={cn(
-                          "text-[10px]",
+                          "text-xs",
                           isFinished
-                            ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                            : "border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                            ? "border-success-line bg-success-soft text-success-ink"
+                            : "border-brand-amber-line bg-brand-amber-soft text-brand-amber-ink"
                         )}
                       >
                         {attempt.status === "evaluated" ? "Graded" : attempt.status}
@@ -564,7 +560,7 @@ export function MockTestsDashboard({
                         <Button
                           variant="outline"
                           size="xs"
-                          className="h-7 text-xs font-semibold text-amber-600 border-amber-500/40 hover:bg-amber-500/10"
+                          className="h-7 text-xs font-semibold text-brand-amber-ink border-brand-amber-line hover:bg-brand-amber-soft"
                           render={<Link href={`/mock-test/${encodeURIComponent(attempt.id)}`} />}
                         >
                           Resume Exam

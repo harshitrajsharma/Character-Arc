@@ -28,18 +28,18 @@ type PhaseKey = keyof typeof phaseConfig
 // outline variant's grey `dark:hover:bg-input/30`.
 const phaseNode = {
   learn: {
-    soft: "border-brand-cyan-line bg-brand-cyan-soft text-brand-cyan-ink",
-    solid: "border-brand-cyan bg-brand-cyan text-brand-cyan-foreground",
-    text: "text-brand-cyan-ink",
+    soft: "border-brand-violet-line bg-brand-violet-soft text-brand-violet-ink",
+    solid: "border-brand-violet bg-brand-violet text-brand-violet-foreground",
+    text: "text-brand-violet-ink",
     hover:
-      "hover:border-brand-cyan hover:bg-brand-cyan-surface-hover hover:text-brand-cyan-ink! dark:hover:border-brand-cyan dark:hover:bg-brand-cyan-surface-hover! dark:hover:text-brand-cyan-ink!",
+      "hover:border-brand-violet hover:bg-brand-violet-surface-hover hover:text-brand-violet-ink! dark:hover:border-brand-violet dark:hover:bg-brand-violet-surface-hover! dark:hover:text-brand-violet-ink!",
   },
   revise: {
-    soft: "border-brand-neon-line bg-brand-neon-soft text-brand-neon-ink",
-    solid: "border-brand-neon bg-brand-neon text-brand-neon-foreground",
-    text: "text-brand-neon-ink",
+    soft: "border-brand-violet-line bg-brand-violet-soft text-brand-violet-ink",
+    solid: "border-brand-violet bg-brand-violet text-brand-violet-foreground",
+    text: "text-brand-violet-ink",
     hover:
-      "hover:border-brand-neon hover:bg-brand-neon-surface-hover hover:text-brand-neon-ink! dark:hover:border-brand-neon dark:hover:bg-brand-neon-surface-hover! dark:hover:text-brand-neon-ink!",
+      "hover:border-brand-violet hover:bg-brand-violet-surface-hover hover:text-brand-violet-ink! dark:hover:border-brand-violet dark:hover:bg-brand-violet-surface-hover! dark:hover:text-brand-violet-ink!",
   },
   practice: {
     soft: "border-brand-amber-line bg-brand-amber-soft text-brand-amber-ink",
@@ -157,7 +157,7 @@ function JourneyStepRow({
             variant="outline"
             size="sm"
             className={cn(
-              "h-8 shrink-0 gap-1 rounded-full px-3 text-xs font-semibold",
+              "h-11 shrink-0 gap-1 rounded-full px-3 text-xs font-semibold sm:h-9",
               node.soft,
               node.hover
             )}

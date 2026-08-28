@@ -65,7 +65,7 @@ Suggested fields:
 - `is_system`
 - `created_at`
 
-For the hackathon, page types are developer-defined. User-defined page types belong to the future tool marketplace.
+Initially, page types are developer-defined. User-defined page types belong to the future tool marketplace.
 
 ### `pages`
 
@@ -349,4 +349,4 @@ Build these typed extensions first:
 - `topic_progress`
 - `user_skill`
 
-This is generic enough to prove the platform while remaining small enough to implement and test during the hackathon.
+This is generic enough to prove the platform while remaining small enough to implement and test.

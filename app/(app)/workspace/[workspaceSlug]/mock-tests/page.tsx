@@ -1,5 +1,4 @@
 ﻿import type { Metadata } from "next"
-import Link from "next/link"
 import { CircleAlertIcon } from "lucide-react"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"

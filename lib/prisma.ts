@@ -20,7 +20,7 @@ if (globalForPrisma.prisma) {
       process.env.NODE_ENV === "development"
         ? ["query", "error", "warn"]
         : ["error"],
-  } as any)
+  })
 }
 
 export { prisma }

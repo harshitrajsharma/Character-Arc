@@ -24,8 +24,6 @@ import {
 import { cn } from "@/lib/utils"
 
 type ExamCountdownProps = {
-  workspaceSlug: string
-  examId: string
   expectedStartDate: string | null
   officialStartAt: string | null
   scheduleStatus:
@@ -177,13 +175,18 @@ function CountdownToolbar({
 }) {
   return (
     <div className="flex items-center gap-2">
-      {/* Segmented Pill Toggle Switch */}
-      <div className="inline-flex items-center rounded-xl border border-border/50 bg-muted/60 p-1">
+      <div
+        role="radiogroup"
+        aria-label="Countdown display style"
+        className="inline-flex items-center rounded-xl border border-border/50 bg-muted/60 p-1"
+      >
         <button
           type="button"
+          role="radio"
+          aria-checked={view === "clock"}
           onClick={() => saveCountdownView("clock")}
           className={cn(
-            "flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring sm:px-3 sm:py-1.5",
+            "flex min-h-11 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-9 sm:px-3",
             view === "clock"
               ? "bg-background font-semibold text-foreground shadow-xs"
               : "text-muted-foreground hover:text-foreground"
@@ -194,9 +197,11 @@ function CountdownToolbar({
         </button>
         <button
           type="button"
+          role="radio"
+          aria-checked={view === "weeks"}
           onClick={() => saveCountdownView("weeks")}
           className={cn(
-            "flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring sm:px-3 sm:py-1.5",
+            "flex min-h-11 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring sm:min-h-9 sm:px-3",
             view === "weeks"
               ? "bg-background font-semibold text-foreground shadow-xs"
               : "text-muted-foreground hover:text-foreground"
@@ -211,7 +216,7 @@ function CountdownToolbar({
         <>
           <CountdownSettingsButton
             settingsHref={settingsHref}
-            className="size-8 rounded-xl border border-border/60 bg-background hover:bg-muted text-muted-foreground hover:text-foreground sm:size-9"
+            className="size-11 rounded-xl border border-border/60 bg-background hover:bg-muted text-muted-foreground hover:text-foreground sm:size-9"
           />
         </>
       ) : null}
@@ -318,8 +323,6 @@ function CountdownValue({
 }
 
 export function ExamCountdown({
-  workspaceSlug,
-  examId,
   expectedStartDate,
   officialStartAt,
   scheduleStatus,
@@ -372,7 +375,7 @@ export function ExamCountdown({
         {settingsHref ? (
           <CountdownSettingsButton
             settingsHref={settingsHref}
-            className="size-8 border border-border/60 bg-background hover:bg-muted"
+            className="size-11 border border-border/60 bg-background hover:bg-muted sm:size-9"
           />
         ) : null}
       </div>
@@ -394,7 +397,7 @@ export function ExamCountdown({
         {settingsHref ? (
           <CountdownSettingsButton
             settingsHref={settingsHref}
-            className="size-8 border border-border/60 bg-background hover:bg-muted"
+            className="size-11 border border-border/60 bg-background hover:bg-muted sm:size-9"
           />
         ) : null}
       </div>
@@ -416,8 +419,8 @@ export function ExamCountdown({
   if (timeLeft.expired) {
     return (
       <div className="space-y-1.5 lg:text-right">
-        <div className="inline-flex items-center gap-2 text-sm font-medium text-amber-600 dark:text-amber-400">
-          <TrophyIcon className="size-4 text-emerald-500" aria-hidden="true" />
+        <div className="inline-flex items-center gap-2 text-sm font-medium text-success-ink">
+          <TrophyIcon className="size-4 text-success" aria-hidden="true" />
           <span className="font-semibold text-foreground">
             Exam day reached
           </span>

@@ -90,7 +90,7 @@ export function TopicSelectorDialog({
                 <span className="font-semibold">Linked Topics</span>
                 <Badge
                   variant="secondary"
-                  className="bg-brand-violet-ink text-white px-1.5 py-0 text-[10px] rounded-full font-bold"
+                  className="bg-brand-violet-ink text-brand-violet-foreground px-1.5 py-0 text-[10px] rounded-full font-bold"
                 >
                   {selectedCount}
                 </Badge>
@@ -262,13 +262,13 @@ export function TopicSelectorDialog({
                                   className={cn(
                                     "h-6 text-[11px] gap-1 px-2",
                                     target.isPrimary
-                                      ? "bg-brand-violet-ink text-white hover:bg-brand-violet-ink/90 font-semibold"
+                                      ? "font-semibold"
                                       : "text-muted-foreground hover:text-foreground"
                                   )}
                                   onClick={() => onSetTargetPrimary(block.blockId)}
                                 >
                                   <StarIcon
-                                    className={cn("size-3", target.isPrimary && "fill-white text-white")}
+                                    className={cn("size-3", target.isPrimary && "fill-current")}
                                     aria-hidden="true"
                                   />
                                   {target.isPrimary ? "Primary Topic" : "Set Primary"}

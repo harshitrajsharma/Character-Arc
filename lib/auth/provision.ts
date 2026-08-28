@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma"
+import { Prisma } from "@/generated/prisma/client"
 import { User } from "@supabase/supabase-js"
 import { cache } from "react"
 
@@ -18,8 +19,11 @@ export const ensureUserProvisioned = cache(async (user: User) => {
           avatarUrl,
         },
       })
-    } catch (err: any) {
-      if (err.code === "P2002") {
+    } catch (err) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === "P2002"
+      ) {
         profile = await prisma.profile.findUnique({ where: { id: user.id } })
       } else {
         throw err
@@ -28,7 +32,7 @@ export const ensureUserProvisioned = cache(async (user: User) => {
   }
 
   if (profile) {
-    const dataToUpdate: any = {}
+    const dataToUpdate: Prisma.ProfileUpdateInput = {}
     if (displayName && !profile.displayName) {
       dataToUpdate.displayName = displayName
     }
@@ -58,8 +62,11 @@ export const ensureUserProvisioned = cache(async (user: User) => {
           slug: `personal-${user.id}`,
         },
       })
-    } catch (err: any) {
-      if (err.code === "P2002") {
+    } catch (err) {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === "P2002"
+      ) {
         workspace = await prisma.workspace.findFirst({
           where: { createdById: user.id, kind: "PERSONAL" },
         })

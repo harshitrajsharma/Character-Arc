@@ -58,7 +58,7 @@ export default async function SubjectSettingsPage({
           <ArrowLeftIcon aria-hidden="true" />
         </Button>
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 text-sm font-medium text-brand-neon-ink">
+          <div className="flex items-center gap-2 text-sm font-medium text-brand-violet-ink">
             <Settings2Icon className="size-4" aria-hidden="true" />
             Subject settings
           </div>

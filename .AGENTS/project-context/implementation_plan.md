@@ -100,7 +100,7 @@ classDiagram
 
 ## Proposed Changes
 
-### [NEW] [schema.prisma](file:///c:/Users/sharm/Desktop/Projects/hackathon-openai/prisma/schema.prisma)
+### [NEW] [schema.prisma](file:///c:/Users/sharm/Desktop/Projects/Character%20Arc/prisma/schema.prisma)
 
 ```prisma
 datasource db {

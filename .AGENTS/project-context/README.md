@@ -53,7 +53,7 @@ The frontend is the beautiful view layer for the outcomes of those tools. The da
 - Power users who want local Markdown/Obsidian workflows plus cloud sync.
 - Normal users who only want a browser app and AI-chat tool access.
 
-The product should be designed for everyone even though the hackathon demo focuses on students. Exam preparation is the first complete use case, not the permanent boundary of the product.
+The product is designed for everyone, with exam preparation as the initial focus. Exam preparation is the first complete use case, not the permanent boundary of the product.
 
 ## User-Facing Promise
 
@@ -125,7 +125,7 @@ Character Arc has four layers:
    - Tools are not just wrappers around external APIs. A Character Arc tool owns structured context and progress state for a domain in the user's life.
 
 3. Agentic application layer
-   - Character Arc AI for paid users and the hackathon demonstration.
+   - Character Arc AI for paid users and guided demonstration.
    - External AI applications such as ChatGPT, Claude, Antigravity, and other MCP-capable agents.
    - Agents use explicit tool actions instead of writing arbitrary data directly to the database.
    - Users can bring their existing AI subscription instead of paying for intelligence in every application.
@@ -349,7 +349,7 @@ Future direction:
 - Users should eventually be able to publish tools.
 - Other users should eventually be able to install those tools.
 - Published tools need more than code. They need schemas, UI views, permissions, memory rules, sync behavior, and agent instructions.
-- For the hackathon, tools are developer-provided only.
+- Initially, tools are developer-provided only.
 
 Reference pattern:
 
@@ -367,9 +367,9 @@ Suggested privacy levels:
 
 The demo and product should make this control obvious.
 
-## Hackathon MVP
+## Character Arc MVP
 
-The hackathon version should prove one magical loop through the Exam Prep tool:
+The MVP version proves one core loop through the Exam Prep tool:
 
 1. A student selects an exam and provides or imports its syllabus and pattern.
 2. Character Arc stores the exam, subjects, chapters, topics, question pattern, and preparation state in a strict model.
@@ -379,7 +379,7 @@ The hackathon version should prove one magical loop through the Exam Prep tool:
 6. The dashboard and Skill Graph reflect the outcome and recommend the next action.
 7. The same context and outcomes are available to an authorized external AI agent through MCP/API.
 
-Recommended hackathon surfaces:
+Recommended core surfaces:
 
 - Home dashboard with exam readiness, recent activity, weak areas, and next action.
 - Tools catalog with Exam Prep installed and other tools visible as previews.
@@ -485,7 +485,7 @@ Suggested actions:
 
 ### Mock Tests
 
-Mock Tests are the strongest hackathon demonstration because they combine strict context, AI generation, a complete frontend, and analytical outcomes.
+Mock Tests are the strongest core demonstration because they combine strict context, AI generation, a complete frontend, and analytical outcomes.
 
 The tool uses a stored exam blueprint to enforce section counts, marks, duration, question types, difficulty distribution, and negative marking. The agent fills that structure with content. Character Arc validates the generated test before it can be attempted, then stores responses and updates preparation evidence after submission.
 
@@ -698,7 +698,7 @@ Prioritize:
 - The scope can become too large if connectors, local sync, MCP, CLI, API, dashboards, and AI generation are all treated as equally important.
 - Calling connectors and Character Arc capabilities both "tools" will confuse users and weaken the architecture. Keep Connectors and Tools as separate product concepts.
 - AI-generated assessment content can be incorrect or poorly calibrated. Preserve provenance, validate structure, allow review, and avoid claiming unofficial questions are authentic past questions.
-- A universal product can feel generic. Win the hackathon with a specific exam-preparation workflow while showing that the same tool contract expands to other areas of life.
+- A universal product can feel generic. Ground the platform with a specific exam-preparation workflow while showing that the same tool contract expands to other areas of life.
 - Normal users may not understand LLM-wiki terminology.
 - Power-user infrastructure can overwhelm the emotional pitch.
 - Privacy must be handled carefully because the app deals with life context.
@@ -707,9 +707,9 @@ Prioritize:
 
 ## Current Strategic Recommendation
 
-For the hackathon, position Character Arc as a universal platform but build one deep vertical: competitive-exam preparation.
+Position Character Arc as a universal platform while building one deep initial vertical: competitive-exam preparation.
 
-The winning demonstration is not "we have many AI features." It is:
+The core demonstration is not "we have many AI features." It is:
 
 1. A strict Exam Prep tool knows the user's syllabus, exam pattern, and preparation state.
 2. Any authorized AI agent can generate valid content inside that structure.

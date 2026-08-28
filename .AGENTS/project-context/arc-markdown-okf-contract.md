@@ -77,10 +77,10 @@ Character Arc exports a cloud Arc as one UTF-8 Markdown concept file:
 ```markdown
 ---
 type: Character Arc
-title: Ship the hackathon demo
+title: Ship the Character Arc release demo
 description: Deliver one complete agent-to-outcome loop.
 tags:
-  - hackathon
+  - release
   - product
 timestamp: 2026-07-17T10:30:00Z
 schema_version: 1

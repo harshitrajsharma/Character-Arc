@@ -20,10 +20,10 @@ export default function OfflinePage() {
             <WifiOffIcon className="size-7" aria-hidden="true" />
           </div>
           <CardTitle className="text-2xl font-bold tracking-tight">
-            You're currently offline
+            You&apos;re currently offline
           </CardTitle>
           <CardDescription className="text-sm text-muted-foreground">
-            Character Arc couldn't connect to the network. Check your connection or retry once you're back online.
+            Character Arc couldn&apos;t connect to the network. Check your connection or retry once you&apos;re back online.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 text-center text-sm text-muted-foreground">

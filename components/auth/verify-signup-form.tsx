@@ -5,6 +5,7 @@ import { REGEXP_ONLY_DIGITS } from "input-otp"
 import { CheckIcon, PencilIcon, RefreshCwIcon } from "lucide-react"
 
 import { AuthFeedback } from "@/components/auth/auth-feedback"
+import { AuthSteps } from "@/components/auth/auth-steps"
 import { SubmitButton } from "@/components/auth/submit-button"
 import { Button } from "@/components/ui/button"
 import {
@@ -36,9 +37,18 @@ export function VerifySignupForm({ maskedEmail, next }: VerifySignupFormProps) {
   const [code, setCode] = useState("")
   const [secondsLeft, setSecondsLeft] = useState(60)
   const formRef = useRef<HTMLFormElement>(null)
+  const otpInputRef = useRef<HTMLInputElement>(null)
   const lastSubmittedCode = useRef("")
   const [verifyState, verifyAction, isVerifying] = useActionState(
-    verifySignupOtp,
+    async (state: OtpActionState, formData: FormData) => {
+      const result = await verifySignupOtp(state, formData)
+      if (result.status === "error") {
+        setCode("")
+        lastSubmittedCode.current = ""
+        otpInputRef.current?.focus()
+      }
+      return result
+    },
     initialOtpActionState
   )
   const [resendState, resendAction] = useActionState(
@@ -73,17 +83,7 @@ export function VerifySignupForm({ maskedEmail, next }: VerifySignupFormProps) {
 
   return (
     <FieldGroup className="gap-5">
-      <div className="flex items-center gap-3" aria-label="Step 3 of 3">
-        <span className="text-xs font-medium text-muted-foreground">3 / 3</span>
-        <div className="flex flex-1 gap-1.5" aria-hidden="true">
-          {[1, 2, 3].map((item) => (
-            <span
-              key={item}
-              className="h-1 flex-1 rounded-full bg-brand-neon"
-            />
-          ))}
-        </div>
-      </div>
+      <AuthSteps current={3} total={3} />
 
       <div className="border-b border-border pb-4">
         <p className="text-xs text-muted-foreground">Code sent to</p>
@@ -104,6 +104,7 @@ export function VerifySignupForm({ maskedEmail, next }: VerifySignupFormProps) {
             <InputOTP
               id="signup-code"
               name="token"
+              ref={otpInputRef}
               autoComplete="one-time-code"
               maxLength={6}
               pattern={REGEXP_ONLY_DIGITS}

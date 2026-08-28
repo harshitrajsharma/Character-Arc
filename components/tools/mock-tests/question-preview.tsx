@@ -158,17 +158,17 @@ export function QuestionPreview({
               className={cn(
                 "text-xs font-semibold px-2 py-0.5 animate-in fade-in-0 duration-200",
                 isSelectedCorrect
-                  ? "border-emerald-500/60 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                  : "border-rose-500/60 bg-rose-500/10 text-rose-700 dark:text-rose-300"
+                  ? "border-success-line bg-success-soft text-success-ink"
+                  : "border-destructive/60 bg-destructive/10 text-destructive"
               )}
             >
               {isSelectedCorrect ? (
                 <span className="flex items-center gap-1">
-                  <CheckCircle2Icon className="size-3.5 text-emerald-600" /> Correct Choice!
+                  <CheckCircle2Icon className="size-3.5 text-success-ink" /> Correct Choice!
                 </span>
               ) : (
                 <span className="flex items-center gap-1">
-                  <XCircleIcon className="size-3.5 text-rose-600" /> Incorrect Choice
+                  <XCircleIcon className="size-3.5 text-destructive" /> Incorrect Choice
                 </span>
               )}
             </Badge>
@@ -201,9 +201,9 @@ export function QuestionPreview({
                   let stateClass = "border-border bg-background hover:bg-muted/40"
                   if (showSolution) {
                     if (isCorrect) {
-                      stateClass = "border-emerald-500/60 bg-emerald-500/10 text-emerald-900 dark:text-emerald-200"
+                      stateClass = "border-success-line bg-success-soft text-success-ink"
                     } else if (isSelected && !isCorrect) {
-                      stateClass = "border-rose-500/60 bg-rose-500/10 text-rose-900 dark:text-rose-200"
+                      stateClass = "border-destructive/60 bg-destructive/10 text-destructive"
                     }
                   } else if (isSelected) {
                     stateClass = "border-brand-violet-line/80 bg-brand-violet-soft/30 ring-1 ring-brand-violet-line/40"
@@ -223,9 +223,9 @@ export function QuestionPreview({
                         className={cn(
                           "flex size-6 shrink-0 items-center justify-center rounded-md font-mono text-xs font-semibold border transition-colors",
                           showSolution && isCorrect
-                            ? "bg-emerald-600 text-white border-emerald-600"
+                            ? "bg-success text-success-foreground border-success"
                             : isSelected
-                            ? "bg-brand-violet-ink text-white border-brand-violet-ink"
+                            ? "bg-brand-violet-ink border-brand-violet-ink text-brand-violet-foreground"
                             : "bg-muted text-muted-foreground border-border"
                         )}
                       >
@@ -239,9 +239,9 @@ export function QuestionPreview({
                         )}
                       </div>
                       {showSolution && isCorrect ? (
-                        <CheckCircle2Icon className="size-4 text-emerald-600 shrink-0 mt-0.5" aria-hidden="true" />
+                        <CheckCircle2Icon className="size-4 text-success-ink shrink-0 mt-0.5" aria-hidden="true" />
                       ) : showSolution && isSelected && !isCorrect ? (
-                        <XCircleIcon className="size-4 text-rose-600 shrink-0 mt-0.5" aria-hidden="true" />
+                        <XCircleIcon className="size-4 text-destructive shrink-0 mt-0.5" aria-hidden="true" />
                       ) : null}
                     </button>
                   )
@@ -262,7 +262,7 @@ export function QuestionPreview({
                 className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               />
               {showSolution ? (
-                <div className="mt-2 text-xs font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                <div className="mt-2 text-xs font-medium text-success-ink flex items-center gap-1.5">
                   <CheckCircle2Icon className="size-4" aria-hidden="true" />
                   Correct answer: <span className="font-mono font-bold">{numericAnswer || "Not set"}</span>
                 </div>
@@ -283,7 +283,7 @@ export function QuestionPreview({
               />
               {showSolution ? (
                 <div className="mt-2 text-xs text-muted-foreground space-y-1">
-                  <div className="font-medium text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                  <div className="font-medium text-success-ink flex items-center gap-1.5">
                     <CheckCircle2Icon className="size-4" aria-hidden="true" />
                     Model Solution Answer:
                   </div>

@@ -50,7 +50,7 @@ const STATUS_BADGE: Record<string, { label: string; className: string }> = {
   published: {
     label: "Published",
     className:
-      "border-brand-neon-line/40 bg-brand-neon-soft text-brand-neon-ink font-semibold",
+      "border-success-line/40 bg-success-soft text-success-ink font-semibold",
   },
   archived: {
     label: "Archived",
@@ -77,7 +77,7 @@ function questionKindBadgeClass(kind: string): string {
     case "MULTIPLE_CHOICE":
       return "border-brand-violet-line/40 bg-brand-violet-soft text-brand-violet-ink"
     case "TRUE_FALSE":
-      return "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+      return "border-brand-violet-line/40 bg-brand-violet-soft text-brand-violet-ink"
     case "NUMERIC":
       return "border-brand-amber-line/40 bg-brand-amber-soft text-brand-amber-ink"
     case "SHORT_ANSWER":
@@ -319,7 +319,7 @@ export function MockTestDetailView({
             <span className="text-xs font-medium text-muted-foreground">
               Syllabus Coverage
             </span>
-            <span className="flex size-7 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+            <span className="flex size-7 items-center justify-center rounded-lg bg-brand-violet-soft text-brand-violet-ink">
               <BookOpenIcon className="size-3.5" aria-hidden="true" />
             </span>
           </div>
@@ -417,8 +417,8 @@ export function MockTestDetailView({
                         "text-[10px]",
                         attempt.status === "evaluated" ||
                           attempt.status === "submitted"
-                          ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                          : "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300"
+                          ? "border-success-line/40 bg-success-soft text-success-ink"
+                          : "border-brand-amber-line/40 bg-brand-amber-soft text-brand-amber-ink"
                       )}
                     >
                       {attempt.status === "evaluated"
@@ -439,7 +439,7 @@ export function MockTestDetailView({
                   </div>
                   <div className="sm:text-right">
                     {attempt.accuracyRate !== null ? (
-                      <span className="inline-flex items-center gap-1 font-semibold text-emerald-600 dark:text-emerald-400">
+                      <span className="inline-flex items-center gap-1 font-semibold text-success-ink">
                         {attempt.accuracyRate}%
                       </span>
                     ) : (
@@ -618,10 +618,10 @@ export function MockTestDetailView({
                               className={cn(
                                 "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium",
                                 question.difficulty <= 2
-                                  ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                                  ? "bg-muted text-muted-foreground"
                                   : question.difficulty === 3
-                                    ? "bg-amber-500/10 text-amber-700 dark:text-amber-300"
-                                    : "bg-rose-500/10 text-rose-700 dark:text-rose-300"
+                                    ? "bg-brand-amber-soft text-brand-amber-ink"
+                                    : "bg-success-soft text-success-ink"
                               )}
                             >
                               Level {question.difficulty}
@@ -708,7 +708,7 @@ export function MockTestDetailView({
                                       className={cn(
                                         "flex items-start gap-2.5 rounded-lg border p-2.5 text-xs transition-colors",
                                         isCorrect
-                                          ? "border-emerald-500/60 bg-emerald-500/10 font-medium text-emerald-950 dark:text-emerald-200"
+                                          ? "border-success-line bg-success-soft font-medium text-success-ink"
                                           : "border-border/80 bg-card text-foreground"
                                       )}
                                     >
@@ -716,7 +716,7 @@ export function MockTestDetailView({
                                         className={cn(
                                           "flex size-5 shrink-0 items-center justify-center rounded border font-mono text-[10px] font-bold",
                                           isCorrect
-                                            ? "border-emerald-600 bg-emerald-600 text-white"
+                                            ? "border-success bg-success text-success-foreground"
                                             : "border-border bg-muted text-muted-foreground"
                                         )}
                                       >
@@ -729,7 +729,7 @@ export function MockTestDetailView({
                                         />
                                       </div>
                                       {isCorrect ? (
-                                        <CheckCircle2Icon className="mt-0.5 size-3.5 shrink-0 text-emerald-600" />
+                                        <CheckCircle2Icon className="mt-0.5 size-3.5 shrink-0 text-success-ink" />
                                       ) : null}
                                     </div>
                                   )
@@ -741,7 +741,7 @@ export function MockTestDetailView({
                               <span className="font-semibold text-muted-foreground">
                                 Correct Numeric Value:
                               </span>
-                              <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                              <span className="font-mono font-bold text-success-ink">
                                 {question.numericAnswer}
                               </span>
                             </div>

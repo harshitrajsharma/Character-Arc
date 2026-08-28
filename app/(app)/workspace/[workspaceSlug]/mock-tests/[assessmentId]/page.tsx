@@ -11,6 +11,9 @@ import {
   requireActiveToolInstallation,
 } from "@/lib/workspaces/workspace-access"
 
+import { ContextBreadcrumbs } from "@/components/navigation/context-breadcrumbs"
+import { workspaceRoutes } from "@/lib/routes/workspace-tools"
+
 export const metadata: Metadata = { title: "Mock Test" }
 
 export default async function MockTestDetailPage({
@@ -29,7 +32,18 @@ export default async function MockTestDetailPage({
   const canWrite = workspace.role !== "VIEWER"
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 pt-24 pb-8 sm:pb-10 md:px-6 xl:px-10">
+    <main className="mx-auto w-full max-w-6xl px-4 pt-20 pb-8 sm:pt-24 sm:pb-10 md:px-6 xl:px-10">
+      <ContextBreadcrumbs
+        segments={[
+          { label: "Workspace", href: `/workspace/${encodeURIComponent(workspaceSlug)}` },
+          { label: "Mock Tests", href: workspaceRoutes.mockTests.home(workspaceSlug) },
+          { label: assessment.title },
+        ]}
+        backHref={workspaceRoutes.mockTests.home(workspaceSlug)}
+        backLabel="Back to Mock Tests"
+        className="mb-6 rounded-2xl border border-border/60 bg-background/50"
+      />
+
       <MockTestDetailView
         workspaceSlug={workspaceSlug}
         assessment={assessment}

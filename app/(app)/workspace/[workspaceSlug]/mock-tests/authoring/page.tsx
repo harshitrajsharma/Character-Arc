@@ -1,14 +1,11 @@
 ﻿import type { Metadata } from "next"
 import Link from "next/link"
-import { notFound } from "next/navigation"
 import {
   BookOpenTextIcon,
-  CircleAlertIcon,
   FilePenLineIcon,
   ListChecksIcon,
   PlusIcon,
   SlidersHorizontalIcon,
-  SparklesIcon,
 } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
@@ -25,7 +22,6 @@ import {
   requireActiveToolInstallation,
 } from "@/lib/workspaces/workspace-access"
 import { formatNumber } from "@/lib/tools/mock-tests/kind-labels"
-import { PublishAssessmentButton } from "@/components/tools/mock-tests/publish-assessment-button"
 import { cn } from "@/lib/utils"
 
 export const metadata: Metadata = { title: "Authoring Suite — Mock Tests" }
@@ -37,11 +33,12 @@ const STATUS_BADGE: Record<string, { label: string; className: string }> = {
   },
   published: {
     label: "Published",
-    className: "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold",
+    className:
+      "border-brand-neon-line/40 bg-brand-neon-soft text-brand-neon-ink font-semibold",
   },
   archived: {
     label: "Archived",
-    className: "border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400",
+    className: "border-brand-amber-line bg-brand-amber-soft text-brand-amber-ink",
   },
 }
 
@@ -90,7 +87,7 @@ export default async function AuthoringSuitePage({
               </Button>
               <Button
                 size="sm"
-                className="h-9 gap-1.5 text-xs font-semibold bg-brand-violet-ink text-white hover:bg-brand-violet-ink/90"
+                className="h-9 gap-1.5 text-xs font-semibold"
                 render={<Link href={workspaceRoutes.mockTests.new(workspaceSlug)} />}
               >
                 <PlusIcon className="size-3.5" aria-hidden="true" />
@@ -106,7 +103,7 @@ export default async function AuthoringSuitePage({
         <Card className="p-4 shadow-xs border-border/80 bg-card">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-muted-foreground">Draft Papers</span>
-            <span className="flex size-7 items-center justify-center rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400">
+            <span className="flex size-7 items-center justify-center rounded-lg bg-brand-amber-soft text-brand-amber-ink">
               <FilePenLineIcon className="size-3.5" aria-hidden="true" />
             </span>
           </div>
@@ -119,7 +116,7 @@ export default async function AuthoringSuitePage({
         <Card className="p-4 shadow-xs border-border/80 bg-card">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-muted-foreground">Published Papers</span>
-            <span className="flex size-7 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+            <span className="flex size-7 items-center justify-center rounded-lg bg-success-soft text-success-ink">
               <ListChecksIcon className="size-3.5" aria-hidden="true" />
             </span>
           </div>
@@ -177,7 +174,7 @@ export default async function AuthoringSuitePage({
             {canWrite ? (
               <Button
                 size="sm"
-                className="h-8 text-xs font-semibold bg-brand-violet-ink text-white"
+                className="h-8 text-xs font-semibold"
                 render={<Link href={workspaceRoutes.mockTests.new(workspaceSlug)} />}
               >
                 Create First Blueprint
@@ -197,7 +194,6 @@ export default async function AuthoringSuitePage({
             <div className="divide-y divide-border">
               {overview.assessments.map((item) => {
                 const status = STATUS_BADGE[item.status] ?? STATUS_BADGE.draft
-                const isPublished = item.status === "published"
 
                 return (
                   <div

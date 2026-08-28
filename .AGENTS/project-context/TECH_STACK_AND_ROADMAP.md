@@ -53,7 +53,7 @@ Pages and Server Components should call the data access or domain layer directly
 ### Authentication and authorization
 
 - Supabase Auth using `@supabase/ssr` and `@supabase/supabase-js`.
-- Google sign-in plus one simple fallback login method for the hackathon.
+- Google sign-in plus one simple fallback login method.
 - Cookie-based SSR sessions and PKCE-compatible authentication flows.
 - Central authorization functions such as `requireUser`, `requireToolAccess`, and `requireResourceOwner`.
 - Every user-owned table must include `user_id` directly or have an unambiguous ownership path.
@@ -66,7 +66,7 @@ Pages and Server Components should call the data access or domain layer directly
 
 - Vercel AI SDK for provider abstraction, structured output, tool calling, streaming, and model switching.
 - Zod schemas for generated quizzes, flashcards, syllabus structures, and mock tests.
-- Character Arc AI uses application-funded model access only for paid plans and the hackathon demo.
+- Character Arc AI uses application-funded model access only for paid plans and demos.
 - External AI applications use Character Arc through MCP or REST and pay their own model costs.
 - AI output is always validated and recorded with provider, model, prompt version, source type, timestamps, and review status.
 
@@ -76,7 +76,7 @@ Pages and Server Components should call the data access or domain layer directly
 - Stateless Streamable HTTP MCP transport for the first remote implementation.
 - REST endpoints for CLI, connectors, and integrations that do not speak MCP.
 - MCP and REST adapters call the same domain services as the web application.
-- Personal access tokens with explicit scopes are acceptable for the hackathon.
+- Personal access tokens with explicit scopes for the initial phase.
 - Use OAuth-based authorization and token rotation before a production public launch.
 
 ### Background work
@@ -113,7 +113,7 @@ Pages and Server Components should call the data access or domain layer directly
 - Vercel for the Next.js application and remote MCP endpoint.
 - Supabase for PostgreSQL, Auth, and private Storage.
 - Inngest Cloud for durable jobs.
-- A separate worker or service is not required for the hackathon.
+- A separate worker or service is not required for the initial phase.
 
 ## Application Structure
 
@@ -313,7 +313,7 @@ Done when submitting a mock test visibly changes relevant skill evidence and nex
 ### Phase 6: External-agent access
 
 1. Extract shared Zod contracts and domain service calls.
-2. Add scoped personal access tokens for the hackathon.
+2. Add scoped personal access tokens.
 3. Build REST endpoints for core exam and progress operations.
 4. Build a stateless Streamable HTTP MCP endpoint.
 5. Expose a small, intentional tool set such as:
@@ -364,11 +364,11 @@ Done when a user can compare a small number of verified paths and convert one in
 2. Define the internal tool manifest and installation contract.
 3. Add versioned migrations for tool schemas and wiki templates.
 4. Build billing for Character Arc AI and premium tools.
-5. Replace hackathon tokens with production OAuth authorization.
+5. Replace initial personal access tokens with production OAuth authorization.
 6. Add rate limits, quotas, security review, backups, deletion workflows, and incident monitoring.
 7. Only then design the public user-created tool marketplace.
 
-## Hackathon Cut Line
+## MVP Cut Line
 
 ### Must build
 

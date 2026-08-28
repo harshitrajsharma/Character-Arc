@@ -133,7 +133,7 @@ export function ArcDetailHeader({
             <p className="text-sm font-medium text-brand-neon-ink">
               Current arc
             </p>
-            <h1 className="warp-break-word mt-2 max-w-4xl font-heading text-3xl leading-tight font-semibold text-balance sm:text-4xl lg:text-5xl">
+            <h1 className="break-words mt-2 max-w-4xl font-heading text-3xl leading-tight font-semibold text-balance sm:text-4xl lg:text-5xl">
               {title}
             </h1>
             {summary ? (

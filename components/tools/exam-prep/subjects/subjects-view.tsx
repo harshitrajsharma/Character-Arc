@@ -154,14 +154,14 @@ export function SubjectsView({
         value: "in-progress",
         icon: Clock,
         activeClassName:
-          "aria-pressed:!bg-brand-cyan aria-pressed:!text-brand-cyan-foreground aria-pressed:!border-brand-cyan",
+          "aria-pressed:!bg-brand-violet-soft aria-pressed:!text-brand-violet-ink aria-pressed:!border-brand-violet-line",
       },
       {
         label: `Not Started (${totalCategorized.notStarted})`,
         value: "not-started",
         icon: AlertCircle,
         activeClassName:
-          "aria-pressed:!bg-destructive aria-pressed:!text-destructive-foreground aria-pressed:!border-destructive",
+          "aria-pressed:!bg-muted aria-pressed:!text-foreground aria-pressed:!border-border",
       },
       {
         label: `Completed (${totalCategorized.completed})`,
@@ -384,8 +384,8 @@ export function SubjectsView({
                   activeTab === "completed"
                     ? "bg-success-soft text-success-ink"
                     : activeTab === "in-progress"
-                      ? "bg-brand-cyan-soft text-brand-cyan-ink"
-                      : "bg-destructive/10 text-destructive"
+                      ? "bg-brand-violet-soft text-brand-violet-ink"
+                      : "bg-muted text-muted-foreground"
                 )}
               >
                 {activeTab === "in-progress" ? (
@@ -432,11 +432,11 @@ export function SubjectsView({
                   "in-progress",
                   categorized.inProgress,
                   <Clock
-                    className="size-5 text-brand-cyan-ink"
+                    className="size-5 text-brand-violet-ink"
                     aria-hidden="true"
                   />,
                   "In Progress",
-                  "text-brand-cyan-ink"
+                  "text-brand-violet-ink"
                 )
               : null}
             {categorized.notStarted.length > 0
@@ -444,11 +444,11 @@ export function SubjectsView({
                   "not-started",
                   categorized.notStarted,
                   <AlertCircle
-                    className="size-5 text-destructive"
+                    className="size-5 text-muted-foreground"
                     aria-hidden="true"
                   />,
                   "Not Started",
-                  "text-destructive"
+                  "text-muted-foreground"
                 )
               : null}
             {categorized.completed.length > 0
@@ -471,12 +471,12 @@ export function SubjectsView({
             subjectsToShow,
             activeTab === "in-progress" ? (
               <Clock
-                className="size-5 text-brand-cyan-ink"
+                className="size-5 text-brand-violet-ink"
                 aria-hidden="true"
               />
             ) : activeTab === "not-started" ? (
               <AlertCircle
-                className="size-5 text-destructive"
+                className="size-5 text-muted-foreground"
                 aria-hidden="true"
               />
             ) : (
@@ -491,9 +491,9 @@ export function SubjectsView({
                 ? "Not Started"
                 : "Completed",
             activeTab === "in-progress"
-              ? "text-brand-cyan-ink"
+              ? "text-brand-violet-ink"
               : activeTab === "not-started"
-                ? "text-destructive"
+                ? "text-muted-foreground"
                 : "text-success-ink"
           )
         )}

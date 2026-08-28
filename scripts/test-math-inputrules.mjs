@@ -71,10 +71,6 @@ function simulateInputRule(doc, typedText, rule, fromPos) {
   return { fired: true, tr, doc: tr.doc }
 }
 
-function textOf(doc) {
-  return doc.textBetween(0, doc.content.size, "\n", "￼")
-}
-
 function assert(cond, msg) {
   if (!cond) {
     console.error("  ✗ FAIL:", msg)

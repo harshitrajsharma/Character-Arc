@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma"
 import { executeToolActionForPrincipal } from "@/lib/tools/execute-tool-action"
 import { getFirstPartyToolManifest, listFirstPartyToolManifests } from "@/lib/tools/registry"
-import type { ToolGrantEffect } from "../../generated/prisma/client"
+import type { Prisma, ToolGrantEffect } from "../../generated/prisma/client"
 import type { AuthenticatedMcpPrincipal } from "./auth"
 import type {
   McpJsonRpcRequest,
@@ -32,7 +32,7 @@ async function ensureActiveInstallation(
     throw new Error(`Tool "${toolKey}" is not available in this release.`)
   }
 
-  let definition = await prisma.toolDefinition.findUnique({
+  const definition = await prisma.toolDefinition.findUnique({
     where: { key: toolKey },
   })
 
@@ -40,7 +40,7 @@ async function ensureActiveInstallation(
     throw new Error(`Tool definition for "${toolKey}" was not found in registry.`)
   }
 
-  let release = await prisma.toolRelease.findFirst({
+  const release = await prisma.toolRelease.findFirst({
     where: {
       toolDefinitionId: definition.id,
       version: manifest.release.version,
@@ -99,11 +99,11 @@ async function ensureActiveInstallation(
           installationId: installation.id,
           permissionKey: grant.permissionKey,
           effect: grant.effect.toUpperCase() as ToolGrantEffect,
-          constraints: (grant.constraints ?? {}) as any,
+          constraints: (grant.constraints ?? {}) as Prisma.InputJsonValue,
         },
         update: {
           effect: grant.effect.toUpperCase() as ToolGrantEffect,
-          constraints: (grant.constraints ?? {}) as any,
+          constraints: (grant.constraints ?? {}) as Prisma.InputJsonValue,
         },
       })
     }
@@ -245,9 +245,19 @@ export async function processMcpJsonRpcRequest(
           },
         }
     }
-  } catch (error: any) {
-    const code = error?.code ?? MCP_ERROR_CODES.INTERNAL_ERROR
-    const message = error?.message ?? "An unexpected error occurred during MCP execution."
+  } catch (error) {
+    const thrown =
+      typeof error === "object" && error !== null
+        ? (error as { code?: unknown; message?: unknown })
+        : null
+    const code =
+      typeof thrown?.code === "number"
+        ? thrown.code
+        : MCP_ERROR_CODES.INTERNAL_ERROR
+    const message =
+      typeof thrown?.message === "string"
+        ? thrown.message
+        : "An unexpected error occurred during MCP execution."
     return {
       jsonrpc: "2.0",
       id: requestId,

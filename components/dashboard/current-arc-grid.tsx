@@ -1,129 +1,181 @@
-import Link from "next/link"
-import { SparklesIcon, TargetIcon } from "lucide-react"
+"use client"
 
-import { Badge } from "@/components/ui/badge"
+import * as React from "react"
+import Link from "next/link"
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+  TargetIcon,
+  GraduationCapIcon,
+  FileCheckIcon,
+  SparklesIcon,
+  ArrowRightIcon,
+  CompassIcon,
+} from "lucide-react"
+import { Button } from "@/components/ui/button"
 import type { CurrentArcItem } from "@/lib/dashboard/current-arcs"
 import { cn } from "@/lib/utils"
 
-const arcStatusMeta: Record<string, { label: string; className: string }> = {
-  active: {
-    label: "In progress",
-    className: "bg-success/10 text-success-ink",
+const toolBadgeConfig: Record<
+  string,
+  { icon: React.ComponentType<{ className?: string }>; color: string; label: string }
+> = {
+  "core.exam-prep": {
+    icon: GraduationCapIcon,
+    color: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
+    label: "Exam Prep",
   },
-  not_started: {
-    label: "Not started",
-    className: "bg-muted text-muted-foreground",
+  "core.goals-paths": {
+    icon: TargetIcon,
+    color: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
+    label: "Goals & Paths",
   },
-  paused: {
-    label: "Paused",
-    className: "bg-brand-amber-soft text-brand-amber-ink",
-  },
-  completed: {
-    label: "Completed",
-    className: "bg-brand-cyan-soft text-brand-cyan-ink",
+  "core.mock-tests": {
+    icon: FileCheckIcon,
+    color: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20",
+    label: "Mock Tests",
   },
 }
 
-function arcStatusMetaFor(status: string) {
-  return arcStatusMeta[status] ?? arcStatusMeta.active
+function getToolBadge(key: string) {
+  return (
+    toolBadgeConfig[key] ?? {
+      icon: SparklesIcon,
+      color: "bg-primary/10 text-primary border-primary/20",
+      label: "Tool",
+    }
+  )
 }
 
 function formatActivityDate(iso: string | null | undefined): string {
-  if (!iso) return "No activity yet"
+  if (!iso) return "Recent"
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return "Recently"
-  return new Intl.DateTimeFormat("en-IN", {
+  return new Intl.DateTimeFormat("en-US", {
     month: "short",
     day: "numeric",
-    year: "numeric",
+    timeZone: "UTC",
   }).format(date)
 }
 
-function clampProgress(value: number) {
-  return Math.min(100, Math.max(0, Math.round(value)))
-}
+export function CurrentArcGrid({
+  items,
+  workspaceSlug,
+}: {
+  items: CurrentArcItem[]
+  workspaceSlug: string
+}) {
+  if (items.length === 0) {
+    return (
+      <div className="rounded-3xl border border-dashed border-border/70 bg-muted/10 p-8 text-center sm:p-12">
+        <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+          <CompassIcon className="size-7" />
+        </div>
+        <h3 className="mt-4 font-heading text-lg font-bold text-foreground sm:text-xl">
+          Choose your first focus arc
+        </h3>
+        <p className="mx-auto mt-1.5 max-w-md text-xs text-muted-foreground sm:text-sm">
+          Set up a target exam, create a structured outcome arc, or take a practice mock test to establish your baseline.
+        </p>
 
-export function CurrentArcGrid({ items }: { items: CurrentArcItem[] }) {
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+          <Button
+            size="sm"
+            className="rounded-full"
+            render={<Link href={`/workspace/${encodeURIComponent(workspaceSlug)}/goals-paths/new`} />}
+          >
+            <TargetIcon className="mr-1.5 size-4" />
+            Create Goal Arc
+          </Button>
+
+          <Button
+            size="sm"
+            variant="outline"
+            className="rounded-full"
+            render={<Link href={`/workspace/${encodeURIComponent(workspaceSlug)}/exam-prep/new`} />}
+          >
+            <GraduationCapIcon className="mr-1.5 size-4" />
+            Add Exam Syllabus
+          </Button>
+
+          <Button
+            size="sm"
+            variant="outline"
+            className="rounded-full"
+            render={<Link href={`/workspace/${encodeURIComponent(workspaceSlug)}/mock-tests/new`} />}
+          >
+            <FileCheckIcon className="mr-1.5 size-4" />
+            Practice Mock Test
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {items.map((arc) => {
-        const statusMeta = arcStatusMetaFor(arc.lifecycleStatus)
-        const Icon =
-          arc.toolKey === "core.exam-prep" ? TargetIcon : SparklesIcon
-        const progress = clampProgress(arc.progressPercent)
+      {items.map((item) => {
+        const badgeInfo = getToolBadge(item.toolKey)
+        const Icon = badgeInfo.icon
+        const progress = Math.min(100, Math.max(0, Math.round(item.progressPercent)))
 
         return (
           <Link
-            key={`${arc.toolKey}-${arc.id}`}
-            href={arc.href}
-            className="rounded-xl outline-none focus-visible:ring-3 focus-visible:ring-brand-neon-line"
+            key={`${item.toolKey}-${item.id}`}
+            href={item.href}
+            className="group relative flex flex-col justify-between overflow-hidden rounded-3xl border border-border/60 bg-muted/20 p-5 transition-all duration-200 hover:border-primary/40 hover:bg-muted/30 hover:shadow-md"
           >
-            <Card
-              size="sm"
-              className="group/card h-full cursor-pointer border transition-all duration-200 hover:border-brand-neon-line hover:shadow-md"
-            >
-              <CardHeader>
-                <div className="flex items-start gap-3">
-                  <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground transition-colors group-hover/card:bg-brand-neon-bg group-hover/card:text-brand-neon-line">
-                    <Icon className="size-5" aria-hidden="true" />
+            <div>
+              {/* Card Header: Tool Pill + Meta */}
+              <div className="flex items-center justify-between gap-2">
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-medium",
+                    badgeInfo.color
+                  )}
+                >
+                  <Icon className="size-3.5" />
+                  <span>{badgeInfo.label}</span>
+                </span>
+
+                {item.metaLabel ? (
+                  <span className="text-[11px] font-mono text-muted-foreground">
+                    {item.metaLabel}
                   </span>
-                  <div className="min-w-0 flex-1">
-                    <CardTitle className="line-clamp-1">{arc.title}</CardTitle>
-                    <CardDescription className="mt-0.5 line-clamp-1">
-                      {arc.toolName}
-                    </CardDescription>
-                  </div>
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      "shrink-0 px-2 py-0.5 text-xs",
-                      statusMeta.className
-                    )}
-                  >
-                    {statusMeta.label}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {arc.summary ? (
-                  <p className="line-clamp-2 text-sm text-muted-foreground">
-                    {arc.summary}
-                  </p>
                 ) : null}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">Progress</span>
-                    <span className="font-medium tabular-nums">
-                      {progress}%
-                    </span>
-                  </div>
-                  <div
-                    className="h-2 overflow-hidden rounded-full bg-muted"
-                    role="progressbar"
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    aria-valuenow={progress}
-                    aria-label={`${arc.title} progress`}
-                  >
-                    <div
-                      className="h-full rounded-full bg-brand-neon-line transition-all"
-                      style={{ width: `${progress}%` }}
-                    />
-                  </div>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Updated{" "}
-                  {formatActivityDate(arc.lastActivityAt ?? arc.updatedAt)}
+              </div>
+
+              {/* Title & Summary */}
+              <h4 className="mt-3.5 font-heading text-base font-bold text-foreground line-clamp-1 group-hover:text-primary transition-colors">
+                {item.title}
+              </h4>
+              {item.summary ? (
+                <p className="mt-1 line-clamp-2 text-xs text-muted-foreground leading-relaxed">
+                  {item.summary}
                 </p>
-              </CardContent>
-            </Card>
+              ) : null}
+            </div>
+
+            {/* Card Footer: Progress Bar + Jump Action */}
+            <div className="mt-5 space-y-3 pt-3 border-t border-border/30">
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground font-medium">Progress</span>
+                  <span className="font-bold tabular-nums text-foreground">{progress}%</span>
+                </div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-muted/60">
+                  <div
+                    className="h-full rounded-full bg-primary transition-all duration-500"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                <span suppressHydrationWarning>Updated {formatActivityDate(item.lastActivityAt ?? item.updatedAt)}</span>
+                <span className="inline-flex items-center gap-1 font-semibold text-primary group-hover:translate-x-0.5 transition-transform">
+                  Open <ArrowRightIcon className="size-3" />
+                </span>
+              </div>
+            </div>
           </Link>
         )
       })}

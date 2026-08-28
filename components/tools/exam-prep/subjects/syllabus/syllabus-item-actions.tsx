@@ -74,7 +74,7 @@ export function SyllabusItemActions({
   const actionVisibility =
     hoverGroup === "chapter"
       ? "opacity-100"
-      : "opacity-0 group-hover/topic:opacity-100"
+      : "opacity-60 group-hover/topic:opacity-100 group-focus-within/topic:opacity-100"
 
   function openEdit() {
     setEditedName(name)
@@ -140,7 +140,7 @@ export function SyllabusItemActions({
 
         <div
           className={cn(
-            "flex transition-opacity focus-within:opacity-100",
+            "flex transition-opacity focus-within:opacity-100 group-focus-within/topic:opacity-100",
             actionVisibility
           )}
         >

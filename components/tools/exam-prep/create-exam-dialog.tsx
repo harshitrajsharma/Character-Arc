@@ -58,7 +58,7 @@ export function CreateExamDialogWrapper({
         <DialogContent className="flex h-full max-h-dvh w-full flex-col gap-6 overflow-y-auto rounded-none p-6 sm:h-auto sm:max-h-[90vh] sm:max-w-xl sm:rounded-3xl sm:p-8">
           <DialogHeader className="-mx-6 -mt-6 mb-2 px-6 py-4 pr-14 sm:-mx-8 sm:-mt-8 sm:px-8 sm:py-5">
             <div className="flex items-center gap-3">
-              <span className="flex size-10 items-center justify-center rounded-lg bg-brand-neon-soft text-brand-neon-ink">
+              <span className="flex size-10 items-center justify-center rounded-lg bg-brand-violet-soft text-brand-violet-ink">
                 <GraduationCapIcon className="size-5" aria-hidden="true" />
               </span>
               <div>

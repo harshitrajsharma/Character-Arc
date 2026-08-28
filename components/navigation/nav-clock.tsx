@@ -42,8 +42,7 @@ export function NavClock({ className }: NavClockProps) {
       <TooltipTrigger
         type="button"
         onClick={() => setIs24Hour((current) => !current)}
-        aria-label={`${time} ${period}, shown in ${is24Hour ? "24-hour" : "12-hour"} format. Switch to ${nextFormat} format.`}
-        aria-pressed={!is24Hour}
+        aria-label={`Switch clock to ${nextFormat} format`}
         className={cn(
           "flex min-h-11 items-center rounded-md px-1 font-mono text-sm text-muted-foreground tabular-nums transition-colors outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-brand-neon-line sm:min-h-9",
           className

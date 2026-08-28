@@ -25,8 +25,7 @@ export function PasswordInput({
       <Button
         type="button"
         variant="ghost"
-        size="icon-sm"
-        className="absolute top-1/2 right-1.5 -translate-y-1/2 text-muted-foreground hover:bg-muted hover:text-foreground"
+        className="absolute top-1/2 right-0 -translate-y-1/2 size-11 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground sm:right-1 sm:size-9"
         aria-label={label}
         title={label}
         onClick={() => setIsVisible((visible) => !visible)}

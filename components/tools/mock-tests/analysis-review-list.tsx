@@ -7,7 +7,6 @@ import {
   ChevronUpIcon,
   ClockIcon,
   HelpCircleIcon,
-  ListFilterIcon,
   XCircleIcon,
 } from "lucide-react"
 
@@ -117,8 +116,8 @@ export function AnalysisReviewList({
             className={cn(
               "rounded-md px-3 py-1 text-xs font-medium transition-colors flex items-center gap-1",
               filter === "CORRECT"
-                ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 shadow-xs font-semibold"
-                : "text-muted-foreground hover:text-emerald-600"
+                ? "bg-success-soft text-success-ink shadow-xs font-semibold"
+                : "text-muted-foreground hover:text-success-ink"
             )}
           >
             <CheckCircle2Icon className="size-3" />
@@ -157,7 +156,7 @@ export function AnalysisReviewList({
                       className={cn(
                         "flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold",
                         isCorrect
-                          ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                          ? "bg-success-soft text-success-ink"
                           : isIncorrect
                             ? "bg-destructive/15 text-destructive"
                             : "bg-muted text-muted-foreground"
@@ -202,7 +201,7 @@ export function AnalysisReviewList({
                         className={cn(
                           "font-bold",
                           isCorrect
-                            ? "text-emerald-600 dark:text-emerald-400"
+                            ? "text-success-ink"
                             : isIncorrect
                               ? "text-destructive"
                               : "text-muted-foreground"
@@ -236,9 +235,9 @@ export function AnalysisReviewList({
                               className={cn(
                                 "flex items-start gap-3 rounded-xl border p-3 text-xs transition-colors",
                                 correct
-                                  ? "border-emerald-500/60 bg-emerald-500/10 text-emerald-950 dark:text-emerald-200 shadow-xs"
+                                  ? "border-success-line bg-success-soft text-success-ink shadow-xs"
                                   : selected
-                                    ? "border-destructive/60 bg-destructive/10 text-destructive dark:text-rose-200"
+                                    ? "border-destructive/60 bg-destructive/10 text-destructive"
                                     : "border-border/80 bg-background text-foreground"
                               )}
                             >
@@ -246,9 +245,9 @@ export function AnalysisReviewList({
                                 className={cn(
                                   "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded font-mono text-[10px] font-bold border",
                                   correct
-                                    ? "bg-emerald-600 text-white border-emerald-600"
+                                    ? "bg-success text-success-foreground border-success"
                                     : selected
-                                      ? "bg-destructive text-white border-destructive"
+                                      ? "border-destructive/40 bg-destructive/20 text-destructive"
                                       : "bg-muted text-muted-foreground border-border"
                                 )}
                               >
@@ -258,7 +257,7 @@ export function AnalysisReviewList({
                                 <RichContent html={option.content} className="text-xs leading-relaxed" />
                               </div>
                               {correct ? (
-                                <span className="shrink-0 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                                <span className="shrink-0 text-xs font-semibold text-success-ink">
                                   Correct answer
                                 </span>
                               ) : selected ? (
@@ -280,7 +279,7 @@ export function AnalysisReviewList({
                         </div>
                         <div>
                           <span className="text-muted-foreground font-medium">Correct Value: </span>
-                          <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                          <span className="font-mono font-bold text-success-ink">
                             {question.numericAnswer !== null && question.numericAnswer !== undefined
                               ? formatNumber(question.numericAnswer)
                               : "—"}
@@ -296,7 +295,7 @@ export function AnalysisReviewList({
                         {question.modelAnswer ? (
                           <div>
                             <span className="text-muted-foreground font-medium">Model Answer: </span>
-                            <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                            <span className="font-mono font-bold text-success-ink">
                               {question.modelAnswer}
                             </span>
                           </div>
@@ -305,7 +304,7 @@ export function AnalysisReviewList({
                     )}
 
                     {isUnanswered ? (
-                      <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5 text-xs text-amber-800 dark:text-amber-300">
+                      <div className="rounded-lg border border-brand-amber-line bg-brand-amber-soft p-2.5 text-xs text-brand-amber-ink">
                         Skipped / Unanswered — awarded 0 marks.
                       </div>
                     ) : null}

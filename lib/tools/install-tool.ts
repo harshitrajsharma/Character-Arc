@@ -5,7 +5,16 @@ import { z } from "zod"
 import { requireVerifiedClaims } from "@/lib/auth/session"
 import { prisma } from "@/lib/prisma"
 import { getFirstPartyToolManifest } from "@/lib/tools/registry"
+import type { Prisma } from "../../generated/prisma/client"
 import { ToolGrantEffect } from "../../generated/prisma/client"
+
+type StoredReleaseManifest = {
+  defaultGrants?: ReadonlyArray<{
+    permissionKey?: string
+    effect?: string
+    constraints?: Prisma.InputJsonValue
+  }>
+}
 
 const installToolInputSchema = z.object({
   workspaceId: z.string().uuid(),
@@ -125,7 +134,10 @@ export async function installTool(input: InstallToolInput) {
       })
 
       // 4. Copies permissions from release.manifest->'defaultGrants' into tool_grants
-      const manifestData = release.manifest as any
+      const manifestData: StoredReleaseManifest =
+        release.manifest && typeof release.manifest === "object"
+          ? (release.manifest as StoredReleaseManifest)
+          : {}
       const defaultGrants = Array.isArray(manifestData?.defaultGrants)
         ? manifestData.defaultGrants
         : []

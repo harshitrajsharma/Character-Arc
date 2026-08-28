@@ -79,13 +79,13 @@ export function SubjectCard({
       >
         <Card
           className={cn(
-            "relative h-full border border-white/10 p-4 transition-all duration-300",
+            "relative h-full border border-border p-4 transition-all duration-300",
             categoryVariants[category].cardHover,
-            "group-hover:scale-[1.02] group-hover:border-white/30 group-hover:shadow-xl dark:group-hover:border-white/20",
-            "before:absolute before:inset-0 before:rounded-lg before:bg-linear-to-b before:from-white/5 before:to-black/5 before:dark:from-white/5 before:dark:to-black/20",
+            "group-hover:scale-[1.02] group-hover:border-brand-violet-line group-hover:shadow-xl",
+            "before:absolute before:inset-0 before:rounded-lg before:bg-linear-to-b before:from-foreground/[0.04] before:to-transparent",
             "after:absolute after:inset-0 after:rounded-lg after:bg-background/5 after:opacity-0",
             "hover:after:opacity-100",
-            isDragging && "scale-[1.01] border-brand-neon-line shadow-xl"
+            isDragging && "scale-[1.01] border-brand-violet-line shadow-xl"
           )}
         >
           <div className="relative z-10 space-y-4">

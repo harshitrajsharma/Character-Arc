@@ -106,7 +106,7 @@ export function ProgressCalculatorExplainer({
               </span>
             </p>
             <p>
-              <span className="font-medium text-warning-ink">
+              <span className="font-medium text-brand-amber-ink">
                 High-yield:
               </span>{" "}
               <span className="text-muted-foreground">
@@ -160,7 +160,7 @@ export function ProgressCalculatorExplainer({
             <div className={cn("rounded-xl border border-border/60 bg-card", compact ? "p-4" : "p-5")}>
               <Badge
                 variant="outline"
-                className="border-brand-cyan-line bg-brand-cyan-soft text-brand-cyan-ink hover:bg-brand-cyan-soft"
+                className="border-border bg-muted text-muted-foreground hover:bg-muted"
               >
                 Beginner
               </Badge>
@@ -182,7 +182,7 @@ export function ProgressCalculatorExplainer({
             <div className={cn("rounded-xl border border-border/60 bg-card", compact ? "p-4" : "p-5")}>
               <Badge
                 variant="outline"
-                className="border-brand-neon-line bg-brand-neon-soft text-brand-neon-ink hover:bg-brand-neon-soft"
+                className="border-success-line bg-success-soft text-success-ink hover:bg-success-soft"
               >
                 Advanced
               </Badge>

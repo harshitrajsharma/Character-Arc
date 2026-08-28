@@ -84,7 +84,7 @@ export function SubjectStats({ subject }: { subject: SubjectWithRelations }) {
       label: "Avg Marks",
       value:
         marksEvidence.percentage === null ? "—" : `${marksEvidence.percentage}%`,
-      valueColor: "text-brand-neon-ink",
+      valueColor: "text-brand-violet-ink",
       tooltip: averageMarksTooltip,
     },
     {
@@ -97,13 +97,13 @@ export function SubjectStats({ subject }: { subject: SubjectWithRelations }) {
     {
       label: "Topics",
       value: `${completedTopics}/${totalTopics}`,
-      valueColor: "text-brand-cyan-ink",
+      valueColor: "text-brand-violet-ink",
       tooltip: "Number of topics completed in learning phase",
     },
     {
       label: "Chapters",
       value: `${completedChapters}/${totalChapters}`,
-      valueColor: "text-brand-neon-ink",
+      valueColor: "text-brand-violet-ink",
       tooltip:
         "Chapters where all topics are completed in learning phase",
     },

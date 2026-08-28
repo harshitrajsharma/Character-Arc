@@ -26,9 +26,9 @@ type NavbarProps = {
 
 export function Navbar({ user, memberships }: NavbarProps) {
   const pathname = usePathname()
-  const [active, setActive] = useState<NavbarDestinationKey>("today")
   const [now, setNow] = useState<Date | null>(null)
   const isAuthenticated = Boolean(user)
+  const primaryWorkspaceSlug = memberships?.[0]?.slug
 
   useEffect(() => {
     const update = () => setNow(new Date())
@@ -38,23 +38,22 @@ export function Navbar({ user, memberships }: NavbarProps) {
     return () => window.clearInterval(interval)
   }, [])
 
-  useEffect(() => {
-    if (!isAuthenticated) return
+  const pathActive: NavbarDestinationKey = isAuthenticated
+    ? pathname.startsWith("/tools")
+      ? "tools"
+      : pathname.startsWith("/workspace")
+        ? "workspace"
+        : "today"
+    : "today"
 
-    const syncHash = () => {
-      if (pathname === "/tools" || pathname.startsWith("/tools/"))
-        setActive("tools")
-      else if (pathname === "/workspace" || pathname.startsWith("/workspace/"))
-        setActive("workspace")
-      else if (window.location.hash === "#workspace") setActive("workspace")
-      else if (window.location.hash === "#tools") setActive("tools")
-      else setActive("today")
-    }
-
-    syncHash()
-    window.addEventListener("hashchange", syncHash)
-    return () => window.removeEventListener("hashchange", syncHash)
-  }, [isAuthenticated, pathname])
+  const [selectedOverride, setSelectedOverride] =
+    useState<NavbarDestinationKey | null>(null)
+  const [lastSyncedPathname, setLastSyncedPathname] = useState(pathname)
+  if (lastSyncedPathname !== pathname) {
+    setLastSyncedPathname(pathname)
+    setSelectedOverride(null)
+  }
+  const active = selectedOverride ?? pathActive
 
   const progress = now ? dayProgress() : 0
   const phase = getDayPhase(progress)
@@ -83,7 +82,7 @@ export function Navbar({ user, memberships }: NavbarProps) {
           href={homeHref}
           className="min-w-0 justify-self-start rounded-md outline-none focus-visible:ring-3 focus-visible:ring-brand-neon-line"
           aria-label={user ? "Character Arc dashboard" : "Character Arc home"}
-          onClick={() => setActive("today")}
+          onClick={() => setSelectedOverride("today")}
         >
           <CharacterArcLogo />
         </Link>
@@ -91,7 +90,7 @@ export function Navbar({ user, memberships }: NavbarProps) {
         {user ? (
           <div className="hidden items-center justify-start sm:flex xl:pointer-events-none xl:absolute xl:inset-y-0 xl:left-1/2 xl:w-full xl:max-w-6xl xl:-translate-x-1/2 xl:px-16">
             <div className="pointer-events-auto">
-              <NavbarPrimaryLinks active={active} onSelect={setActive} />
+              <NavbarPrimaryLinks active={active} onSelect={setSelectedOverride} workspaceSlug={primaryWorkspaceSlug} />
             </div>
           </div>
         ) : null}
@@ -100,9 +99,9 @@ export function Navbar({ user, memberships }: NavbarProps) {
           <NavClock />
           {user ? (
             <>
-              <NavbarSearch onSelect={setActive} memberships={memberships} />
+              <NavbarSearch onSelect={setSelectedOverride} memberships={memberships} />
               <NavbarNotifications />
-              <NavbarAccountMenu user={user} onSelect={setActive} />
+              <NavbarAccountMenu user={user} onSelect={setSelectedOverride} workspaceSlug={primaryWorkspaceSlug} />
             </>
           ) : null}
 

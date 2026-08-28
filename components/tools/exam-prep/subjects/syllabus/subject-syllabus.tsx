@@ -63,7 +63,7 @@ export function SubjectSyllabus({
         <div className="flex flex-col gap-2 sm:flex-row">
           <Button
             type="button"
-            className="border-brand-violet-line bg-brand-violet-soft text-brand-violet-ink hover:bg-brand-violet hover:text-white"
+            className="border-brand-violet-line bg-brand-violet-soft text-brand-violet-ink hover:bg-brand-violet hover:text-brand-violet-foreground"
             variant="outline"
             onClick={() => setIsSchedulePlannerOpen(true)}
           >

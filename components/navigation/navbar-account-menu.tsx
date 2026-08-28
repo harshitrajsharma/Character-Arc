@@ -3,7 +3,8 @@
 import { useTransition } from "react"
 import Link from "next/link"
 import { useTheme } from "next-themes"
-import { HomeIcon, LogOutIcon, MoonIcon, SunIcon } from "lucide-react"
+import { useSettings } from "@/components/settings/settings-provider"
+import { HomeIcon, LogOutIcon, MoonIcon, SettingsIcon, SunIcon } from "lucide-react"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { buttonVariants } from "@/components/ui/button"
@@ -20,7 +21,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { signOut } from "@/lib/auth/actions"
 import { cn } from "@/lib/utils"
 import {
-  NAVBAR_DESTINATIONS,
+  getNavbarDestinations,
   type NavbarDestinationKey,
   type NavbarUser,
 } from "./navbar-data"
@@ -28,12 +29,19 @@ import {
 type NavbarAccountMenuProps = {
   user: NavbarUser
   onSelect: (destination: NavbarDestinationKey) => void
+  workspaceSlug?: string
 }
 
-export function NavbarAccountMenu({ user, onSelect }: NavbarAccountMenuProps) {
+export function NavbarAccountMenu({
+  user,
+  onSelect,
+  workspaceSlug,
+}: NavbarAccountMenuProps) {
   const [isSigningOut, startSignOut] = useTransition()
   const { theme, setTheme } = useTheme()
+  const { openSettings } = useSettings()
   const isDark = theme === "dark"
+  const destinations = getNavbarDestinations(workspaceSlug)
 
   return (
     <DropdownMenu>
@@ -41,25 +49,28 @@ export function NavbarAccountMenu({ user, onSelect }: NavbarAccountMenuProps) {
         aria-label={`Open account menu for ${user.name}`}
         className={cn(
           buttonVariants({ variant: "ghost", size: "icon" }),
-          "rounded-full"
+          "size-9 rounded-full border border-border/80 p-0 hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         )}
       >
-        <Avatar size="sm">
-          {user.avatarUrl ? <AvatarImage src={user.avatarUrl} alt="" /> : null}
-          <AvatarFallback>{user.initials || "CA"}</AvatarFallback>
+        <Avatar className="size-8">
+          {user.avatarUrl ? <AvatarImage src={user.avatarUrl} alt={user.name} /> : null}
+          <AvatarFallback className="text-xs font-semibold">{user.initials || "CA"}</AvatarFallback>
         </Avatar>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" sideOffset={8} className="w-64">
+      <DropdownMenuContent align="end" sideOffset={8} className="w-56">
         <DropdownMenuGroup>
-          <DropdownMenuLabel className="min-w-0">
-            <span className="block truncate font-medium text-foreground">
-              {user.name}
-            </span>
-            <span className="mt-0.5 block truncate font-normal">
-              {user.email}
-            </span>
+          <DropdownMenuLabel className="font-normal">
+            <div className="flex flex-col space-y-1">
+              <p className="font-heading text-sm font-semibold leading-none text-foreground">
+                {user.name}
+              </p>
+              <p className="text-xs leading-none text-muted-foreground">
+                {user.email}
+              </p>
+            </div>
           </DropdownMenuLabel>
-          {NAVBAR_DESTINATIONS.map((item) => {
+          <DropdownMenuSeparator />
+          {destinations.map((item) => {
             const Icon = item.icon
 
             return (
@@ -80,6 +91,12 @@ export function NavbarAccountMenu({ user, onSelect }: NavbarAccountMenuProps) {
           >
             <HomeIcon aria-hidden="true" />
             Dashboard
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => openSettings("workspace", workspaceSlug)}
+          >
+            <SettingsIcon className="size-4" aria-hidden="true" />
+            Settings
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => setTheme(isDark ? "light" : "dark")}>

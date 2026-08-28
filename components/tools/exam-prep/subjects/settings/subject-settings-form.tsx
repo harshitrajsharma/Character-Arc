@@ -19,10 +19,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
-import {
-  SegmentedSelector,
-  type SegmentedSelectorOption,
-} from "@/components/ui/segmented-selector"
+import { SegmentedSelector } from "@/components/ui/segmented-selector"
 import {
   Field,
   FieldDescription,

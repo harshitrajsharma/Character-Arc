@@ -98,7 +98,7 @@ export function RecommendationsSection({
             >
               <CheckCircle2Icon aria-hidden="true" />
             </EmptyMedia>
-            <EmptyTitle className="text-success-foreground">
+            <EmptyTitle className="text-success-ink">
               You are all caught up!
             </EmptyTitle>
             <EmptyDescription>
@@ -132,7 +132,7 @@ export function RecommendationsSection({
           variant="outline"
           size="sm"
           className={cn(
-            "h-10 shrink-0 gap-1.5 px-3 text-xs font-semibold text-foreground sm:h-9 sm:px-3.5",
+            "h-11 shrink-0 gap-1.5 px-3 text-xs font-semibold text-foreground sm:h-9 sm:px-3.5",
             "border-border bg-card hover:bg-accent dark:hover:bg-accent!",
             "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
           )}

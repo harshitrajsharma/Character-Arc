@@ -49,7 +49,7 @@ const EXAM_GROUPS: Array<{
     key: "active",
     label: "In progress",
     icon: Clock3Icon,
-    markerClassName: "bg-brand-neon",
+    markerClassName: "bg-brand-violet",
   },
   {
     key: "not_started",
@@ -67,7 +67,7 @@ const EXAM_GROUPS: Array<{
     key: "completed",
     label: "Completed",
     icon: CheckCircle2Icon,
-    markerClassName: "bg-brand-cyan",
+    markerClassName: "bg-success",
   },
 ]
 
@@ -101,7 +101,7 @@ export default async function ExamPrepPage({
           title="Exam Prep"
           description="Track subjects, chapters, and topics through four study stages: Learn, Revise, Practice, and Test. Spaced repetition made simple."
           icon={<GraduationCapIcon aria-hidden="true" />}
-          iconClassName="bg-brand-neon-soft text-brand-neon-ink"
+          iconClassName="bg-brand-violet-soft text-brand-violet-ink"
           primaryAction={
             <CreateExamDialogTriggerButton>
               <PlusIcon data-icon="inline-start" aria-hidden="true" />
@@ -126,7 +126,7 @@ export default async function ExamPrepPage({
             <EmptyHeader>
               <EmptyMedia
                 variant="icon"
-                className="bg-brand-neon-soft text-brand-neon-ink"
+                className="bg-brand-violet-soft text-brand-violet-ink"
               >
                 <GraduationCapIcon aria-hidden="true" />
               </EmptyMedia>
@@ -198,13 +198,13 @@ export default async function ExamPrepPage({
                           icon={GraduationCapIcon}
                           iconClassName={
                             exam.progressPercent === 100
-                              ? "bg-brand-neon text-brand-neon-foreground"
-                              : "bg-brand-neon-soft text-brand-neon-ink group-hover:bg-brand-neon group-hover:text-brand-neon-foreground"
+                              ? "bg-brand-violet text-brand-violet-foreground"
+                              : "bg-brand-violet-soft text-brand-violet-ink group-hover:bg-brand-violet group-hover:text-brand-violet-foreground"
                           }
                           progressClassName={
                             exam.progressPercent === 100
-                              ? "bg-brand-neon"
-                              : "bg-brand-neon-soft"
+                              ? "bg-brand-violet"
+                              : "bg-brand-violet-soft"
                           }
                           progressContainerClassName="bg-muted"
                           progressPercent={exam.progressPercent}
