@@ -11,7 +11,7 @@ export async function getSettingsModalData(workspaceSlug?: string) {
   const claims = await requireVerifiedClaims()
   const userId = claims.sub!
 
-  let workspace
+  let workspace = null
   if (workspaceSlug) {
     workspace = await prisma.workspace.findFirst({
       where: {
@@ -75,17 +75,17 @@ export async function getSettingsModalData(workspaceSlug?: string) {
       },
       orderBy: { joinedAt: "asc" },
     }),
-    listMcpTokens(workspace.id),
+    listMcpTokens(workspace.id).catch(() => []),
     Promise.resolve(listFirstPartyToolManifests()),
-    getToolCatalog(),
+    getToolCatalog().catch(() => ({ items: [] })),
   ])
 
-  const members = rawMembers.map((m) => ({
+  const members = (rawMembers || []).map((m) => ({
     userId: m.userId,
     role: m.role,
     joinedAt: m.joinedAt.toISOString(),
-    displayName: m.user.displayName,
-    avatarUrl: m.user.avatarUrl,
+    displayName: m.user?.displayName ?? null,
+    avatarUrl: m.user?.avatarUrl ?? null,
   }))
 
   const headersList = await headers()
@@ -116,10 +116,11 @@ export async function getSettingsModalData(workspaceSlug?: string) {
       createdAt: workspace.createdAt.toISOString(),
     },
     members,
-    initialTokens: tokens,
-    manifests,
-    catalogItems: catalog.items,
+    initialTokens: tokens || [],
+    manifests: manifests || [],
+    catalogItems: catalog.items || [],
     origin,
     user: { name, email, avatarUrl, initials },
   }
 }
+

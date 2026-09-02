@@ -22,22 +22,29 @@ function StatCell({
   value,
   valueColor,
   tooltip,
+  className,
 }: {
   label: string
   value: string
   valueColor?: string
   tooltip: string
+  className?: string
 }) {
   return (
-    <div className="flex min-w-0 flex-col px-4 py-3">
-      <div className="flex items-center gap-1.5">
-        <span className="truncate text-[11px] font-medium text-muted-foreground">
+    <div
+      className={cn(
+        "flex min-w-0 flex-col justify-between p-3 md:p-4",
+        className
+      )}
+    >
+      <div className="flex items-center justify-between gap-1.5">
+        <span className="truncate text-xs font-medium text-muted-foreground">
           {label}
         </span>
         <Tooltip>
           <TooltipTrigger
             aria-label={`About ${label}`}
-            className="flex size-4 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/30"
+            className="flex size-4 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
           >
             <Info className="size-3" aria-hidden="true" />
           </TooltipTrigger>
@@ -48,7 +55,7 @@ function StatCell({
       </div>
       <span
         className={cn(
-          "mt-1 truncate text-base leading-tight font-bold md:text-lg",
+          "mt-1.5 truncate text-lg font-bold tracking-tight md:text-xl",
           valueColor
         )}
       >
@@ -83,39 +90,44 @@ export function SubjectStats({ subject }: { subject: SubjectWithRelations }) {
     {
       label: "Avg Marks",
       value:
-        marksEvidence.percentage === null ? "—" : `${marksEvidence.percentage}%`,
-      valueColor: "text-brand-violet-ink",
+        marksEvidence.percentage === null
+          ? "—"
+          : `${marksEvidence.percentage}%`,
+      valueColor: "text-brand-neon-ink",
       tooltip: averageMarksTooltip,
     },
     {
       label: "Foundation",
       value: foundationLevel,
       valueColor: getFoundationLevelColor(foundationLevel),
-      tooltip:
-        "Based on your overall progress with emphasis on learning phase",
+      tooltip: "Based on your overall progress with emphasis on learning phase",
     },
     {
       label: "Topics",
       value: `${completedTopics}/${totalTopics}`,
-      valueColor: "text-brand-violet-ink",
+      valueColor: "text-brand-cyan-ink",
       tooltip: "Number of topics completed in learning phase",
     },
     {
       label: "Chapters",
       value: `${completedChapters}/${totalChapters}`,
-      valueColor: "text-brand-violet-ink",
-      tooltip:
-        "Chapters where all topics are completed in learning phase",
+      valueColor: "text-brand-neon-ink",
+      tooltip: "Chapters where all topics are completed in learning phase",
     },
   ]
 
   return (
     <TooltipProvider>
-      <Card className="p-1 md:p-1.5">
-        <div className="grid grid-cols-2 sm:grid-cols-4 sm:divide-x sm:divide-border/60">
-          {cells.map((cell) => (
-            <StatCell key={cell.label} {...cell} />
-          ))}
+      <Card className="h-full border border-muted py-0">
+        <div className="grid h-full grid-cols-2 divide-x divide-border/60">
+          <div className="flex flex-col divide-y divide-border/60">
+            <StatCell {...cells[0]} className="flex-1" />
+            <StatCell {...cells[2]} className="flex-1" />
+          </div>
+          <div className="flex flex-col divide-y divide-border/60">
+            <StatCell {...cells[1]} className="flex-1" />
+            <StatCell {...cells[3]} className="flex-1" />
+          </div>
         </div>
       </Card>
     </TooltipProvider>

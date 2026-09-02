@@ -113,18 +113,16 @@ function SubjectDetailContent({
   }, [navigationTarget, handleNavigationComplete])
 
   return (
-    <div className="space-y-5 md:space-y-8">
+    <div className="space-y-5 md:space-y-6">
       <SubjectHeader
         workspaceSlug={workspaceSlug}
         examId={examId}
         subject={subject}
       />
 
-      <div className="grid gap-4 md:grid-cols-2 md:gap-6">
+      <div className="grid items-stretch gap-4 md:grid-cols-2 md:gap-6">
         <ProgressOverview subject={subject} />
-        <div className="space-y-3 md:space-y-6">
-          <SubjectStats subject={subject} />
-        </div>
+        <SubjectStats subject={subject} />
       </div>
 
       <RecommendationsSection subject={subject} onNavigate={handleNavigate} />

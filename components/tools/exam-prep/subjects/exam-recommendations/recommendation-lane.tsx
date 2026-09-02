@@ -45,46 +45,46 @@ const laneConfig: Record<ExamSubjectRecommendationLane, LaneConfig> = {
     description: "Protect what you have learned",
     emptyMessage: "Your current revision schedule is on track.",
     icon: BookOpenCheckIcon,
-    panelClassName: "border-brand-violet-line bg-brand-violet-soft",
-    iconClassName: "bg-card text-brand-violet-ink",
-    badgeClassName: "border-brand-violet-line bg-card text-brand-violet-ink",
+    panelClassName: "border-brand-amber-line bg-brand-amber-soft",
+    iconClassName: "bg-card text-brand-amber-ink",
+    badgeClassName: "border-brand-amber-line bg-card text-brand-amber-ink",
     rowClassName:
-      "border-brand-violet-line bg-card hover:border-brand-violet-line hover:bg-brand-violet-soft",
-    progressClassName: "bg-brand-violet",
-    actionClassName: "text-brand-violet-ink",
+      "border-brand-amber-line bg-brand-amber-surface hover:border-brand-amber hover:bg-brand-amber-surface-hover",
+    progressClassName: "bg-brand-amber",
+    actionClassName: "text-brand-amber-ink",
   },
   "priority-focus": {
     title: "Priority focus",
     description: "Highest-impact unfinished work",
     emptyMessage: "No priority work is waiting.",
     icon: TargetIcon,
-    panelClassName: "border-brand-violet-line bg-brand-violet-soft",
-    iconClassName: "bg-card text-brand-violet-ink",
-    badgeClassName: "border-brand-violet-line bg-card text-brand-violet-ink",
+    panelClassName: "border-brand-neon-line bg-card bg-brand-neon-soft",
+    iconClassName: "bg-card text-brand-neon-ink",
+    badgeClassName: "border-brand-neon-line bg-card text-brand-neon-ink",
     rowClassName:
-      "border-brand-violet-line bg-brand-violet-surface hover:border-brand-violet hover:bg-brand-violet-surface-hover",
-    progressClassName: "bg-brand-violet",
-    actionClassName: "text-brand-violet-ink",
+      "border-brand-neon-line bg-brand-neon-surface hover:border-brand-neon hover:bg-brand-neon-surface-hover",
+    progressClassName: "bg-brand-neon",
+    actionClassName: "text-brand-neon-ink",
   },
   "start-next": {
     title: "Start next",
     description: "Best subject to begin",
     emptyMessage: "No untouched subject is ready to start.",
     icon: RocketIcon,
-    panelClassName: "border-brand-violet-line bg-brand-violet-soft",
-    iconClassName: "bg-card text-brand-violet-ink",
-    badgeClassName: "border-brand-violet-line bg-card text-brand-violet-ink",
+    panelClassName: "border-brand-cyan-line bg-brand-cyan-soft",
+    iconClassName: "bg-card text-brand-cyan-ink",
+    badgeClassName: "border-brand-cyan-line bg-card text-brand-cyan-ink",
     rowClassName:
-      "border-brand-violet-line bg-card hover:border-brand-violet-line hover:bg-brand-violet-soft",
-    progressClassName: "bg-brand-violet",
-    actionClassName: "text-brand-violet-ink",
+      "border-brand-cyan-line bg-brand-cyan-surface hover:border-brand-cyan hover:bg-brand-cyan-surface-hover",
+    progressClassName: "bg-brand-cyan",
+    actionClassName: "text-brand-cyan-ink",
   },
   "test-progress": {
     title: "Test progress",
     description: "Validate and repair weak areas",
     emptyMessage: "No test action is due right now.",
     icon: ClipboardCheckIcon,
-    panelClassName: "border-brand-violet-line bg-brand-violet-soft ",
+    panelClassName: "border-brand-violet-line bg-brand-violet-soft",
     iconClassName: "bg-card text-brand-violet-ink",
     badgeClassName: "border-brand-violet-line bg-card text-brand-violet-ink",
     rowClassName:
@@ -124,25 +124,25 @@ export function RecommendationLane({
     >
       <div
         className={cn(
-          "flex min-h-20 items-start gap-3 p-3 sm:p-4"
+          "flex min-h-14 items-center gap-2.5 p-3 sm:px-3.5 sm:py-2.5"
         )}
       >
         <span
           className={cn(
-            "flex size-9 shrink-0 items-center justify-center rounded-md shadow-sm ring-1 ring-foreground/5",
+            "flex size-8 shrink-0 items-center justify-center rounded-md shadow-sm ring-1 ring-foreground/5",
             config.iconClassName
           )}
         >
-          <Icon aria-hidden="true" />
+          <Icon className="size-4" aria-hidden="true" />
         </span>
         <div className="min-w-0 flex-1">
           <h3
             id={headingId}
-            className="font-heading text-sm leading-5 font-semibold text-foreground"
+            className="font-heading text-sm leading-tight font-semibold text-foreground"
           >
             {config.title}
           </h3>
-          <p className="text-xs leading-5 text-muted-foreground">
+          <p className="mt-0.5 text-xs leading-tight text-muted-foreground">
             {config.description}
           </p>
         </div>
@@ -172,10 +172,10 @@ export function RecommendationLane({
           ))}
         </ul>
       ) : (
-        <div className="flex flex-1 p-4 pt-0">
+        <div className="flex flex-1 p-3 pt-0">
           <Empty
             variant="compact"
-            className={cn("h-full min-h-40 rounded-2xl bg-card")}
+            className={cn("h-full min-h-32 rounded-2xl bg-card")}
           >
             <EmptyHeader>
               <EmptyMedia variant="icon" className={config.iconClassName}>

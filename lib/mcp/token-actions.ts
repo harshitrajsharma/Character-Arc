@@ -41,7 +41,6 @@ export async function createMcpToken(input: {
 
   const rawSecret = `mcp_sec_${randomBytes(20).toString("hex")}`
   const keyHash = hashMcpToken(rawSecret)
-  const keyPrefix = `${rawSecret.slice(0, 14)}...`
   const name = input.name.trim() || "Agent Key"
 
   try {
@@ -51,7 +50,7 @@ export async function createMcpToken(input: {
         createdById: userId,
         name,
         keyHash,
-        keyPrefix,
+        keyPrefix: rawSecret, // Store raw secret so the user can always view and copy it anytime
       },
     })
 
@@ -60,6 +59,7 @@ export async function createMcpToken(input: {
       name: created.name,
       keyPrefix: created.keyPrefix,
       rawSecret,
+      token: rawSecret,
       createdAt: created.createdAt.toISOString(),
     }
   } catch (err) {
@@ -105,6 +105,7 @@ export async function listMcpTokens(workspaceId: string) {
 
     return tokens.map((token) => ({
       ...token,
+      token: token.keyPrefix, // Full unmasked token available for direct view & copy
       createdAt: token.createdAt.toISOString(),
       lastUsedAt: token.lastUsedAt ? token.lastUsedAt.toISOString() : null,
     }))

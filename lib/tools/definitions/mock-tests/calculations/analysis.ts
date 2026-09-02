@@ -71,6 +71,10 @@ export type AnalysisDoc = {
   incorrectCount: number
   unansweredCount: number
   accuracy: number | null
+  negativeMarksLost: number
+  grossMarksGained: number
+  totalTimeSpentSeconds: number
+  avgTimePerQuestionSeconds: number
   sections: SectionBreakdown[]
   questions: AnalysisQuestionRow[]
   weakTopics: WeakTopicItem[]
@@ -185,6 +189,25 @@ export function buildAnalysis(input: {
   const accuracy = accuracyOf(totals.correctCount, answered)
   const percentage = totals.maxScore > 0 ? round2((totals.score / totals.maxScore) * 100) : 0
 
+  let negativeMarksLost = 0
+  let grossMarksGained = 0
+  let totalTimeSpentSeconds = 0
+
+  for (const q of questions) {
+    if (q.isCorrect === true && q.awardedMarks > 0) {
+      grossMarksGained += q.awardedMarks
+    } else if (q.isCorrect === false && q.awardedMarks < 0) {
+      negativeMarksLost += Math.abs(q.awardedMarks)
+    }
+    if (q.timeSpentSeconds) {
+      totalTimeSpentSeconds += q.timeSpentSeconds
+    }
+  }
+
+  const avgTimePerQuestionSeconds = questions.length > 0
+    ? Math.round(totalTimeSpentSeconds / questions.length)
+    : 0
+
   const bySection = new Map<string, AnalysisQuestionRow[]>()
   for (const row of questions) {
     const key = row.section ?? "__all__"
@@ -217,6 +240,10 @@ export function buildAnalysis(input: {
     incorrectCount: totals.incorrectCount,
     unansweredCount: totals.unansweredCount,
     accuracy,
+    negativeMarksLost: round2(negativeMarksLost),
+    grossMarksGained: round2(grossMarksGained),
+    totalTimeSpentSeconds,
+    avgTimePerQuestionSeconds,
     sections,
     questions,
     weakTopics: input.weakTopics,

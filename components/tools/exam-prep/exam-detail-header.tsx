@@ -1,20 +1,21 @@
 "use client"
 
-import { useMemo } from "react"
-import { Dialog, DialogTrigger } from "@/components/ui/dialog"
-import { CalendarClockIcon, GraduationCapIcon, InfoIcon } from "lucide-react"
+import { useMemo, useState } from "react"
+import { GraduationCapIcon, InfoIcon } from "lucide-react"
 
 import { ExamCountdown } from "@/components/tools/exam-prep/exam-countdown"
 import { ExamDetailsDialogContent } from "@/components/tools/exam-prep/exam-details-dialog"
 import { UpdateExamDateDialog } from "./update-exam-date-dialog"
+import { ExamSettingsDialog } from "./exam-settings-dialog"
 import type { ExamDetailHeaderData } from "./exam-detail-types"
+import { Dialog } from "@/components/ui/dialog"
 
 export type { ExamDetailHeaderData } from "./exam-detail-types"
 
 type ExamDetailHeaderProps = {
   workspaceSlug: string
   exam: ExamDetailHeaderData
-  settingsHref: string
+  settingsHref?: string
 }
 
 const targetDateFormatter = new Intl.DateTimeFormat("en-US", {
@@ -61,8 +62,10 @@ function formatTargetDate(target: Date) {
 export function ExamDetailHeader({
   workspaceSlug,
   exam,
-  settingsHref,
+  settingsHref: _settingsHref,
 }: ExamDetailHeaderProps) {
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false)
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const target = useMemo(() => {
     const officialTarget = getOfficialStart(exam.officialStartAt)
 
@@ -70,70 +73,63 @@ export function ExamDetailHeader({
       date:
         officialTarget ??
         (exam.expectedStartDate ? getExamStart(exam.expectedStartDate) : null),
-      hasActualDate: exam.scheduleStatus === "confirmed" || Boolean(officialTarget),
+      hasActualDate:
+        exam.scheduleStatus === "confirmed" || Boolean(officialTarget),
       dateTime: officialTarget ? exam.officialStartAt : exam.expectedStartDate,
     }
   }, [exam.expectedStartDate, exam.officialStartAt, exam.scheduleStatus])
 
   return (
-    <Dialog>
+    <>
       <header className="mb-6 grid gap-6 border-b border-border/80 pb-6 sm:mb-8 sm:pb-8 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-8">
         {/* Left Column: Context, Title & Target Date / View Details Meta Row */}
         <div className="min-w-0 space-y-2">
-          {/* Top Badge & Status Indicator */}
-          <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-muted-foreground sm:text-sm">
-            <span className="inline-flex items-center gap-1.5 text-brand-violet-ink">
+          {/* Eyebrow Breadcrumb */}
+          <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground sm:text-sm">
+            <span className="inline-flex items-center gap-1.5 font-semibold text-brand-violet-ink">
               <GraduationCapIcon
                 className="size-4 shrink-0"
                 aria-hidden="true"
               />
-              <span>Exam prep</span>
-            </span>
-            <span
-              className={
-                target.hasActualDate
-                  ? "inline-flex items-center rounded-full border border-success-line bg-success-soft px-2 py-0.5 text-[11px] font-medium text-success-ink"
-                  : "inline-flex items-center rounded-full border border-brand-amber-line bg-brand-amber-soft px-2 py-0.5 text-[11px] font-medium text-brand-amber-ink"
-              }
-            >
-              {target.hasActualDate ? "Confirmed" : "Estimated"}
+              Exam prep
             </span>
           </div>
 
-          {/* Exam Title */}
-          <h1 className="max-w-3xl font-heading text-2xl font-semibold leading-tight wrap-break-word text-foreground sm:text-3xl lg:text-4xl">
+          <h1 className="font-heading text-2xl font-bold tracking-tight text-foreground sm:text-3xl lg:text-4xl">
             {exam.title}
           </h1>
 
-          {/* Target Date + Update Date Icon + View Details Meta Row */}
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs font-medium text-muted-foreground sm:text-sm pt-0.5">
-            {target.date ? (
-              <div className="flex items-center gap-1.5">
-                <CalendarClockIcon
-                  className="size-3.5 shrink-0 text-muted-foreground/70 sm:size-4"
-                  aria-hidden="true"
-                />
-                <span>{target.hasActualDate ? "Target Date" : "Expected Date"}:</span>
-                <time dateTime={target.dateTime ?? undefined} className="font-semibold text-foreground">
-                  {formatTargetDate(target.date)}
-                </time>
+          <div className="flex flex-wrap items-center gap-2 pt-1 text-xs text-muted-foreground sm:text-sm">
+            <span className="font-medium text-foreground">Target Date:</span>
+            <span>
+              {target.date ? formatTargetDate(target.date) : "Not scheduled"}
+            </span>
 
-                {!target.hasActualDate ? (
-                  <UpdateExamDateDialog
-                    workspaceSlug={workspaceSlug}
-                    examId={exam.id}
-                    expectedStartDate={exam.expectedStartDate}
-                    triggerClassName="size-6 rounded-md border border-border/60 bg-background hover:bg-muted text-muted-foreground hover:text-foreground ml-0.5"
-                    tooltipSide="top"
-                  />
-                ) : null}
-              </div>
-            ) : null}
+            <UpdateExamDateDialog
+              workspaceSlug={workspaceSlug}
+              examId={exam.id}
+              expectedStartDate={exam.expectedStartDate}
+              triggerClassName="h-6 w-6"
+            />
 
-            <DialogTrigger className="inline-flex items-center gap-1.5 font-semibold text-brand-violet-ink underline-offset-4 transition-colors hover:underline focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
+            {!target.hasActualDate && (
+              <span className="inline-flex items-center rounded-full border border-brand-amber-line bg-brand-amber-soft px-2 py-0.5 text-[11px] font-medium text-brand-amber-ink">
+                Estimated
+              </span>
+            )}
+
+            <span aria-hidden className="text-muted-foreground/40">
+              /
+            </span>
+
+            <button
+              type="button"
+              onClick={() => setIsDetailsOpen(true)}
+              className="inline-flex cursor-pointer items-center gap-1.5 font-semibold text-brand-violet-ink underline-offset-4 transition-colors hover:underline focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            >
               <InfoIcon className="size-3.5" aria-hidden="true" />
               View details
-            </DialogTrigger>
+            </button>
           </div>
         </div>
 
@@ -143,12 +139,30 @@ export function ExamDetailHeader({
             expectedStartDate={exam.expectedStartDate}
             officialStartAt={exam.officialStartAt}
             scheduleStatus={exam.scheduleStatus}
-            settingsHref={settingsHref}
+            onOpenSettings={() => setIsSettingsOpen(true)}
           />
         </div>
       </header>
 
-      <ExamDetailsDialogContent exam={exam} settingsHref={settingsHref} />
-    </Dialog>
+      {/* Details Dialog */}
+      <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
+        <ExamDetailsDialogContent
+          exam={exam}
+          onOpenSettings={() => {
+            setIsDetailsOpen(false)
+            setIsSettingsOpen(true)
+          }}
+        />
+      </Dialog>
+
+      {/* Settings Dialog */}
+      <ExamSettingsDialog
+        key={`${exam.id}-${isSettingsOpen ? "open" : "closed"}`}
+        workspaceSlug={workspaceSlug}
+        exam={exam}
+        open={isSettingsOpen}
+        onOpenChange={setIsSettingsOpen}
+      />
+    </>
   )
 }

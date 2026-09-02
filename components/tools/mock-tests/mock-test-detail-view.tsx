@@ -3,31 +3,24 @@
 import { useState, useMemo } from "react"
 import Link from "next/link"
 import {
-  AlertCircleIcon,
   ArrowLeftIcon,
   BookOpenIcon,
   CheckCircle2Icon,
   ChevronDownIcon,
   ChevronUpIcon,
-  CircleCheckBigIcon,
   ClockIcon,
-  ExternalLinkIcon,
-  EyeIcon,
   FilePenLineIcon,
-  HashIcon,
   HelpCircleIcon,
   LayersIcon,
   ListChecksIcon,
-  ScrollTextIcon,
+  SparklesIcon,
   TrophyIcon,
 } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { RichContent } from "@/components/tools/mock-tests/editor/rich-content"
-import { stripHtml } from "@/components/tools/mock-tests/editor/html-utils"
 import {
   questionKindLabel,
   formatNumber,
@@ -42,49 +35,29 @@ import type {
 } from "@/lib/tools/definitions/mock-tests/repository"
 import { cn } from "@/lib/utils"
 
-const STATUS_BADGE: Record<string, { label: string; className: string }> = {
+const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   draft: {
     label: "Draft",
-    className: "border-muted-foreground/30 bg-muted/40 text-muted-foreground",
+    className: "border-border bg-muted/60 text-muted-foreground",
   },
   published: {
     label: "Published",
-    className:
-      "border-success-line/40 bg-success-soft text-success-ink font-semibold",
+    className: "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold",
   },
   archived: {
     label: "Archived",
-    className:
-      "border-brand-amber-line/40 bg-brand-amber-soft text-brand-amber-ink",
+    className: "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400",
   },
 }
 
-const dateFormatter = new Intl.DateTimeFormat("en-US", {
-  day: "numeric",
-  month: "short",
-  year: "numeric",
-})
-
 function formatDate(iso: string) {
   const date = new Date(iso)
-  return Number.isNaN(date.getTime()) ? iso : dateFormatter.format(date)
-}
-
-function questionKindBadgeClass(kind: string): string {
-  switch (kind) {
-    case "SINGLE_CHOICE":
-      return "border-brand-cyan-line/40 bg-brand-cyan-soft text-brand-cyan-ink"
-    case "MULTIPLE_CHOICE":
-      return "border-brand-violet-line/40 bg-brand-violet-soft text-brand-violet-ink"
-    case "TRUE_FALSE":
-      return "border-brand-violet-line/40 bg-brand-violet-soft text-brand-violet-ink"
-    case "NUMERIC":
-      return "border-brand-amber-line/40 bg-brand-amber-soft text-brand-amber-ink"
-    case "SHORT_ANSWER":
-      return "border-brand-neon-line/40 bg-brand-neon-soft text-brand-neon-ink"
-    default:
-      return "border-border bg-muted/60 text-foreground"
-  }
+  if (Number.isNaN(date.getTime())) return iso
+  return new Intl.DateTimeFormat("en-US", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(date)
 }
 
 export function MockTestDetailView({
@@ -98,10 +71,7 @@ export function MockTestDetailView({
   attempts: AssessmentAttemptHistory[]
   canWrite: boolean
 }) {
-  const [showAllSolutions, setShowAllSolutions] = useState(false)
-  const [expandedQuestionIds, setExpandedQuestionIds] = useState<
-    Record<string, boolean>
-  >({})
+  const [expandedQuestionIds, setExpandedQuestionIds] = useState<Record<string, boolean>>({})
 
   function toggleQuestion(id: string) {
     setExpandedQuestionIds((prev) => ({
@@ -110,7 +80,15 @@ export function MockTestDetailView({
     }))
   }
 
-  const status = STATUS_BADGE[assessment.status] ?? STATUS_BADGE.draft
+  function toggleAllQuestions(expand: boolean) {
+    const updated: Record<string, boolean> = {}
+    assessment.questions.forEach((q) => {
+      updated[q.id] = expand
+    })
+    setExpandedQuestionIds(updated)
+  }
+
+  const status = STATUS_CONFIG[assessment.status] ?? STATUS_CONFIG.draft
   const isPublished = assessment.status === "published"
 
   // Group questions by section
@@ -122,19 +100,6 @@ export function MockTestDetailView({
       map.get(key)!.push(q)
     }
     return map
-  }, [assessment.questions])
-
-  // Unique topic titles in this test
-  const allTopics = useMemo(() => {
-    const set = new Set<string>()
-    for (const q of assessment.questions) {
-      if (q.targetTitles) {
-        for (const title of q.targetTitles) {
-          set.add(title)
-        }
-      }
-    }
-    return Array.from(set)
   }, [assessment.questions])
 
   // Question type distribution
@@ -149,9 +114,9 @@ export function MockTestDetailView({
   const backHref = workspaceRoutes.mockTests.home(workspaceSlug)
 
   return (
-    <div className="space-y-6">
-      {/* Top Header Strip */}
-      <div className="flex flex-col gap-4 border-b border-border pb-5 sm:flex-row sm:items-center sm:justify-between">
+    <div className="space-y-8 font-sans antialiased text-foreground">
+      {/* 1. TOP HEADER STRIP */}
+      <div className="flex flex-col gap-4 border-b border-border pb-6 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3.5">
           <Button
             variant="ghost"
@@ -161,629 +126,345 @@ export function MockTestDetailView({
             aria-label="Back to Mock Tests"
             className="mt-0.5 shrink-0"
           >
-            <ArrowLeftIcon className="size-4" aria-hidden="true" />
+            <ArrowLeftIcon className="size-4" />
           </Button>
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-                Mock Tests
+              <span className="text-[11px] font-bold tracking-wider text-muted-foreground uppercase">
+                Mock Test Paper
               </span>
               <span className="text-muted-foreground/40">•</span>
-              <Badge
-                variant="outline"
-                className={cn("text-xs", status.className)}
-              >
+              <Badge variant="outline" className={cn("text-[10px]", status.className)}>
                 {status.label}
               </Badge>
-              <span className="text-xs text-muted-foreground">
+              <span className="text-[11px] text-muted-foreground font-mono">
                 Rev {assessment.revision}
               </span>
             </div>
-            <h1 className="font-heading text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+            <h1 className="font-heading text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
               {assessment.title}
             </h1>
-            <p className="max-w-3xl text-xs leading-relaxed text-muted-foreground sm:text-sm">
-              {assessment.summary ??
+            <p className="max-w-2xl text-xs sm:text-sm text-muted-foreground leading-relaxed">
+              {assessment.instructions ??
                 (isPublished
-                  ? "This mock test is published and ready to attempt. Click Start Attempt below to take the test under timed exam conditions."
-                  : "This mock test is currently in draft mode. Add or edit questions and publish when ready.")}
+                  ? "This mock test is published and ready to attempt under timed CBT exam conditions."
+                  : "Draft mode: add or edit questions and publish when the paper is ready.")}
             </p>
           </div>
         </div>
 
-        {/* Primary Action Buttons */}
+        {/* Action Buttons */}
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           {isPublished ? (
+            <StartAttemptButton
+              workspaceSlug={workspaceSlug}
+              assessmentId={assessment.id}
+            />
+          ) : null}
+
+          {canWrite ? (
             <>
-              <StartAttemptButton
-                workspaceSlug={workspaceSlug}
-                assessmentId={assessment.id}
-              />
-              {canWrite ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  render={
-                    <Link
-                      href={workspaceRoutes.mockTests.edit(
-                        workspaceSlug,
-                        assessment.id
-                      )}
-                    />
-                  }
-                >
-                  <FilePenLineIcon
-                    data-icon="inline-start"
-                    aria-hidden="true"
-                  />
-                  Edit test
-                </Button>
-              ) : null}
-            </>
-          ) : canWrite ? (
-            <>
-              {assessment.isPublishable ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 text-xs font-semibold gap-1.5"
+                render={<Link href={workspaceRoutes.mockTests.edit(workspaceSlug, assessment.id)} />}
+              >
+                <FilePenLineIcon className="size-3.5" />
+                Edit Paper
+              </Button>
+              {!isPublished ? (
                 <PublishAssessmentButton
                   workspaceSlug={workspaceSlug}
                   assessmentId={assessment.id}
                   expectedRevision={assessment.revision}
                 />
               ) : null}
-              <Button
-                variant={assessment.questionCount === 0 ? "default" : "outline"}
-                size="sm"
-                render={
-                  <Link
-                    href={workspaceRoutes.mockTests.edit(
-                      workspaceSlug,
-                      assessment.id
-                    )}
-                  />
-                }
-              >
-                <FilePenLineIcon data-icon="inline-start" aria-hidden="true" />
-                {assessment.questionCount === 0
-                  ? "Add questions"
-                  : "Edit questions"}
-              </Button>
             </>
           ) : null}
         </div>
       </div>
 
-      {/* Test Blueprint & Summary Metric Cards */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="border-border/80 bg-card p-4 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground">
-              Total Questions
-            </span>
-            <span className="flex size-7 items-center justify-center rounded-lg bg-brand-violet-soft text-brand-violet-ink">
-              <ListChecksIcon className="size-3.5" aria-hidden="true" />
-            </span>
+      {/* 2. PAPER METRIC CARDS ROW */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="rounded-2xl border border-border bg-card p-4 space-y-1 shadow-2xs">
+          <span className="text-[11px] font-semibold text-muted-foreground">Total Questions</span>
+          <div className="text-2xl font-mono font-bold text-foreground">
+            {assessment.questions.length}
           </div>
-          <div className="mt-2 font-heading text-2xl font-semibold tracking-tight text-foreground">
-            {assessment.questionCount}
-          </div>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">
-            {Object.keys(typeCounts).length > 0
-              ? Object.entries(typeCounts)
-                  .map(([kind, count]) => `${count} ${questionKindLabel(kind)}`)
-                  .join(", ")
-              : "No questions added"}
+          <p className="text-[11px] text-muted-foreground">
+            {Object.entries(typeCounts)
+              .map(([kind, count]) => `${count} ${questionKindLabel(kind)}`)
+              .join(" • ") || "No questions yet"}
           </p>
-        </Card>
+        </div>
 
-        <Card className="border-border/80 bg-card p-4 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground">
-              Total Marks
-            </span>
-            <span className="flex size-7 items-center justify-center rounded-lg bg-brand-cyan-soft text-brand-cyan-ink">
-              <TrophyIcon className="size-3.5" aria-hidden="true" />
-            </span>
+        <div className="rounded-2xl border border-border bg-card p-4 space-y-1 shadow-2xs">
+          <span className="text-[11px] font-semibold text-muted-foreground">Paper Duration</span>
+          <div className="text-2xl font-mono font-bold text-foreground">
+            {assessment.durationMinutes ? `${assessment.durationMinutes}m` : "Untimed"}
           </div>
-          <div className="mt-2 font-heading text-2xl font-semibold tracking-tight text-foreground">
-            {assessment.totalMarks !== null
-              ? formatNumber(assessment.totalMarks)
-              : "0"}
-          </div>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">
-            Sum of question marks
+          <p className="text-[11px] text-muted-foreground">
+            {assessment.durationMinutes ? `${Math.round(assessment.durationMinutes / 60 * 10) / 10} hours` : "Practice at your own pace"}
           </p>
-        </Card>
+        </div>
 
-        <Card className="border-border/80 bg-card p-4 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground">
-              Time Limit
-            </span>
-            <span className="flex size-7 items-center justify-center rounded-lg bg-brand-amber-soft text-brand-amber-ink">
-              <ClockIcon className="size-3.5" aria-hidden="true" />
-            </span>
+        <div className="rounded-2xl border border-border bg-card p-4 space-y-1 shadow-2xs">
+          <span className="text-[11px] font-semibold text-muted-foreground">Total Marks</span>
+          <div className="text-2xl font-mono font-bold text-foreground">
+            {assessment.totalMarks ? `${assessment.totalMarks}` : "—"}
           </div>
-          <div className="mt-2 font-heading text-2xl font-semibold tracking-tight text-foreground">
-            {assessment.durationMinutes !== null
-              ? `${assessment.durationMinutes} min`
-              : "Untimed"}
-          </div>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">
-            {assessment.durationMinutes !== null
-              ? "Automated countdown timer"
-              : "Practice at your own pace"}
-          </p>
-        </Card>
+          <p className="text-[11px] text-muted-foreground">Standard negative marking</p>
+        </div>
 
-        <Card className="border-border/80 bg-card p-4 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground">
-              Syllabus Coverage
-            </span>
-            <span className="flex size-7 items-center justify-center rounded-lg bg-brand-violet-soft text-brand-violet-ink">
-              <BookOpenIcon className="size-3.5" aria-hidden="true" />
-            </span>
+        <div className="rounded-2xl border border-border bg-card p-4 space-y-1 shadow-2xs">
+          <span className="text-[11px] font-semibold text-muted-foreground">Attempts Recorded</span>
+          <div className="text-2xl font-mono font-bold text-foreground">
+            {attempts.length}
           </div>
-          <div className="mt-2 font-heading text-2xl font-semibold tracking-tight text-foreground">
-            {allTopics.length}{" "}
-            <span className="font-sans text-xs font-normal text-muted-foreground">
-              topics
-            </span>
-          </div>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">
-            Mapped to Exam Prep
-          </p>
-        </Card>
+          <p className="text-[11px] text-muted-foreground">Candidate attempt history</p>
+        </div>
       </div>
 
-      {/* Test Instructions Banner */}
-      {assessment.instructions ? (
-        <Alert className="border-border/80 bg-card shadow-xs">
-          <ScrollTextIcon
-            className="size-4 text-brand-violet-ink"
-            aria-hidden="true"
-          />
-          <AlertTitle className="text-sm font-semibold text-foreground">
-            Exam Instructions
-          </AlertTitle>
-          <AlertDescription className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            <span className="whitespace-pre-wrap">
-              {assessment.instructions}
-            </span>
-          </AlertDescription>
-        </Alert>
-      ) : null}
-
-      {/* Topic Alignment Cloud */}
-      {allTopics.length > 0 ? (
-        <div className="space-y-2 rounded-xl border border-border bg-card p-3.5 shadow-xs">
-          <span className="flex items-center gap-1.5 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
-            <LayersIcon className="size-3.5 text-brand-violet-ink" />
-            Tested Topics in this Paper ({allTopics.length}):
-          </span>
-          <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-            {allTopics.map((title, idx) => (
-              <span
-                key={idx}
-                className="inline-flex items-center gap-1 rounded-md border border-brand-violet-line/30 bg-brand-violet-soft/30 px-2.5 py-0.5 text-xs font-medium text-brand-violet-ink transition-colors hover:bg-brand-violet-soft/50"
-              >
-                <span
-                  className="size-1.5 rounded-full bg-brand-violet-ink"
-                  aria-hidden="true"
-                />
-                {title}
-              </span>
-            ))}
-          </div>
-        </div>
-      ) : null}
-
-      {/* Attempt History Section (when student attempts exist) */}
-      {attempts.length > 0 ? (
-        <section aria-labelledby="attempts-title" className="space-y-3">
-          <div className="flex items-center justify-between border-b border-border pb-2.5">
-            <h2
-              id="attempts-title"
-              className="flex items-center gap-2 font-heading text-lg font-bold text-foreground"
-            >
-              <TrophyIcon className="size-4 text-brand-amber-ink" />
-              Your Past Attempts ({attempts.length})
-            </h2>
-            <span className="text-xs text-muted-foreground">
-              Recent test results
-            </span>
-          </div>
-
-          <div className="overflow-hidden rounded-xl border border-border bg-card shadow-xs">
-            <div className="hidden border-b border-border bg-muted/40 px-4 py-2.5 text-xs font-semibold text-muted-foreground sm:grid sm:grid-cols-[80px_1fr_120px_120px_140px] sm:items-center sm:gap-3">
-              <span>Attempt</span>
-              <span>Status</span>
-              <span className="text-right">Score</span>
-              <span className="text-right">Accuracy</span>
-              <span className="text-right">Analysis</span>
+      {/* 3. MAIN SPLIT: PAPER CONTENT (Left 65%) + ATTEMPT HISTORY (Right 35%) */}
+      <div className="grid gap-8 lg:grid-cols-[1fr_360px]">
+        {/* Left Column: Question Paper Structure & Preview */}
+        <div className="space-y-6">
+          <div className="flex items-center justify-between border-b border-border pb-3">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                Syllabus &amp; Structure
+              </p>
+              <h2 className="font-heading text-lg font-bold text-foreground">
+                Question Paper Overview
+              </h2>
             </div>
-            <div className="divide-y divide-border">
-              {attempts.map((attempt) => (
-                <div
-                  key={attempt.id}
-                  className="grid gap-2 p-3.5 text-xs sm:grid-cols-[80px_1fr_120px_120px_140px] sm:items-center sm:gap-3"
+
+            {assessment.questions.length > 0 ? (
+              <div className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="xs"
+                  onClick={() => toggleAllQuestions(true)}
+                  className="text-[11px] text-muted-foreground hover:text-foreground h-7 px-2"
                 >
-                  <span className="font-mono font-bold text-foreground">
-                    #{attempt.attemptNumber}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <Badge
-                      variant="outline"
-                      className={cn(
-                        "text-[10px]",
-                        attempt.status === "evaluated" ||
-                          attempt.status === "submitted"
-                          ? "border-success-line/40 bg-success-soft text-success-ink"
-                          : "border-brand-amber-line/40 bg-brand-amber-soft text-brand-amber-ink"
-                      )}
-                    >
-                      {attempt.status === "evaluated"
-                        ? "Graded"
-                        : attempt.status}
-                    </Badge>
-                    <span className="text-muted-foreground">
-                      {formatDate(attempt.startedAt)}
-                    </span>
-                  </div>
-                  <div className="font-mono font-semibold text-foreground sm:text-right">
-                    {attempt.score !== null
-                      ? `${formatNumber(attempt.score)}`
-                      : "—"}
-                    {attempt.maxScore !== null
-                      ? ` / ${formatNumber(attempt.maxScore)}`
-                      : ""}
-                  </div>
-                  <div className="sm:text-right">
-                    {attempt.accuracyRate !== null ? (
-                      <span className="inline-flex items-center gap-1 font-semibold text-success-ink">
-                        {attempt.accuracyRate}%
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground italic">—</span>
-                    )}
-                  </div>
-                  <div className="sm:text-right">
-                    <Button
-                      variant="ghost"
-                      size="xs"
-                      className="h-7 text-xs text-brand-violet-ink hover:text-brand-violet-ink"
-                      render={
-                        <Link
-                          href={workspaceRoutes.mockTests.analysis(
-                            workspaceSlug,
-                            attempt.id
-                          )}
-                        />
-                      }
-                    >
-                      View Analysis
-                      <ExternalLinkIcon className="ml-1 size-3" />
-                    </Button>
+                  Expand all
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="xs"
+                  onClick={() => toggleAllQuestions(false)}
+                  className="text-[11px] text-muted-foreground hover:text-foreground h-7 px-2"
+                >
+                  Collapse all
+                </Button>
+              </div>
+            ) : null}
+          </div>
+
+          {assessment.questions.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-border bg-card p-8 text-center space-y-3">
+              <ListChecksIcon className="mx-auto size-8 text-muted-foreground opacity-60" />
+              <p className="text-xs text-muted-foreground">
+                This test has no questions yet.
+              </p>
+              {canWrite ? (
+                <Button
+                  size="sm"
+                  className="text-xs font-bold gap-1.5"
+                  render={<Link href={workspaceRoutes.mockTests.edit(workspaceSlug, assessment.id)} />}
+                >
+                  <FilePenLineIcon className="size-3.5" />
+                  Add Questions in Builder
+                </Button>
+              ) : null}
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {Array.from(sections.entries()).map(([sectionName, sectionQuestions]) => (
+                <div key={sectionName || "__general"} className="space-y-3">
+                  {sectionName ? (
+                    <div className="flex items-center gap-2 pt-2">
+                      <span className="size-2 rounded-full bg-primary" />
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">
+                        {sectionName} Section ({sectionQuestions.length} Questions)
+                      </h3>
+                    </div>
+                  ) : null}
+
+                  <div className="space-y-3">
+                    {sectionQuestions.map((q) => {
+                      const isExpanded = expandedQuestionIds[q.id] ?? false
+
+                      return (
+                        <div
+                          key={q.id}
+                          className="overflow-hidden rounded-2xl border border-border bg-card shadow-2xs"
+                        >
+                          <div
+                            onClick={() => toggleQuestion(q.id)}
+                            className="flex flex-wrap items-center justify-between gap-3 p-4 cursor-pointer hover:bg-muted/20 transition-colors select-none"
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <span className="flex size-6 items-center justify-center rounded-md bg-muted font-mono text-xs font-bold text-foreground">
+                                {q.position + 1}
+                              </span>
+                              <Badge variant="outline" className="text-xs font-medium">
+                                {questionKindLabel(q.kind)}
+                              </Badge>
+                              {q.section ? (
+                                <Badge variant="secondary" className="text-[10px]">
+                                  {q.section}
+                                </Badge>
+                              ) : null}
+                            </div>
+
+                            <div className="flex items-center gap-3">
+                              <span className="font-mono text-xs font-bold text-foreground">
+                                +{q.marks} {q.negativeMarks < 0 ? `| ${q.negativeMarks} Neg` : ""}
+                              </span>
+                              <button
+                                type="button"
+                                className="size-5 flex items-center justify-center text-muted-foreground"
+                                aria-label={isExpanded ? "Collapse" : "Expand"}
+                              >
+                                {isExpanded ? <ChevronUpIcon className="size-3.5" /> : <ChevronDownIcon className="size-3.5" />}
+                              </button>
+                            </div>
+                          </div>
+
+                          {isExpanded ? (
+                            <div className="p-4 pt-0 border-t border-border/60 space-y-4">
+                              <div className="text-xs leading-relaxed text-foreground rich-text pt-3">
+                                <RichContent html={q.stem} />
+                              </div>
+
+                              {q.options && q.options.length > 0 ? (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                                  {q.options.map((opt) => (
+                                    <div
+                                      key={opt.key}
+                                      className="flex items-start gap-2 rounded-xl border border-border/80 bg-muted/20 p-2.5"
+                                    >
+                                      <span className="size-5 rounded bg-background border border-border flex items-center justify-center font-mono text-[10px] font-bold text-muted-foreground shrink-0">
+                                        {opt.key}
+                                      </span>
+                                      <div className="flex-1 leading-snug rich-text">
+                                        <RichContent html={opt.content} />
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : null}
+                            </div>
+                          ) : null}
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
               ))}
             </div>
-          </div>
-        </section>
-      ) : null}
-
-      {/* Questions List & Practice Paper */}
-      {assessment.questions.length === 0 ? (
-        <div className="space-y-3 rounded-xl border border-dashed border-border bg-card p-12 text-center">
-          <div className="mx-auto flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
-            <AlertCircleIcon className="size-5" />
-          </div>
-          <div className="space-y-1">
-            <p className="text-sm font-semibold text-foreground">
-              No questions in this test yet
-            </p>
-            <p className="mx-auto max-w-sm text-xs text-muted-foreground">
-              {canWrite
-                ? "Add questions from your Question Bank to complete this mock test."
-                : "The author hasn't added questions yet."}
-            </p>
-          </div>
-          {canWrite ? (
-            <Button
-              size="sm"
-              className="h-8 text-xs font-medium"
-              render={
-                <Link
-                  href={workspaceRoutes.mockTests.edit(
-                    workspaceSlug,
-                    assessment.id
-                  )}
-                />
-              }
-            >
-              <FilePenLineIcon data-icon="inline-start" aria-hidden="true" />
-              Add questions now
-            </Button>
-          ) : null}
+          )}
         </div>
-      ) : (
-        <section aria-labelledby="questions-title" className="space-y-4">
-          {/* Section Toolbar */}
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
-            <div>
-              <h2
-                id="questions-title"
-                className="font-heading text-xl font-bold text-foreground"
-              >
-                Test Paper & Question Roster
-              </h2>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                {assessment.questionCount} questions ·{" "}
-                {formatNumber(assessment.totalMarks)} total marks
-              </p>
-            </div>
 
-            {/* Global Answer Key & Solution Review Toggle */}
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant={showAllSolutions ? "secondary" : "outline"}
-                size="sm"
-                onClick={() => setShowAllSolutions(!showAllSolutions)}
-                className="h-8 gap-1.5 text-xs font-medium"
-              >
-                <EyeIcon
-                  className="size-3.5 text-brand-violet-ink"
-                  aria-hidden="true"
-                />
-                {showAllSolutions
-                  ? "Hide Answer Keys"
-                  : "Reveal Answer Keys & Solutions"}
-              </Button>
-            </div>
+        {/* Right Column: Past Attempts for this Paper */}
+        <div className="space-y-4">
+          <div className="border-b border-border pb-3">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+              History
+            </p>
+            <h2 className="font-heading text-lg font-bold text-foreground">
+              Your Attempt Records
+            </h2>
           </div>
 
-          {/* Render Sections */}
-          {[...sections.entries()].map(([sectionName, questions]) => (
-            <div key={sectionName || "__unsectioned__"} className="space-y-3">
-              {sectionName ? (
-                <div className="flex items-center gap-2 pt-2">
-                  <span className="text-xs font-bold tracking-wider text-brand-violet-ink uppercase">
-                    Section:
-                  </span>
-                  <h3 className="text-sm font-semibold text-foreground">
-                    {sectionName}
-                  </h3>
-                  <Badge variant="outline" className="text-[10px]">
-                    {questions.length}{" "}
-                    {questions.length === 1 ? "question" : "questions"}
-                  </Badge>
-                </div>
+          {attempts.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-border bg-card p-6 text-center space-y-2">
+              <TrophyIcon className="mx-auto size-6 text-muted-foreground opacity-60" />
+              <p className="text-xs text-muted-foreground">
+                You haven&apos;t attempted this mock test yet.
+              </p>
+              {isPublished ? (
+                <StartAttemptButton
+                  workspaceSlug={workspaceSlug}
+                  assessmentId={assessment.id}
+                />
               ) : null}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {attempts.map((att) => {
+                const isFinished = att.status === "evaluated" || att.status === "submitted"
+                const pct = att.accuracyRate !== null ? Math.round(att.accuracyRate) : (att.score !== null && att.maxScore ? Math.round((att.score / att.maxScore) * 100) : null)
 
-              <div className="space-y-3">
-                {questions.map((question, qIdx) => {
-                  const isExpanded =
-                    showAllSolutions ||
-                    Boolean(expandedQuestionIds[question.id])
-                  const displayNum = String(question.position + 1).padStart(
-                    2,
-                    "0"
-                  )
+                return (
+                  <div
+                    key={att.id}
+                    className="rounded-2xl border border-border bg-card p-4 space-y-3 shadow-2xs hover:border-foreground/30 transition-colors"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs text-muted-foreground font-medium">
+                        {formatDate(att.startedAt)}
+                      </span>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "text-[10px] font-bold",
+                          isFinished
+                            ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                            : "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                        )}
+                      >
+                        {att.status === "evaluated" ? "Evaluated" : att.status}
+                      </Badge>
+                    </div>
 
-                  return (
-                    <div
-                      key={question.id || qIdx}
-                      className="space-y-3 rounded-xl border border-border bg-card p-4 shadow-xs transition-colors sm:p-5"
-                    >
-                      {/* Question Header */}
-                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/70 pb-2.5">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="flex size-6 items-center justify-center rounded-md border border-border bg-muted font-mono text-xs font-bold text-foreground">
-                            {displayNum}
-                          </span>
-                          <span
-                            className={cn(
-                              "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-semibold shadow-2xs",
-                              questionKindBadgeClass(question.kind)
-                            )}
-                          >
-                            {question.kind === "SINGLE_CHOICE" ? (
-                              <CircleCheckBigIcon
-                                className="size-3"
-                                aria-hidden="true"
-                              />
-                            ) : question.kind === "MULTIPLE_CHOICE" ? (
-                              <ListChecksIcon
-                                className="size-3"
-                                aria-hidden="true"
-                              />
-                            ) : question.kind === "TRUE_FALSE" ? (
-                              <CheckCircle2Icon
-                                className="size-3"
-                                aria-hidden="true"
-                              />
-                            ) : question.kind === "NUMERIC" ? (
-                              <HashIcon className="size-3" aria-hidden="true" />
-                            ) : (
-                              <FilePenLineIcon
-                                className="size-3"
-                                aria-hidden="true"
-                              />
-                            )}
-                            {questionKindLabel(question.kind)}
-                          </span>
-
-                          {question.difficulty !== null ? (
-                            <span
-                              className={cn(
-                                "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-medium",
-                                question.difficulty <= 2
-                                  ? "bg-muted text-muted-foreground"
-                                  : question.difficulty === 3
-                                    ? "bg-brand-amber-soft text-brand-amber-ink"
-                                    : "bg-success-soft text-success-ink"
-                              )}
-                            >
-                              Level {question.difficulty}
-                            </span>
-                          ) : null}
-                        </div>
-
-                        {/* Marks & Expand */}
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-semibold text-foreground">
-                            +{formatNumber(question.marks)} marks
-                            {question.negativeMarks < 0 ? (
-                              <span className="ml-1 font-normal text-destructive">
-                                (-{formatNumber(-question.negativeMarks)})
-                              </span>
-                            ) : null}
-                          </span>
-
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="xs"
-                            className="h-7 gap-1 text-xs text-muted-foreground hover:text-foreground"
-                            onClick={() => toggleQuestion(question.id)}
-                          >
-                            {isExpanded ? (
-                              <>
-                                Hide Solution
-                                <ChevronUpIcon className="size-3" />
-                              </>
-                            ) : (
-                              <>
-                                View Solution
-                                <ChevronDownIcon className="size-3" />
-                              </>
-                            )}
-                          </Button>
-                        </div>
-                      </div>
-
-                      {/* Stem Prompt with LaTeX Equations */}
+                    <div className="flex items-center justify-between border-t border-border/60 pt-2 text-xs">
                       <div>
-                        <RichContent
-                          html={question.stem}
-                          className="text-sm leading-relaxed font-medium text-foreground"
-                        />
+                        <span className="text-muted-foreground block text-[10px]">Score</span>
+                        <span className="font-mono font-bold text-foreground">
+                          {att.score !== null ? formatNumber(att.score) : "—"} / {formatNumber(att.maxScore)}
+                        </span>
                       </div>
-
-                      {/* Topic Tags */}
-                      {question.targetTitles &&
-                      question.targetTitles.length > 0 ? (
-                        <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                          {question.targetTitles.map((title, idx) => (
-                            <span
-                              key={idx}
-                              className="inline-flex items-center gap-1 rounded-md border border-brand-violet-line/30 bg-brand-violet-soft/30 px-2 py-0.5 text-[11px] font-medium text-brand-violet-ink"
-                            >
-                              <span
-                                className="size-1 rounded-full bg-brand-violet-ink"
-                                aria-hidden="true"
-                              />
-                              {title}
-                            </span>
-                          ))}
-                        </div>
-                      ) : null}
-
-                      {/* Options & Solutions (Always in practice or when expanded) */}
-                      {isExpanded ? (
-                        <div className="mt-3 space-y-3 rounded-lg border-t border-border/80 bg-muted/15 p-3.5 pt-3">
-                          {/* Options grid for choices */}
-                          {question.options && question.options.length > 0 ? (
-                            <div className="space-y-1.5">
-                              <span className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
-                                Answer Options & Correct Key
-                              </span>
-                              <div className="grid gap-2 sm:grid-cols-2">
-                                {question.options.map((opt) => {
-                                  const isCorrect =
-                                    question.answerKeys?.includes(opt.key)
-                                  return (
-                                    <div
-                                      key={opt.key}
-                                      className={cn(
-                                        "flex items-start gap-2.5 rounded-lg border p-2.5 text-xs transition-colors",
-                                        isCorrect
-                                          ? "border-success-line bg-success-soft font-medium text-success-ink"
-                                          : "border-border/80 bg-card text-foreground"
-                                      )}
-                                    >
-                                      <span
-                                        className={cn(
-                                          "flex size-5 shrink-0 items-center justify-center rounded border font-mono text-[10px] font-bold",
-                                          isCorrect
-                                            ? "border-success bg-success text-success-foreground"
-                                            : "border-border bg-muted text-muted-foreground"
-                                        )}
-                                      >
-                                        {opt.key}
-                                      </span>
-                                      <div className="min-w-0 flex-1">
-                                        <RichContent
-                                          html={opt.content}
-                                          className="text-xs leading-relaxed"
-                                        />
-                                      </div>
-                                      {isCorrect ? (
-                                        <CheckCircle2Icon className="mt-0.5 size-3.5 shrink-0 text-success-ink" />
-                                      ) : null}
-                                    </div>
-                                  )
-                                })}
-                              </div>
-                            </div>
-                          ) : question.numericAnswer !== null ? (
-                            <div className="flex items-center gap-2 rounded-lg border border-border/80 bg-card p-3 text-xs">
-                              <span className="font-semibold text-muted-foreground">
-                                Correct Numeric Value:
-                              </span>
-                              <span className="font-mono font-bold text-success-ink">
-                                {question.numericAnswer}
-                              </span>
-                            </div>
-                          ) : question.textAnswer ? (
-                            <div className="space-y-1 rounded-lg border border-border/80 bg-card p-3 text-xs">
-                              <span className="font-semibold text-muted-foreground">
-                                Model Answer:
-                              </span>
-                              <p className="font-mono text-foreground">
-                                {question.textAnswer}
-                              </p>
-                            </div>
-                          ) : null}
-
-                          {/* Step-by-Step Explanation */}
-                          {question.explanation &&
-                          stripHtml(question.explanation).trim() ? (
-                            <div className="space-y-1.5 rounded-lg border border-border/80 bg-card p-3.5">
-                              <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                                <HelpCircleIcon className="size-3.5 text-brand-violet-ink" />
-                                Step-by-Step Derivation & Explanation
-                              </div>
-                              <RichContent
-                                html={question.explanation}
-                                className="text-xs leading-relaxed text-muted-foreground"
-                              />
-                            </div>
-                          ) : null}
+                      {pct !== null ? (
+                        <div className="text-right">
+                          <span className="text-muted-foreground block text-[10px]">Accuracy</span>
+                          <span className="font-mono font-bold text-foreground">{pct}%</span>
                         </div>
                       ) : null}
                     </div>
-                  )
-                })}
-              </div>
-            </div>
-          ))}
-        </section>
-      )}
 
-      <div className="flex items-center justify-between border-t border-border pt-4 text-xs text-muted-foreground">
-        <span>Created {formatDate(assessment.createdAt)}</span>
-        <span>Last updated {formatDate(assessment.updatedAt)}</span>
+                    <div className="pt-1">
+                      {isFinished ? (
+                        <Button
+                          variant="outline"
+                          size="xs"
+                          className="w-full text-xs font-semibold h-8"
+                          render={
+                            <Link href={workspaceRoutes.mockTests.analysis(workspaceSlug, att.id)} />
+                          }
+                        >
+                          View Full Analysis
+                        </Button>
+                      ) : (
+                        <Button
+                          size="xs"
+                          className="w-full text-xs font-bold h-8 bg-amber-600 hover:bg-amber-700 text-white"
+                          render={<Link href={`/mock-test/${encodeURIComponent(att.id)}`} />}
+                        >
+                          Resume Test Room
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

@@ -74,48 +74,51 @@ export function RecommendationSubjectRow({
       <Link
         href={href}
         className={cn(
-          "group flex min-h-28 min-w-0 flex-col gap-2.5 rounded-2xl border p-3 outline-none hover:shadow-lg active:shadow-sm sm:p-4",
+          "group flex min-h-[5.25rem] min-w-0 flex-col gap-1.5 rounded-2xl border p-2.5 outline-none hover:shadow-md active:shadow-sm sm:px-3 sm:py-2.5",
           "focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50",
           "motion-safe:transition-[background-color,border-color,box-shadow] motion-safe:duration-200",
           cardClassName
         )}
         aria-label={`${item.actionLabel}: ${item.subjectName}. ${item.metricLabel} ${metricValue}%. ${overallProgress}% overall. ${item.reason}${item.evidence ? ` ${item.evidence}` : ""}`}
       >
-        <div className="flex min-w-0 items-center justify-between gap-3">
-          <p className="min-w-0 truncate text-base leading-6 font-medium text-foreground">
+        <div className="flex min-w-0 items-center justify-between gap-2">
+          <p className="min-w-0 truncate text-sm leading-tight font-semibold text-foreground">
             {item.subjectName}
           </p>
           <span className="flex shrink-0 items-center">
-            <Badge variant="secondary" className="tabular-nums">
+            <Badge
+              variant="secondary"
+              className="px-1.5 py-0.5 text-[10px] tabular-nums"
+            >
               {weightage} marks
             </Badge>
           </span>
         </div>
 
-        <div className="mt-auto flex items-center gap-1.5">
+        <div className="mt-0.5 flex items-center gap-1.5">
           <div className="relative min-w-0 flex-1">
             <Progress
               value={metricValue}
               aria-label={`${item.metricLabel} for ${item.subjectName}: ${metricValue}%`}
-              className="[&_[data-slot=progress-track]]:h-2.5 [&_[data-slot=progress-track]]:ring-1 [&_[data-slot=progress-track]]:ring-border rounded-full"
+              className="rounded-full [&_[data-slot=progress-track]]:h-2 [&_[data-slot=progress-track]]:ring-1 [&_[data-slot=progress-track]]:ring-border"
               indicatorClassName={indicatorClassName}
             />
             <div
               aria-hidden="true"
               className="pointer-events-none absolute inset-0 grid grid-cols-4 overflow-hidden rounded-full"
             >
-              <span className="border-r-2 border" />
-              <span className="border-r-2 border" />
-              <span className="border-r-2 border" />
+              <span className="border border-r-2" />
+              <span className="border border-r-2" />
+              <span className="border border-r-2" />
               <span />
             </div>
           </div>
-          <span className="w-9 shrink-0 font-mono text-right text-xs font-semibold text-foreground tabular-nums">
+          <span className="w-8 shrink-0 text-right font-mono text-[11px] font-semibold text-foreground tabular-nums">
             {metricValue}%
           </span>
         </div>
 
-        <div className="flex min-h-6 flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-border pt-2">
+        <div className="mt-auto flex min-h-5 flex-wrap items-center justify-between gap-x-2 gap-y-0.5 border-t border-border/60 pt-1.5">
           <span
             className={cn(
               "flex min-w-0 items-center gap-1.5 text-xs font-semibold",
@@ -123,14 +126,14 @@ export function RecommendationSubjectRow({
             )}
           >
             {item.stage === "setup" ? (
-              <WrenchIcon className="size-3.5 shrink-0" aria-hidden="true" />
+              <WrenchIcon className="size-3 shrink-0" aria-hidden="true" />
             ) : null}
             <span className="wrap-break-word">{item.actionLabel}</span>
           </span>
-          <span className="ml-auto flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground tabular-nums group-hover:text-foreground motion-safe:transition-colors">
+          <span className="ml-auto flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground tabular-nums group-hover:text-foreground motion-safe:transition-colors">
             {overallProgress}% overall
             <ArrowUpRightIcon
-              className="size-3.5 shrink-0 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-focus-visible:translate-x-0.5 group-focus-visible:-translate-y-0.5 motion-safe:transition-transform"
+              className="size-3 shrink-0 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-focus-visible:translate-x-0.5 group-focus-visible:-translate-y-0.5 motion-safe:transition-transform"
               aria-hidden="true"
             />
           </span>

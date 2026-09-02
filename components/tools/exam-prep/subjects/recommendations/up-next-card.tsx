@@ -9,7 +9,6 @@ import {
   Lock,
   RotateCcw,
   Sparkles,
-  Star,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -29,40 +28,35 @@ export const statusConfig: Record<
   {
     label: string
     icon: typeof CheckCircle2
-    /** Full-color classes for actionable statuses; muted set applied when locked/done. */
-    textClass: string
     badgeClass: string
   }
 > = {
   completed: {
     label: "Completed",
     icon: CheckCircle2,
-    textClass: "text-success-ink",
     badgeClass: "border-success-line bg-success-soft text-success-ink",
   },
   ready: {
     label: "Ready",
     icon: Sparkles,
-    textClass: "text-brand-violet-ink",
-    badgeClass: "border-brand-violet-line bg-brand-violet-soft text-brand-violet-ink",
+    badgeClass:
+      "border-brand-violet-line/50 bg-brand-violet-soft text-brand-violet-ink",
   },
   due: {
     label: "Due now",
     icon: Clock,
-    textClass: "text-destructive",
     badgeClass: "border-destructive/30 bg-destructive/10 text-destructive",
   },
   locked: {
     label: "Locked",
     icon: Lock,
-    textClass: "text-muted-foreground",
     badgeClass: "border-border bg-muted text-muted-foreground",
   },
   overachieved: {
     label: "Overachieved",
-    icon: Star,
-    textClass: "text-brand-amber-ink",
-    badgeClass: "border-brand-amber-line bg-brand-amber-soft text-brand-amber-ink",
+    icon: Sparkles,
+    badgeClass:
+      "border-brand-amber-line bg-brand-amber-soft text-brand-amber-ink",
   },
 }
 
@@ -70,18 +64,18 @@ export const phaseConfig = {
   learn: {
     label: "Learn",
     icon: BookOpen,
-    iconClass: "text-brand-violet-ink",
-    dotClass: "bg-brand-violet-line",
+    iconClass: "text-brand-cyan-ink",
+    dotClass: "bg-brand-cyan",
     buttonClass:
-      "border-brand-violet-line bg-brand-violet-soft text-brand-violet-ink hover:border-brand-violet hover:bg-brand-violet-surface-hover hover:text-brand-violet-ink! dark:hover:border-brand-violet dark:hover:bg-brand-violet-surface-hover! dark:hover:text-brand-violet-ink!",
+      "border-brand-cyan-line/50 bg-brand-cyan-soft text-brand-cyan-ink hover:bg-brand-cyan-surface hover:border-brand-cyan-line hover:shadow-2xs active:scale-[0.98]",
   },
   revise: {
     label: "Revise",
     icon: RotateCcw,
-    iconClass: "text-brand-violet-ink",
-    dotClass: "bg-brand-violet-line",
+    iconClass: "text-brand-neon-ink",
+    dotClass: "bg-brand-neon",
     buttonClass:
-      "border-brand-violet-line bg-brand-violet-soft text-brand-violet-ink hover:border-brand-violet hover:bg-brand-violet-surface-hover hover:text-brand-violet-ink! dark:hover:border-brand-violet dark:hover:bg-brand-violet-surface-hover! dark:hover:text-brand-violet-ink!",
+      "border-brand-neon-line/50 bg-brand-neon-soft text-brand-neon-ink hover:bg-brand-neon-surface hover:border-brand-neon-line hover:shadow-2xs active:scale-[0.98]",
   },
   practice: {
     label: "Practice",
@@ -89,15 +83,15 @@ export const phaseConfig = {
     iconClass: "text-brand-amber-ink",
     dotClass: "bg-brand-amber",
     buttonClass:
-      "border-brand-amber-line bg-brand-amber-soft text-brand-amber-ink hover:border-brand-amber hover:bg-brand-amber-surface-hover hover:text-brand-amber-ink! dark:hover:border-brand-amber dark:hover:bg-brand-amber-surface-hover! dark:hover:text-brand-amber-ink!",
+      "border-brand-amber-line/50 bg-brand-amber-soft text-brand-amber-ink hover:bg-brand-amber-surface hover:border-brand-amber-line hover:shadow-2xs active:scale-[0.98]",
   },
   test: {
     label: "Test",
     icon: CircleDot,
     iconClass: "text-brand-violet-ink",
-    dotClass: "bg-brand-violet-line",
+    dotClass: "bg-brand-violet",
     buttonClass:
-      "border-brand-violet-line bg-brand-violet-soft text-brand-violet-ink hover:border-brand-violet hover:bg-brand-violet-surface-hover hover:text-brand-violet-ink! dark:hover:border-brand-violet dark:hover:bg-brand-violet-surface-hover! dark:hover:text-brand-violet-ink!",
+      "border-brand-violet-line/50 bg-brand-violet-soft text-brand-violet-ink hover:bg-brand-violet-surface hover:border-brand-violet-line hover:shadow-2xs active:scale-[0.98]",
   },
 }
 
@@ -126,14 +120,15 @@ export function UpNextCard({ step, onNavigate }: UpNextCardProps) {
   return (
     <div
       className={cn(
-        "flex flex-col justify-between gap-3 rounded-xl border border-border bg-card p-3.5 shadow-sm transition-colors",
-        "hover:border-border/80",
-        (isLocked || isDone) && "opacity-70"
+        "flex flex-1 flex-col justify-between gap-2.5 rounded-2xl border border-border/70 bg-card p-3 shadow-2xs transition-all",
+        "md:min-h-[148px]",
+        "hover:border-border hover:shadow-xs",
+        (isLocked || isDone) && "opacity-65"
       )}
       role="listitem"
     >
-      <div className="space-y-2.5">
-        {/* Header: phase + status */}
+      <div className="space-y-1.5">
+        {/* Top Header: Phase + Status Badge */}
         <div className="flex items-center justify-between gap-2">
           <span
             className={cn(
@@ -145,7 +140,9 @@ export function UpNextCard({ step, onNavigate }: UpNextCardProps) {
               aria-hidden
               className={cn(
                 "size-1.5 rounded-full",
-                isLocked || isDone ? "bg-muted-foreground/60" : phaseInfo.dotClass
+                isLocked || isDone
+                  ? "bg-muted-foreground/60"
+                  : phaseInfo.dotClass
               )}
             />
             {phaseInfo.label}
@@ -154,56 +151,60 @@ export function UpNextCard({ step, onNavigate }: UpNextCardProps) {
           <Badge
             variant="outline"
             className={cn(
-              "gap-1 border px-2 py-0.5 text-[11px] font-medium",
+              "gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium",
               statusInfo.badgeClass
             )}
           >
-            <StatusIcon className="size-3 shrink-0" aria-hidden="true" />
+            <StatusIcon className="size-2.5 shrink-0" aria-hidden="true" />
             {statusInfo.label}
           </Badge>
         </div>
 
-        {/* Title */}
-        <h3
+        {/* Topic Title */}
+        <h4
           className={cn(
-            "text-sm leading-snug font-semibold break-words",
+            "line-clamp-2 text-sm leading-snug font-semibold",
             isLocked || isDone ? "text-muted-foreground" : "text-foreground"
           )}
         >
           {step.title}
-        </h3>
+        </h4>
 
-        {/* Reason caption */}
-        {step.reason && !isDone ? (
-          <p className="text-xs leading-relaxed break-words text-muted-foreground">
+        {/* Reason / Subtitle */}
+        {step.reason && !isDone && (
+          <p className="line-clamp-1 text-xs leading-relaxed text-muted-foreground">
             {step.reason}
           </p>
-        ) : null}
+        )}
 
-        {/* Evidence — separate quiet line */}
-        {step.evidence && step.evidence !== "Not required" && !isDone ? (
-          <p className="flex items-center gap-1.5 text-xs text-muted-foreground/80">
-            <Star className="size-3 shrink-0" aria-hidden="true" />
+        {/* Evidence Count */}
+        {step.evidence && step.evidence !== "Not required" && !isDone && (
+          <p className="text-[11px] font-medium text-muted-foreground/80">
             {step.evidence}
           </p>
-        ) : null}
+        )}
       </div>
 
-      {/* Footer action strip */}
-      <div className="pt-1">
+      {/* Action Button */}
+      <div className="mt-auto pt-0.5">
         <Button
           variant="outline"
           size="sm"
           className={cn(
-            "h-11 w-full shrink-0 gap-1.5 px-3 text-xs font-semibold sm:h-9",
-            isLocked ? "border-border bg-muted text-muted-foreground hover:bg-muted" : phaseInfo.buttonClass,
-            "focus-visible:ring-2 focus-visible:ring-offset-1"
+            "h-8 w-full rounded-full text-xs font-semibold shadow-2xs transition-all",
+            isLocked
+              ? "cursor-not-allowed border-border bg-muted text-muted-foreground hover:bg-muted"
+              : isDone
+                ? "border-success-line bg-success-soft text-success-ink"
+                : phaseInfo.buttonClass
           )}
           onClick={() => onNavigate(getNavigationTargetForStep(step))}
           aria-label={`${actionLabel}: ${step.title}`}
           disabled={isLocked || isDone}
         >
-          <span>{isLocked ? "Locked" : isDone ? "Done" : actionLabel}</span>
+          <span>
+            {isLocked ? "Locked" : isDone ? "Completed" : actionLabel}
+          </span>
         </Button>
       </div>
     </div>

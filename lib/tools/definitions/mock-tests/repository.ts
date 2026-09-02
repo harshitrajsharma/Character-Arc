@@ -135,6 +135,9 @@ export type PlayerAttempt = {
   submittedAt: string | null
   score: number | null
   maxScore: number | null
+  candidateName?: string | null
+  candidateAvatarUrl?: string | null
+  organizerName?: string | null
   questions: Array<
     AssessmentQuestionView & {
       selectedKeys: string[]
@@ -474,6 +477,17 @@ export const getAttemptForPlayer = cache(
         maxScore: true,
         startedAt: true,
         submittedAt: true,
+        user: {
+          select: {
+            displayName: true,
+            avatarUrl: true,
+          },
+        },
+        workspace: {
+          select: {
+            name: true,
+          },
+        },
         assessment: {
           select: {
             durationMinutes: true,
@@ -542,6 +556,9 @@ export const getAttemptForPlayer = cache(
       submittedAt: attempt.submittedAt?.toISOString() ?? null,
       score: toNumber(attempt.score),
       maxScore: toNumber(attempt.maxScore),
+      candidateName: attempt.user?.displayName ?? null,
+      candidateAvatarUrl: attempt.user?.avatarUrl ?? null,
+      organizerName: attempt.workspace?.name ?? null,
       questions: questionsData.map((row) => {
         const saved = responsesByQuestion.get(row.question.id)
         return {

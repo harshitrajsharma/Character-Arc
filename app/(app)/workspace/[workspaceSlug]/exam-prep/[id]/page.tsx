@@ -5,7 +5,7 @@ import { getExamDetail } from "@/lib/tools/definitions/exam-prep/repository"
 import { getExamDashboardData } from "@/lib/tools/definitions/exam-prep/dashboard-queries"
 import { SubjectsView } from "@/components/tools/exam-prep/subjects/subjects-view"
 import { ExamSubjectRecommendations } from "@/components/tools/exam-prep/subjects/exam-recommendations"
-import { ContextBreadcrumbs } from "@/components/navigation/context-breadcrumbs"
+import { SetNavbarBreadcrumbs } from "@/components/navigation/breadcrumb-context"
 import { ExamDetailHeader } from "@/components/tools/exam-prep/exam-detail-header"
 import { generateExamSubjectRecommendations } from "@/lib/tools/exam-prep/recommendations"
 import {
@@ -66,7 +66,7 @@ export default async function ExamDetailPage({
 
   return (
     <main className="mx-auto w-full max-w-6xl px-4 pt-20 pb-8 sm:pt-24 sm:pb-10 md:px-6 xl:px-10">
-      <ContextBreadcrumbs
+      <SetNavbarBreadcrumbs
         segments={[
           { label: "Workspace", href: `/workspace/${encodeURIComponent(workspaceSlug)}` },
           { label: "Exam Prep", href: workspaceRoutes.examPrep.home(workspaceSlug) },
@@ -74,16 +74,11 @@ export default async function ExamDetailPage({
         ]}
         backHref={workspaceRoutes.examPrep.home(workspaceSlug)}
         backLabel="Back to Exam Prep"
-        className="mb-6 rounded-2xl border border-border/60 bg-background/50"
       />
 
       <ExamDetailHeader
         workspaceSlug={workspaceSlug}
         exam={exam}
-        settingsHref={workspaceRoutes.examPrep.examSettings(
-          workspaceSlug,
-          exam.id
-        )}
       />
 
       <div className="mt-6 md:px-4">

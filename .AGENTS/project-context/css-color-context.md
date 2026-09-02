@@ -300,3 +300,22 @@ Before finishing UI work involving color, verify:
 - Text passes WCAG AA for its size and weight.
 - Light and dark modes both work.
 - No visual color is hardcoded outside the token source of truth.
+
+
+
+### 5. Overlay Surfaces (Dialogs, Sheets & Drawers)
+
+All modal overlays, settings dialogs, and slide-over sheets follow the unified glass layer hierarchy:
+
+| Surface Layer | Tailwind Utility | Role |
+| ------------- | ---------------- | ---- |
+| **Modal / Sheet Shell** | `bg-popover/60 backdrop-blur-2xl ring-1 ring-foreground/5 dark:ring-foreground/10` | Translucent glass container with soft outer ring |
+| **Header Bar** | `bg-muted/20 border-b border-border/60 px-6 py-3.5` | Compact header bar containing domain icon tile and title |
+| **Inset Sections & Rows** | `bg-card` or `bg-muted/20 border border-border/60 rounded-2xl` | Inset grouped settings and detail cards |
+| **Sticky Footer** | `bg-muted/10 border-t border-border/60 px-6 py-3` | Action bar with thumb-reachable controls |
+
+Rules:
+- Do not wash full dialog containers with brand colors. Keep container backgrounds neutral (`bg-popover/60`).
+- Use domain accents (`brand-violet`, `brand-cyan`, `brand-amber`, `brand-neon`) strictly for small icon tiles (`size-8 rounded-xl bg-brand-*-soft text-brand-*-ink`) and progress indicators.
+- Settings dialogs follow the two-column split layout: sidebar navigation on the left, grouped form sections on the right, and a unified action footer at the bottom.
+

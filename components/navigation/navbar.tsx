@@ -10,6 +10,8 @@ import { NavbarAccountMenu } from "./navbar-account-menu"
 import { type NavbarDestinationKey, type NavbarUser } from "./navbar-data"
 import { NavbarNotifications } from "./navbar-notifications"
 import { NavbarPrimaryLinks } from "./navbar-primary-links"
+import { NavbarBreadcrumbs, resolvePathnameBreadcrumbs } from "./navbar-breadcrumbs"
+import { useBreadcrumb } from "./breadcrumb-context"
 import { NavbarSearch } from "./navbar-search"
 import { NavClock } from "./nav-clock"
 import { DayPulse } from "./day-pulse"
@@ -26,6 +28,7 @@ type NavbarProps = {
 
 export function Navbar({ user, memberships }: NavbarProps) {
   const pathname = usePathname()
+  const { breadcrumbs } = useBreadcrumb()
   const [now, setNow] = useState<Date | null>(null)
   const isAuthenticated = Boolean(user)
   const primaryWorkspaceSlug = memberships?.[0]?.slug
@@ -59,6 +62,10 @@ export function Navbar({ user, memberships }: NavbarProps) {
   const phase = getDayPhase(progress)
   const homeHref = user ? "/dashboard" : "/"
 
+  // Check if we are on a deep page that should show breadcrumbs above md breakpoint
+  const resolvedBreadcrumbs = breadcrumbs || resolvePathnameBreadcrumbs(pathname, primaryWorkspaceSlug)
+  const isDeepPage = Boolean(resolvedBreadcrumbs && resolvedBreadcrumbs.segments.length > 0)
+
   return (
     <header className="fixed inset-x-0 top-0 z-30 w-full backdrop-blur-xl">
       {user ? (
@@ -88,9 +95,13 @@ export function Navbar({ user, memberships }: NavbarProps) {
         </Link>
 
         {user ? (
-          <div className="hidden items-center justify-start sm:flex xl:pointer-events-none xl:absolute xl:inset-y-0 xl:left-1/2 xl:w-full xl:max-w-6xl xl:-translate-x-1/2 xl:px-16">
+          <div className="hidden items-center justify-start md:flex xl:pointer-events-none xl:absolute xl:inset-y-0 xl:left-1/2 xl:w-full xl:max-w-6xl xl:-translate-x-1/2 xl:px-16">
             <div className="pointer-events-auto">
-              <NavbarPrimaryLinks active={active} onSelect={setSelectedOverride} workspaceSlug={primaryWorkspaceSlug} />
+              {isDeepPage ? (
+                <NavbarBreadcrumbs workspaceSlug={primaryWorkspaceSlug} />
+              ) : (
+                <NavbarPrimaryLinks active={active} onSelect={setSelectedOverride} workspaceSlug={primaryWorkspaceSlug} />
+              )}
             </div>
           </div>
         ) : null}

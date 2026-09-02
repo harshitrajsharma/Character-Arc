@@ -98,60 +98,62 @@ export default async function AuthoringSuitePage({
         }
       />
 
-      {/* Authoring Stat Cards */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="p-4 shadow-xs border-border/80 bg-card">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground">Draft Papers</span>
-            <span className="flex size-7 items-center justify-center rounded-lg bg-brand-amber-soft text-brand-amber-ink">
-              <FilePenLineIcon className="size-3.5" aria-hidden="true" />
-            </span>
+      {/* Authoring Stat Strip */}
+      <Card className="overflow-hidden p-0 border-border/80 bg-card shadow-xs">
+        <div className="grid grid-cols-1 divide-y divide-border/80 sm:grid-cols-2 sm:divide-y-0 sm:divide-x sm:[&>*:nth-child(n+3)]:border-t sm:[&>*:nth-child(n+3)]:border-border/80 lg:grid-cols-4 lg:[&>*:nth-child(n+3)]:border-t-0 lg:divide-x">
+          <div className="flex flex-col justify-between p-4 sm:p-5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-muted-foreground">Draft Papers</span>
+              <span className="flex size-7 items-center justify-center rounded-lg bg-brand-amber-soft text-brand-amber-ink">
+                <FilePenLineIcon className="size-3.5" aria-hidden="true" />
+              </span>
+            </div>
+            <div className="mt-2 font-heading text-2xl font-bold tracking-tight text-foreground">
+              {draftsCount}
+            </div>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">In progress or editing</p>
           </div>
-          <div className="mt-2 font-heading text-2xl font-bold tracking-tight text-foreground">
-            {draftsCount}
-          </div>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">In progress or editing</p>
-        </Card>
 
-        <Card className="p-4 shadow-xs border-border/80 bg-card">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground">Published Papers</span>
-            <span className="flex size-7 items-center justify-center rounded-lg bg-success-soft text-success-ink">
-              <ListChecksIcon className="size-3.5" aria-hidden="true" />
-            </span>
+          <div className="flex flex-col justify-between p-4 sm:p-5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-muted-foreground">Published Papers</span>
+              <span className="flex size-7 items-center justify-center rounded-lg bg-success-soft text-success-ink">
+                <ListChecksIcon className="size-3.5" aria-hidden="true" />
+              </span>
+            </div>
+            <div className="mt-2 font-heading text-2xl font-bold tracking-tight text-foreground">
+              {publishedCount}
+            </div>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">Live for student attempts</p>
           </div>
-          <div className="mt-2 font-heading text-2xl font-bold tracking-tight text-foreground">
-            {publishedCount}
-          </div>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">Live for student attempts</p>
-        </Card>
 
-        <Card className="p-4 shadow-xs border-border/80 bg-card">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground">Question Repository</span>
-            <span className="flex size-7 items-center justify-center rounded-lg bg-brand-cyan-soft text-brand-cyan-ink">
-              <BookOpenTextIcon className="size-3.5" aria-hidden="true" />
-            </span>
+          <div className="flex flex-col justify-between p-4 sm:p-5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-muted-foreground">Question Repository</span>
+              <span className="flex size-7 items-center justify-center rounded-lg bg-brand-cyan-soft text-brand-cyan-ink">
+                <BookOpenTextIcon className="size-3.5" aria-hidden="true" />
+              </span>
+            </div>
+            <div className="mt-2 font-heading text-2xl font-bold tracking-tight text-foreground">
+              {bank.length} <span className="text-xs font-normal text-muted-foreground font-sans">questions</span>
+            </div>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">Reusable across blueprints</p>
           </div>
-          <div className="mt-2 font-heading text-2xl font-bold tracking-tight text-foreground">
-            {bank.length} <span className="text-xs font-normal text-muted-foreground font-sans">questions</span>
-          </div>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">Reusable across blueprints</p>
-        </Card>
 
-        <Card className="p-4 shadow-xs border-border/80 bg-card">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground">Total Blueprints</span>
-            <span className="flex size-7 items-center justify-center rounded-lg bg-brand-violet-soft text-brand-violet-ink">
-              <SlidersHorizontalIcon className="size-3.5" aria-hidden="true" />
-            </span>
+          <div className="flex flex-col justify-between p-4 sm:p-5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-muted-foreground">Total Blueprints</span>
+              <span className="flex size-7 items-center justify-center rounded-lg bg-brand-violet-soft text-brand-violet-ink">
+                <SlidersHorizontalIcon className="size-3.5" aria-hidden="true" />
+              </span>
+            </div>
+            <div className="mt-2 font-heading text-2xl font-bold tracking-tight text-foreground">
+              {overview.assessments.length}
+            </div>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">Managed test configurations</p>
           </div>
-          <div className="mt-2 font-heading text-2xl font-bold tracking-tight text-foreground">
-            {overview.assessments.length}
-          </div>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">Managed test configurations</p>
-        </Card>
-      </div>
+        </div>
+      </Card>
 
       {/* Blueprint Roster Data Table */}
       <section aria-labelledby="author-roster-title" className="space-y-3">

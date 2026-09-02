@@ -104,7 +104,7 @@ export function ExamSubjectRecommendations({
   return (
     <section
       aria-labelledby="exam-recommendations-heading"
-      className="flex min-w-0 flex-col gap-5"
+      className="flex min-w-0 flex-col gap-3.5"
     >
       <div className="flex items-center justify-between gap-3">
         <h2

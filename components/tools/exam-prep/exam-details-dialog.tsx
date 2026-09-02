@@ -27,7 +27,8 @@ import { cn } from "@/lib/utils"
 
 type ExamDetailsDialogContentProps = {
   exam: ExamDetailHeaderData
-  settingsHref: string
+  settingsHref?: string
+  onOpenSettings?: () => void
 }
 
 function parseDateOnly(value: string | null) {
@@ -138,7 +139,12 @@ function DetailItem({
   span?: boolean
 }) {
   return (
-    <div className={cn("flex min-w-0 items-start gap-3 bg-card p-3.5", span && "sm:col-span-2")}>
+    <div
+      className={cn(
+        "flex min-w-0 items-start gap-3 bg-card p-3.5",
+        span && "sm:col-span-2"
+      )}
+    >
       <Icon
         className="mt-0.5 size-4 shrink-0 text-brand-violet-ink"
         aria-hidden="true"
@@ -156,9 +162,15 @@ function DetailItem({
 export function ExamDetailsDialogContent({
   exam,
   settingsHref,
+  onOpenSettings,
 }: ExamDetailsDialogContentProps) {
+  const isConfirmed =
+    exam.scheduleStatus?.toLowerCase() === "confirmed" ||
+    Boolean(exam.officialStartAt)
   const expectedStartDate = formatExamDate(exam.expectedStartDate)
   const officialStartAt = formatExamDateTime(exam.officialStartAt)
+  const examDate = officialStartAt || expectedStartDate
+
   const duration = formatDuration(exam.durationMinutes)
   const totalMarks = formatMark(exam.totalMarks)
   const targetMarks = formatMark(exam.targetMarks)
@@ -169,18 +181,11 @@ export function ExamDetailsDialogContent({
     value: React.ReactNode
     span?: boolean
   }> = [
-    officialStartAt
+    examDate
       ? {
           icon: CalendarDaysIcon,
-          label: "Confirmed start",
-          value: officialStartAt,
-        }
-      : null,
-    expectedStartDate
-      ? {
-          icon: CalendarDaysIcon,
-          label: "Expected date",
-          value: expectedStartDate,
+          label: isConfirmed ? "Actual exam date" : "Expected date",
+          value: examDate,
         }
       : null,
     exam.examCode
@@ -214,12 +219,10 @@ export function ExamDetailsDialogContent({
         "Not recorded"
       ),
     },
-  ].filter(
-    (detail): detail is NonNullable<typeof detail> => Boolean(detail)
-  )
+  ].filter((detail): detail is NonNullable<typeof detail> => Boolean(detail))
 
   return (
-    <DialogContent className="flex max-h-[min(90dvh,46rem)] w-full max-w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden rounded-xl p-0 sm:max-w-2xl">
+    <DialogContent className="flex max-h-[min(90dvh,46rem)] w-full max-w-[calc(100%-2rem)] flex-col gap-0 overflow-hidden rounded-4xl bg-popover/60 p-0 ring-1 ring-foreground/5 backdrop-blur-2xl sm:max-w-2xl dark:ring-foreground/10">
       <DialogHeader className="m-0 shrink-0 border-b border-border px-5 py-4 pr-14 sm:px-6">
         <div className="flex items-center gap-2 text-xs font-medium text-brand-violet-ink">
           <GraduationCapIcon className="size-3.5" aria-hidden="true" />
@@ -249,7 +252,7 @@ export function ExamDetailsDialogContent({
           <h3 className="text-sm font-semibold text-foreground">
             Exam details
           </h3>
-          <dl className="mt-3 grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2">
+          <dl className="mt-3 grid grid-cols-1 gap-px overflow-hidden rounded-2xl border border-border bg-border sm:grid-cols-2">
             {details.map((detail) => (
               <DetailItem key={detail.label} {...detail} />
             ))}
@@ -262,7 +265,7 @@ export function ExamDetailsDialogContent({
               Official source
             </h3>
             <Button
-              className="mt-3 max-w-full sm:w-auto"
+              className="mt-3 max-w-full rounded-full sm:w-auto"
               variant="outline"
               size="sm"
               render={
@@ -277,13 +280,23 @@ export function ExamDetailsDialogContent({
       </div>
 
       <DialogFooter className="m-0 shrink-0 border-t border-border bg-popover/60 px-5 py-3 sm:px-6">
-        <Button
-          className="w-full sm:w-auto"
-          variant="outline"
-          render={<Link href={settingsHref} />}
-        >
-          Exam settings
-        </Button>
+        {onOpenSettings ? (
+          <Button
+            className="w-full rounded-full sm:w-auto"
+            variant="outline"
+            onClick={onOpenSettings}
+          >
+            Exam settings
+          </Button>
+        ) : settingsHref ? (
+          <Button
+            className="w-full rounded-full sm:w-auto"
+            variant="outline"
+            render={<Link href={settingsHref} />}
+          >
+            Exam settings
+          </Button>
+        ) : null}
       </DialogFooter>
     </DialogContent>
   )

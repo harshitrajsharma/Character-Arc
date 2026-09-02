@@ -96,11 +96,17 @@ function toDraft(exam: ExamDetail): ExamSettingsDraft {
 interface ExamSettingsFormProps {
   workspaceSlug: string
   exam: ExamDetail
+  presentation?: "page" | "dialog"
+  onCancel?: () => void
+  onSaved?: () => void
 }
 
 export function ExamSettingsForm({
   workspaceSlug,
   exam,
+  presentation = "page",
+  onCancel,
+  onSaved,
 }: ExamSettingsFormProps) {
   const router = useRouter()
   const [state, formAction, isPending] = useActionState(
@@ -115,8 +121,9 @@ export function ExamSettingsForm({
     if (state.status === "success") {
       toast.success(state.message)
       router.refresh()
+      onSaved?.()
     }
-  }, [router, state])
+  }, [onSaved, router, state])
 
   function handleChange(field: keyof ExamSettingsDraft) {
     return (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -142,7 +149,10 @@ export function ExamSettingsForm({
   ] as const
 
   return (
-    <div className="mx-auto max-w-5xl pb-24 lg:grid lg:grid-cols-[14rem_minmax(0,1fr)] lg:items-start lg:gap-16">
+    <div className={cn(
+      "mx-auto max-w-5xl",
+      presentation === "dialog" ? "pb-6 lg:grid lg:grid-cols-[13rem_minmax(0,1fr)] lg:items-start lg:gap-8" : "pb-24 lg:grid lg:grid-cols-[14rem_minmax(0,1fr)] lg:items-start lg:gap-16"
+    )}>
       {/* Left Navigation */}
       <nav
         aria-label="Settings sections"
@@ -606,13 +616,13 @@ export function ExamSettingsForm({
         </FieldGroup>
       </section>
 
-      <FormFooter className="fixed inset-x-0 bottom-0 z-10 border-t border-border/60 bg-background/95 px-4 py-4 backdrop-blur sm:px-6 md:px-8 xl:px-10">
-        <div className="mx-auto flex w-full max-w-5xl flex-col-reverse justify-end gap-3 sm:flex-row">
+      {presentation === "dialog" ? (
+        <div className="mt-8 pt-4 border-t border-border/60 flex items-center justify-end gap-3">
           <Button
             type="button"
             variant="outline"
-            className="min-h-11 rounded-full sm:min-w-[100px]"
-            onClick={() => router.back()}
+            className="h-9 px-4 rounded-full"
+            onClick={() => (onCancel ? onCancel() : router.back())}
             disabled={isPending}
           >
             Cancel
@@ -620,7 +630,7 @@ export function ExamSettingsForm({
           <Button
             type="submit"
             disabled={isPending}
-            className="min-h-11 rounded-full bg-primary hover:bg-primary/90 sm:min-w-[140px]"
+            className="h-9 px-5 rounded-full bg-primary hover:bg-primary/90"
           >
             {isPending ? (
               <Loader2Icon className="mr-2 size-4 animate-spin" />
@@ -630,7 +640,33 @@ export function ExamSettingsForm({
             {isPending ? "Saving..." : "Save changes"}
           </Button>
         </div>
-      </FormFooter>
+      ) : (
+        <FormFooter className="fixed inset-x-0 bottom-0 z-10 border-t border-border/60 bg-background/95 px-4 py-4 backdrop-blur sm:px-6 md:px-8 xl:px-10">
+          <div className="mx-auto flex w-full max-w-5xl flex-col-reverse justify-end gap-3 sm:flex-row">
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11 rounded-full sm:min-w-[100px]"
+              onClick={() => (onCancel ? onCancel() : router.back())}
+              disabled={isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={isPending}
+              className="min-h-11 rounded-full bg-primary hover:bg-primary/90 sm:min-w-[140px]"
+            >
+              {isPending ? (
+                <Loader2Icon className="mr-2 size-4 animate-spin" />
+              ) : (
+                <SaveIcon className="mr-2 size-4" />
+              )}
+              {isPending ? "Saving..." : "Save changes"}
+            </Button>
+          </div>
+        </FormFooter>
+      )}
       </form>
     </div>
   )

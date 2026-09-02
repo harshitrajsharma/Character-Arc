@@ -58,8 +58,8 @@ export const workspaceRoutes = {
       `/workspace/${encodeURIComponent(slug)}/mock-tests/${encodeURIComponent(assessmentId)}/edit`,
     attemptNew: (slug: string, assessmentId: string) =>
       `/workspace/${encodeURIComponent(slug)}/mock-tests/${encodeURIComponent(assessmentId)}/attempts/new`,
-    attempt: (slug: string, attemptId: string) =>
-      `/workspace/${encodeURIComponent(slug)}/mock-tests/attempts/${encodeURIComponent(attemptId)}`,
+    attempt: (_slug: string, attemptId: string) =>
+      `/mock-test/${encodeURIComponent(attemptId)}`,
     analysis: (slug: string, attemptId: string) =>
       `/workspace/${encodeURIComponent(slug)}/mock-tests/attempts/${encodeURIComponent(attemptId)}/analysis`,
     questions: (slug: string) =>

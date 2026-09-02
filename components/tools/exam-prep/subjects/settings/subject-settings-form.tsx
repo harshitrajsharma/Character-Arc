@@ -4,8 +4,8 @@ import { useActionState, useEffect, useState, type ChangeEvent } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
-  ChevronDownIcon,
   ClipboardCheckIcon,
+  HelpCircleIcon,
   Loader2Icon,
   RefreshCwIcon,
   SaveIcon,
@@ -14,22 +14,8 @@ import {
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible"
-import { SegmentedSelector } from "@/components/ui/segmented-selector"
-import {
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldLabel,
-  FieldGroup,
-} from "@/components/ui/field"
-import { FormFooter } from "@/components/ui/form-footer"
+import { Field, FieldError, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { workspaceRoutes } from "@/lib/routes/workspace-tools"
 import {
   updateSubjectSettingsAction,
@@ -39,15 +25,16 @@ import {
   normalizeSubjectProgressPolicy,
   type SubjectProgressPolicy,
 } from "@/lib/tools/exam-prep/progress/policy"
-import { cn } from "@/lib/utils"
 import type { SubjectWithRelations } from "@/types/progressapp/domain"
-
 import { ProgressCalculatorExplainer } from "./progress-calculator-explainer"
+import { cn } from "@/lib/utils"
 
 const initialState: UpdateSubjectSettingsState = { status: "idle" }
 
 type PolicyField = keyof SubjectProgressPolicy
 type PolicyDraft = Record<PolicyField, string>
+
+type SectionKey = "standard" | "high-yield" | "tests" | "explainer"
 
 const policyFields: PolicyField[] = [
   "revisionTarget",
@@ -80,15 +67,14 @@ export function SubjectSettingsForm({
   const [draft, setDraft] = useState<PolicyDraft>(() =>
     policyToDraft(initialPolicy)
   )
-  const [targetFeedback, setTargetFeedback] = useState<
+  const [activeTab, setActiveTab] = useState<SectionKey>("standard")
+  const [feedback, setFeedback] = useState<
     Partial<Record<PolicyField, string>>
   >({})
   const [state, formAction, isPending] = useActionState(
     updateSubjectSettingsAction,
     initialState
   )
-  const [activeSectionId, setActiveSectionId] = useState("standard-targets")
-  const [showExplainer, setShowExplainer] = useState(false)
 
   useEffect(() => {
     if (state.status === "success") {
@@ -103,332 +89,354 @@ export function SubjectSettingsForm({
   const clientErrors = getClientErrors(draft)
   const hasClientErrors = policyFields.some((field) => clientErrors[field])
 
-  function targetField(
-    name: PolicyField,
-    label: string,
-    description: string,
-    minimum: number
-  ) {
-    const error =
-      targetFeedback[name] ??
-      clientErrors[name] ??
-      state.fieldErrors?.[name]?.[0]
-
-    function handleChange(event: ChangeEvent<HTMLInputElement>) {
+  function handleValueChange(name: PolicyField) {
+    return (event: ChangeEvent<HTMLInputElement>) => {
       const rawValue = event.currentTarget.value
-      const parsedValue = Number(rawValue)
-
-      if (
-        rawValue !== "" &&
-        Number.isFinite(parsedValue) &&
-        parsedValue > 100
-      ) {
+      const value = Number(rawValue)
+      if (rawValue !== "" && Number.isFinite(value) && value > 100) {
         setDraft((current) => ({ ...current, [name]: "100" }))
-        setTargetFeedback((current) => ({
-          ...current,
-          [name]: "Maximum is 100, so this target was capped at 100.",
-        }))
+        setFeedback((current) => ({ ...current, [name]: "Maximum is 100." }))
         return
       }
-
       setDraft((current) => ({ ...current, [name]: rawValue }))
-      setTargetFeedback((current) => ({ ...current, [name]: undefined }))
+      setFeedback((current) => ({ ...current, [name]: undefined }))
     }
+  }
 
+  function errorFor(name: PolicyField) {
     return (
-      <Field data-invalid={Boolean(error)}>
-        <FieldLabel htmlFor={name}>{label}</FieldLabel>
-        <FieldDescription id={`${name}-description`}>
-          {description}
-        </FieldDescription>
-        <Input
-          id={name}
-          name={name}
-          type="number"
-          inputMode="numeric"
-          min={minimum}
-          max={100}
-          step={1}
-          value={draft[name]}
-          onChange={handleChange}
-          className="min-h-11 rounded-lg"
-          aria-invalid={Boolean(error)}
-          aria-describedby={`${name}-description ${name}-feedback`}
-          required
-        />
-        <FieldError id={`${name}-feedback`}>{error}</FieldError>
-      </Field>
+      feedback[name] ?? clientErrors[name] ?? state.fieldErrors?.[name]?.[0]
     )
   }
 
+  const isSheet = presentation === "sheet"
+
   const sections = [
+    { key: "standard" as const, label: "Standard Topics", icon: TargetIcon },
     {
-      id: "standard-targets",
-      navLabel: "Standard",
-      title: "Standard topics",
-      description: "The everyday rhythm for each topic.",
-      icon: TargetIcon,
-      className: "text-brand-neon-ink",
-      activeClassName:
-        "aria-pressed:!bg-brand-neon aria-pressed:!text-brand-neon-foreground",
-      fields: [
-        targetField(
-          "revisionTarget",
-          "Revision target",
-          "Revisions required for a standard topic.",
-          1
-        ),
-        targetField(
-          "practiceTarget",
-          "Practice target",
-          "Practice sessions required for a standard topic.",
-          1
-        ),
-      ],
-    },
-    {
-      id: "high-yield-targets",
-      navLabel: "High-yield",
-      title: "High-yield topics",
-      description: "A stronger target for important material.",
+      key: "high-yield" as const,
+      label: "High-Yield Focus",
       icon: RefreshCwIcon,
-      className: "text-brand-amber-ink",
-      activeClassName:
-        "aria-pressed:!bg-brand-amber aria-pressed:!text-brand-amber-foreground",
-      fields: [
-        targetField(
-          "highYieldRevisionTarget",
-          "Revision target",
-          "Must be at least the standard revision target.",
-          1
-        ),
-        targetField(
-          "highYieldPracticeTarget",
-          "Practice target",
-          "Must be at least the standard practice target.",
-          1
-        ),
-      ],
     },
+    { key: "tests" as const, label: "Testing Rules", icon: ClipboardCheckIcon },
     {
-      id: "test-targets",
-      navLabel: "Tests",
-      title: "Tests",
-      description: "Real Test Records complete this stage.",
-      icon: ClipboardCheckIcon,
-      className: "text-brand-violet-ink",
-      activeClassName:
-        "aria-pressed:!bg-brand-violet aria-pressed:!text-brand-violet-foreground",
-      fields: [
-        targetField(
-          "chapterTestTarget",
-          "Tests per chapter",
-          "Set 0 to exclude chapter tests.",
-          0
-        ),
-        targetField(
-          "subjectTestTarget",
-          "Subject tests",
-          "Full-subject Test Records required.",
-          0
-        ),
-      ],
+      key: "explainer" as const,
+      label: "Algorithm & Logic",
+      icon: HelpCircleIcon,
     },
-  ] as const
+  ]
 
   return (
     <form
       action={formAction}
-      className={cn(
-        presentation === "sheet" && "flex min-h-0 flex-1 flex-col"
-      )}
+      className={
+        isSheet
+          ? "flex min-h-0 flex-1 flex-col justify-between overflow-hidden"
+          : "mx-auto w-full max-w-4xl pt-4 pb-28"
+      }
     >
       <input type="hidden" name="workspaceSlug" value={workspaceSlug} />
       <input type="hidden" name="subjectId" value={subject.id} />
 
-      {presentation === "page" ? (
-        <div className="mx-auto w-full max-w-5xl pb-24 lg:grid lg:grid-cols-[14rem_minmax(0,1fr)] lg:items-start lg:gap-16">
-          <nav
-            aria-label="Subject settings sections"
-            className="lg:sticky lg:top-24 lg:mb-0 -mx-4 mb-8 flex gap-1 overflow-x-auto border-b border-border/60 px-4 pb-3 sm:mx-0 sm:px-0 lg:block lg:overflow-visible lg:border-none lg:pb-0"
-          >
+      {/* Body: Split Sidebar + Content */}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden md:flex-row">
+        {/* Left Sidebar / Mobile Tabs */}
+        <aside className="flex w-full min-w-0 shrink-0 scrollbar-none justify-start overflow-x-auto border-b border-border/60 bg-muted/15 p-2.5 sm:p-3 md:w-56 md:flex-col md:justify-between md:border-r md:border-b-0 md:p-3.5">
+          <div className="flex shrink-0 gap-1 md:w-full md:flex-col">
+            <p className="mb-1 hidden px-2.5 text-[11px] font-semibold tracking-wider text-muted-foreground/70 uppercase md:block">
+              Target Groups
+            </p>
             {sections.map((section) => {
               const Icon = section.icon
-              const isActive = activeSectionId === section.id
-
+              const isActive = activeTab === section.key
               return (
                 <button
-                  key={section.id}
+                  key={section.key}
                   type="button"
-                  aria-current={isActive ? "page" : undefined}
-                  onClick={() => {
-                    setActiveSectionId(section.id)
-                    document.getElementById(section.id)?.scrollIntoView({
-                      behavior: "smooth",
-                      block: "start",
-                    })
-                  }}
+                  onClick={() => setActiveTab(section.key)}
                   className={cn(
-                    "flex min-h-11 shrink-0 items-center gap-2.5 rounded-full px-4 text-left text-sm font-medium transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/30 lg:w-full lg:rounded-lg lg:py-2.5",
+                    "flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-left text-xs font-medium whitespace-nowrap transition-all outline-none sm:px-3 sm:py-2",
                     isActive
-                      ? "bg-brand-neon-soft text-brand-neon-ink hover:bg-brand-neon-soft"
-                      : "text-muted-foreground hover:text-foreground"
+                      ? "bg-background font-semibold text-foreground shadow-xs ring-1 ring-border/60"
+                      : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                   )}
                 >
-                  <Icon className="size-4 shrink-0" aria-hidden="true" />
-                  <span>{section.navLabel}</span>
+                  <Icon
+                    className="size-3.5 shrink-0 sm:size-4"
+                    aria-hidden="true"
+                  />
+                  <span>{section.label}</span>
                 </button>
               )
             })}
-          </nav>
+          </div>
 
-          <div className="min-w-0 space-y-16">
-            {sections.map((section) => {
-              const Icon = section.icon
+          <div className="hidden border-t border-border/40 px-2 pt-3 text-[11px] text-muted-foreground md:block">
+            <span className="rounded-md border border-border/50 bg-muted px-1.5 py-0.5 font-mono text-[10px]">
+              Esc
+            </span>{" "}
+            to close
+          </div>
+        </aside>
 
-              return (
-                <section
-                  id={section.id}
-                  key={section.id}
-                  aria-labelledby={`${section.id}-heading`}
-                  className="scroll-mt-24 space-y-6"
-                >
-                  <header className="border-b border-border/60 pb-4">
-                    <div
-                      className={cn(
-                        "flex items-center gap-2 text-sm font-medium",
-                        section.className
-                      )}
+        {/* Right Content */}
+        <main className="min-w-0 flex-1 overflow-y-auto p-4 sm:p-6 md:p-8">
+          {activeTab === "standard" && (
+            <div className="max-w-2xl space-y-6">
+              <div>
+                <h2 className="font-heading text-base font-semibold text-foreground sm:text-lg">
+                  Standard Topics Rhythm
+                </h2>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  The baseline repetitions required to consider normal topics
+                  completed.
+                </p>
+              </div>
+
+              <div className="space-y-4 rounded-2xl border border-border/60 bg-muted/20 p-4 sm:space-y-5 sm:p-5">
+                <div className="grid gap-4 sm:grid-cols-2 sm:gap-5">
+                  <Field data-invalid={Boolean(errorFor("revisionTarget"))}>
+                    <FieldLabel
+                      htmlFor="revision-target"
+                      className="text-xs font-semibold"
                     >
-                      <Icon className="size-4" aria-hidden="true" />
-                      <h2
-                        id={`${section.id}-heading`}
-                        className="font-heading text-xl font-semibold text-foreground"
-                      >
-                        {section.title}
-                      </h2>
-                    </div>
-                    <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-                      {section.description}
+                      Revisions per Topic
+                    </FieldLabel>
+                    <Input
+                      id="revision-target"
+                      name="revisionTarget"
+                      type="number"
+                      inputMode="numeric"
+                      min={1}
+                      max={100}
+                      step={1}
+                      value={draft.revisionTarget}
+                      onChange={handleValueChange("revisionTarget")}
+                      className="mt-1 h-10 rounded-xl border-border/70 bg-background text-sm"
+                      aria-invalid={Boolean(errorFor("revisionTarget"))}
+                      required
+                    />
+                    <FieldError>{errorFor("revisionTarget")}</FieldError>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      Required topic review passes.
                     </p>
-                  </header>
+                  </Field>
 
-                  <FieldGroup className="gap-6 sm:grid sm:grid-cols-2">
-                    {section.fields.map((field, index) => (
-                      <div key={index}>{field}</div>
-                    ))}
-                  </FieldGroup>
-                </section>
-              )
-            })}
+                  <Field data-invalid={Boolean(errorFor("practiceTarget"))}>
+                    <FieldLabel
+                      htmlFor="practice-target"
+                      className="text-xs font-semibold"
+                    >
+                      Practice Sessions
+                    </FieldLabel>
+                    <Input
+                      id="practice-target"
+                      name="practiceTarget"
+                      type="number"
+                      inputMode="numeric"
+                      min={1}
+                      max={100}
+                      step={1}
+                      value={draft.practiceTarget}
+                      onChange={handleValueChange("practiceTarget")}
+                      className="mt-1 h-10 rounded-xl border-border/70 bg-background text-sm"
+                      aria-invalid={Boolean(errorFor("practiceTarget"))}
+                      required
+                    />
+                    <FieldError>{errorFor("practiceTarget")}</FieldError>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      Required problem-solving sets.
+                    </p>
+                  </Field>
+                </div>
+              </div>
+            </div>
+          )}
 
-            <div className="mt-10 border-t border-border/60 pt-6">
+          {activeTab === "high-yield" && (
+            <div className="max-w-2xl space-y-6">
+              <div>
+                <h2 className="font-heading text-base font-semibold text-foreground sm:text-lg">
+                  High-Yield Focus
+                </h2>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Elevated revision thresholds for topics with highest exam
+                  weightage.
+                </p>
+              </div>
+
+              <div className="space-y-4 rounded-2xl border border-border/60 bg-muted/20 p-4 sm:space-y-5 sm:p-5">
+                <div className="grid gap-4 sm:grid-cols-2 sm:gap-5">
+                  <Field
+                    data-invalid={Boolean(errorFor("highYieldRevisionTarget"))}
+                  >
+                    <FieldLabel
+                      htmlFor="high-yield-revision-target"
+                      className="text-xs font-semibold"
+                    >
+                      High-Yield Revisions
+                    </FieldLabel>
+                    <Input
+                      id="high-yield-revision-target"
+                      name="highYieldRevisionTarget"
+                      type="number"
+                      inputMode="numeric"
+                      min={1}
+                      max={100}
+                      step={1}
+                      value={draft.highYieldRevisionTarget}
+                      onChange={handleValueChange("highYieldRevisionTarget")}
+                      className="mt-1 h-10 rounded-xl border-border/70 bg-background text-sm"
+                      aria-invalid={Boolean(
+                        errorFor("highYieldRevisionTarget")
+                      )}
+                      required
+                    />
+                    <FieldError>
+                      {errorFor("highYieldRevisionTarget")}
+                    </FieldError>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      Must meet or exceed standard target.
+                    </p>
+                  </Field>
+
+                  <Field
+                    data-invalid={Boolean(errorFor("highYieldPracticeTarget"))}
+                  >
+                    <FieldLabel
+                      htmlFor="high-yield-practice-target"
+                      className="text-xs font-semibold"
+                    >
+                      High-Yield Practice
+                    </FieldLabel>
+                    <Input
+                      id="high-yield-practice-target"
+                      name="highYieldPracticeTarget"
+                      type="number"
+                      inputMode="numeric"
+                      min={1}
+                      max={100}
+                      step={1}
+                      value={draft.highYieldPracticeTarget}
+                      onChange={handleValueChange("highYieldPracticeTarget")}
+                      className="mt-1 h-10 rounded-xl border-border/70 bg-background text-sm"
+                      aria-invalid={Boolean(
+                        errorFor("highYieldPracticeTarget")
+                      )}
+                      required
+                    />
+                    <FieldError>
+                      {errorFor("highYieldPracticeTarget")}
+                    </FieldError>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      Must meet or exceed standard target.
+                    </p>
+                  </Field>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "tests" && (
+            <div className="max-w-2xl space-y-6">
+              <div>
+                <h2 className="font-heading text-base font-semibold text-foreground sm:text-lg">
+                  Testing & Verification Rules
+                </h2>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Test attempt requirements to reach 100% mastery in the testing
+                  phase.
+                </p>
+              </div>
+
+              <div className="space-y-4 rounded-2xl border border-border/60 bg-muted/20 p-4 sm:space-y-5 sm:p-5">
+                <div className="grid gap-4 sm:grid-cols-2 sm:gap-5">
+                  <Field data-invalid={Boolean(errorFor("chapterTestTarget"))}>
+                    <FieldLabel
+                      htmlFor="chapter-test-target"
+                      className="text-xs font-semibold"
+                    >
+                      Tests per Chapter
+                    </FieldLabel>
+                    <Input
+                      id="chapter-test-target"
+                      name="chapterTestTarget"
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={draft.chapterTestTarget}
+                      onChange={handleValueChange("chapterTestTarget")}
+                      className="mt-1 h-10 rounded-xl border-border/70 bg-background text-sm"
+                      aria-invalid={Boolean(errorFor("chapterTestTarget"))}
+                      required
+                    />
+                    <FieldError>{errorFor("chapterTestTarget")}</FieldError>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      Set 0 to exclude chapter tests.
+                    </p>
+                  </Field>
+
+                  <Field data-invalid={Boolean(errorFor("subjectTestTarget"))}>
+                    <FieldLabel
+                      htmlFor="subject-test-target"
+                      className="text-xs font-semibold"
+                    >
+                      Full-Subject Tests
+                    </FieldLabel>
+                    <Input
+                      id="subject-test-target"
+                      name="subjectTestTarget"
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={draft.subjectTestTarget}
+                      onChange={handleValueChange("subjectTestTarget")}
+                      className="mt-1 h-10 rounded-xl border-border/70 bg-background text-sm"
+                      aria-invalid={Boolean(errorFor("subjectTestTarget"))}
+                      required
+                    />
+                    <FieldError>{errorFor("subjectTestTarget")}</FieldError>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      Full mock test records required.
+                    </p>
+                  </Field>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "explainer" && (
+            <div className="max-w-2xl space-y-6">
               <ProgressCalculatorExplainer policy={previewPolicy} />
             </div>
-          </div>
-        </div>
-      ) : (
-        <ScrollArea className="min-h-0 flex-1">
-          <div className="p-6">
-            <SegmentedSelector
-              value={activeSectionId}
-              options={sections.map((section) => ({
-                value: section.id,
-                label: section.navLabel,
-                icon: section.icon,
-                activeClassName: section.activeClassName,
-              }))}
-              onValueChange={setActiveSectionId}
-              ariaLabel="Subject settings sections"
-              className="mb-6"
-            />
-
-            {sections
-              .filter((section) => section.id === activeSectionId)
-              .map((section) => {
-                const Icon = section.icon
-
-                return (
-                  <section
-                    key={section.id}
-                    aria-labelledby={`${section.id}-heading`}
-                    className="space-y-3"
-                  >
-                    <header className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <Icon
-                          className={cn("size-4 shrink-0", section.className)}
-                          aria-hidden="true"
-                        />
-                        <h2
-                          id={`${section.id}-heading`}
-                          className="font-heading text-sm font-semibold text-foreground"
-                        >
-                          {section.title}
-                        </h2>
-                      </div>
-                      <p className="text-xs leading-relaxed text-muted-foreground">
-                        {section.description}
-                      </p>
-                    </header>
-
-                    <FieldGroup className="gap-5 pt-1">
-                      {section.fields.map((field, index) => (
-                        <div key={index}>{field}</div>
-                      ))}
-                    </FieldGroup>
-                  </section>
-                )
-              })}
-
-            <div className="mt-7 border-t border-border/60 pt-4">
-              <Collapsible open={showExplainer} onOpenChange={setShowExplainer}>
-                <CollapsibleTrigger className="group flex w-full items-center justify-between gap-3 rounded-lg py-1 text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/30">
-                  <span className="flex items-center gap-2 text-xs font-semibold tracking-wider text-muted-foreground uppercase transition-colors group-hover:text-foreground">
-                    <TargetIcon
-                      className="size-3.5 text-brand-neon-ink"
-                      aria-hidden="true"
-                    />
-                    How is progress calculated?
-                  </span>
-                  <ChevronDownIcon
-                    className={cn(
-                      "size-4 text-muted-foreground transition-transform duration-200",
-                      showExplainer && "rotate-180"
-                    )}
-                    aria-hidden="true"
-                  />
-                </CollapsibleTrigger>
-                <CollapsibleContent className="mt-3">
-                  <ProgressCalculatorExplainer policy={previewPolicy} compact />
-                </CollapsibleContent>
-              </Collapsible>
-            </div>
-          </div>
-        </ScrollArea>
-      )}
-
-      <FormFooter
-        className={cn(
-          "border-t border-border/60 bg-background/95 backdrop-blur",
-          presentation === "sheet"
-            ? "shrink-0 px-6 py-4"
-            : "fixed inset-x-0 px-4 pt-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6 md:px-8 xl:px-10"
-        )}
-      >
-        <div
-          className={cn(
-            "flex flex-col-reverse justify-end gap-3 sm:flex-row w-full",
-            presentation === "page" && "mx-auto max-w-5xl"
           )}
-        >
-          {presentation === "sheet" ? (
+        </main>
+      </div>
+
+      {/* Footer */}
+      <div
+        className={
+          isSheet
+            ? "flex h-14 shrink-0 items-center justify-between border-t border-border/60 bg-muted/10 px-4 sm:px-6"
+            : "fixed inset-x-0 bottom-0 flex h-14 items-center justify-between border-t border-border/60 bg-background/95 px-6 backdrop-blur"
+        }
+      >
+        <span className="hidden text-[11px] text-muted-foreground sm:inline">
+          Applies across all chapters and topics in this subject
+        </span>
+        <div className="ml-auto flex items-center gap-2.5">
+          {isSheet ? (
             <Button
               type="button"
               variant="outline"
-              className="min-h-11 rounded-full sm:min-w-[100px]"
+              size="sm"
               onClick={onCancel}
               disabled={isPending}
+              className="rounded-full px-4 text-xs font-medium"
             >
               Cancel
             </Button>
@@ -443,21 +451,27 @@ export function SubjectSettingsForm({
               }
               type="button"
               variant="outline"
-              className="min-h-11 rounded-full sm:min-w-[100px]"
+              size="sm"
+              className="rounded-full px-4 text-xs font-medium"
             >
               Cancel
             </Button>
           )}
           <Button
             type="submit"
+            size="sm"
             disabled={isPending || hasClientErrors}
-            className="min-h-11 rounded-full bg-primary hover:bg-primary/90 sm:min-w-[140px]"
+            className="rounded-full px-5 text-xs font-semibold shadow-xs"
           >
-            {isPending ? <Loader2Icon className="mr-2 size-4 animate-spin" /> : <SaveIcon className="mr-2 size-4" />}
-            {isPending ? "Saving..." : "Save changes"}
+            {isPending ? (
+              <Loader2Icon className="mr-1.5 size-3.5 animate-spin" />
+            ) : (
+              <SaveIcon className="mr-1.5 size-3.5" />
+            )}
+            {isPending ? "Saving..." : "Save Targets"}
           </Button>
         </div>
-      </FormFooter>
+      </div>
     </form>
   )
 }
@@ -494,48 +508,30 @@ function getClientErrors(
   draft: PolicyDraft
 ): Partial<Record<PolicyField, string>> {
   const errors: Partial<Record<PolicyField, string>> = {}
-
   for (const field of policyFields) {
     const value = draft[field]
-    const numericValue = Number(value)
+    const numberValue = Number(value)
     const minimum =
       field === "chapterTestTarget" || field === "subjectTestTarget" ? 0 : 1
-
-    if (value.trim() === "") {
-      errors[field] = "Enter a target."
-    } else if (!Number.isInteger(numericValue)) {
+    if (!value.trim()) errors[field] = "Enter a target."
+    else if (!Number.isInteger(numberValue))
       errors[field] = "Use a whole number."
-    } else if (numericValue < minimum) {
+    else if (numberValue < minimum)
       errors[field] =
         minimum === 0
           ? "Target cannot be negative."
           : "Target must be at least 1."
-    } else if (numericValue > 100) {
-      errors[field] = "Target cannot exceed 100."
-    }
+    else if (numberValue > 100) errors[field] = "Target cannot exceed 100."
   }
-
-  const revisionTarget = Number(draft.revisionTarget)
-  const highYieldRevisionTarget = Number(draft.highYieldRevisionTarget)
   if (
-    Number.isInteger(revisionTarget) &&
-    Number.isInteger(highYieldRevisionTarget) &&
-    highYieldRevisionTarget < revisionTarget
-  ) {
-    errors.highYieldRevisionTarget =
-      "High-yield revisions must be at least the standard revision target."
-  }
-
-  const practiceTarget = Number(draft.practiceTarget)
-  const highYieldPracticeTarget = Number(draft.highYieldPracticeTarget)
+    !errors.highYieldRevisionTarget &&
+    Number(draft.highYieldRevisionTarget) < Number(draft.revisionTarget)
+  )
+    errors.highYieldRevisionTarget = "Use at least the standard target."
   if (
-    Number.isInteger(practiceTarget) &&
-    Number.isInteger(highYieldPracticeTarget) &&
-    highYieldPracticeTarget < practiceTarget
-  ) {
-    errors.highYieldPracticeTarget =
-      "High-yield practice must be at least the standard practice target."
-  }
-
+    !errors.highYieldPracticeTarget &&
+    Number(draft.highYieldPracticeTarget) < Number(draft.practiceTarget)
+  )
+    errors.highYieldPracticeTarget = "Use at least the standard target."
   return errors
 }

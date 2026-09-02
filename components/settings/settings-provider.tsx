@@ -67,39 +67,72 @@ export function useSettings() {
 
 export function SettingsProvider({
   children,
-  initialData,
+  initialUser,
+  initialWorkspaces,
 }: {
   children: React.ReactNode
-  initialData?: SettingsData
+  initialUser?: {
+    name: string
+    email: string
+    avatarUrl?: string
+    initials: string
+  }
+  initialWorkspaces?: Array<{
+    id: string
+    name: string
+    slug: string
+    kind: string
+    role?: string
+  }>
 }) {
   const [isOpen, setIsOpen] = React.useState(false)
-  const [activeSection, setActiveSection] = React.useState<SettingsSectionKey>("profile")
-  const [data, setData] = React.useState<SettingsData | undefined>(initialData)
-  const [, setIsLoading] = React.useState(false)
+  const [isLoading, setIsLoading] = React.useState(false)
+  const [activeSection, setActiveSection] =
+    React.useState<SettingsSectionKey>("profile")
+  const [data, setData] = React.useState<SettingsData | undefined>(undefined)
   const params = useParams()
-  const currentWorkspaceSlug = typeof params?.workspaceSlug === "string" ? params.workspaceSlug : undefined
+  const currentWorkspaceSlug =
+    typeof params?.workspaceSlug === "string" ? params.workspaceSlug : undefined
 
-  const loadData = React.useCallback(async (slug?: string) => {
-    try {
-      setIsLoading(true)
-      const res = await getSettingsModalData(slug || currentWorkspaceSlug)
-      setData(res)
-    } catch (err) {
-      console.error("Failed to load settings modal data:", err)
-    } finally {
-      setIsLoading(false)
+  // Derive immediate fallback workspace data
+  const fallbackWorkspace = React.useMemo(() => {
+    if (!initialWorkspaces || initialWorkspaces.length === 0) return null
+    const matched = currentWorkspaceSlug
+      ? initialWorkspaces.find((m) => m.slug === currentWorkspaceSlug)
+      : null
+    const ws = matched || initialWorkspaces[0]
+    return {
+      id: ws.id,
+      name: ws.name,
+      slug: ws.slug,
+      description: null,
+      kind: ws.kind,
+      createdAt: new Date().toISOString(),
     }
-  }, [currentWorkspaceSlug])
+  }, [initialWorkspaces, currentWorkspaceSlug])
+
+  const loadData = React.useCallback(
+    async (slug?: string) => {
+      setIsLoading(true)
+      try {
+        const res = await getSettingsModalData(slug || currentWorkspaceSlug)
+        setData(res)
+      } catch (err) {
+        console.error("Failed to load settings modal data:", err)
+      } finally {
+        setIsLoading(false)
+      }
+    },
+    [currentWorkspaceSlug]
+  )
 
   const openSettings = React.useCallback(
     (section: SettingsSectionKey = "profile", workspaceSlug?: string) => {
       setActiveSection(section)
       setIsOpen(true)
-      if (!data || workspaceSlug) {
-        loadData(workspaceSlug)
-      }
+      loadData(workspaceSlug)
     },
-    [data, loadData]
+    [loadData]
   )
 
   const closeSettings = React.useCallback(() => {
@@ -117,7 +150,7 @@ export function SettingsProvider({
     [isOpen, closeSettings, openSettings]
   )
 
-  // Keyboard shortcut: ⌘, (Cmd+comma) to toggle settings dialog
+  // Keyboard shortcut: Cmd+, / Ctrl+, to toggle settings dialog
   React.useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key === ",") {
@@ -128,6 +161,14 @@ export function SettingsProvider({
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [toggleSettings])
+
+  // Active workspace object to render immediately
+  const activeWorkspace = data?.workspace ?? fallbackWorkspace
+  const activeUser = data?.user ?? initialUser ?? {
+    name: "Account",
+    email: "",
+    initials: "CA",
+  }
 
   return (
     <SettingsContext.Provider
@@ -140,20 +181,22 @@ export function SettingsProvider({
     >
       {children}
 
-      {data && (
+      {isOpen && activeWorkspace && (
         <SettingsDialog
           open={isOpen}
           onOpenChange={setIsOpen}
           defaultSection={activeSection}
-          user={data.user}
-          workspace={data.workspace}
-          members={data.members}
-          initialTokens={data.initialTokens}
-          manifests={data.manifests}
-          catalogItems={data.catalogItems}
-          origin={data.origin}
+          user={activeUser}
+          workspace={activeWorkspace}
+          members={data?.members ?? []}
+          initialTokens={data?.initialTokens ?? []}
+          manifests={data?.manifests ?? []}
+          catalogItems={data?.catalogItems ?? []}
+          origin={data?.origin ?? (typeof window !== "undefined" ? window.location.origin : "http://localhost:3000")}
+          isLoading={isLoading}
         />
       )}
     </SettingsContext.Provider>
   )
 }
+

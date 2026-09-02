@@ -27,11 +27,8 @@ type ExamCountdownProps = {
   expectedStartDate: string | null
   officialStartAt: string | null
   scheduleStatus:
-    | "expected"
-    | "announced"
-    | "confirmed"
-    | "postponed"
-    | "cancelled"
+    "expected" | "announced" | "confirmed" | "postponed" | "cancelled"
+  onOpenSettings?: () => void
   settingsHref?: string
 }
 
@@ -139,19 +136,20 @@ function CountdownPlaceholder() {
 }
 
 function CountdownSettingsButton({
-  settingsHref,
+  onOpenSettings,
   className,
 }: {
-  settingsHref: string
+  onOpenSettings?: () => void
   className?: string
 }) {
   return (
     <Tooltip>
       <TooltipTrigger
+        onClick={onOpenSettings}
         render={
           <Button
-            render={<Link href={settingsHref} />}
-            nativeButton={false}
+            type="button"
+            onClick={onOpenSettings}
             variant="ghost"
             size="icon"
             aria-label="Open exam settings"
@@ -168,9 +166,11 @@ function CountdownSettingsButton({
 
 function CountdownToolbar({
   view,
+  onOpenSettings,
   settingsHref,
 }: {
   view: CountdownView
+  onOpenSettings?: () => void
   settingsHref?: string
 }) {
   return (
@@ -212,11 +212,11 @@ function CountdownToolbar({
         </button>
       </div>
 
-      {settingsHref ? (
+      {onOpenSettings || settingsHref ? (
         <>
           <CountdownSettingsButton
-            settingsHref={settingsHref}
-            className="size-11 rounded-xl border border-border/60 bg-background hover:bg-muted text-muted-foreground hover:text-foreground sm:size-9"
+            onOpenSettings={onOpenSettings}
+            className="size-11 rounded-xl border border-border/60 bg-background text-muted-foreground hover:bg-muted hover:text-foreground sm:size-9"
           />
         </>
       ) : null}
@@ -227,27 +227,29 @@ function CountdownToolbar({
 function CountdownDisplay({
   value,
   view,
+  onOpenSettings,
   settingsHref,
 }: {
   value: ReactNode
   view: CountdownView
+  onOpenSettings?: () => void
   settingsHref?: string
 }) {
   return (
-    <div className="flex flex-col items-center gap-2 lg:items-end">
+    <div className="flex flex-col items-start gap-1.5 lg:items-end">
       {/* 1. Time Remaining Header */}
       <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
         Time Remaining
       </span>
 
       {/* 2. Hero Countdown Digits */}
-      <div aria-hidden="true" className="w-full lg:w-auto">
+      <div aria-hidden="true" className="w-auto py-0.5">
         {value}
       </div>
 
       {/* 3. Horizontal Pill Toggle & Settings Row */}
       <div className="pt-0.5">
-        <CountdownToolbar view={view} settingsHref={settingsHref} />
+        <CountdownToolbar view={view} onOpenSettings={onOpenSettings} />
       </div>
     </div>
   )
@@ -265,7 +267,7 @@ function CountdownValue({
     const remainingDays = timeLeft.days % 7
 
     return (
-      <div className="mx-auto flex w-full items-baseline justify-between gap-1 font-mono text-2xl font-bold tracking-tight text-foreground tabular-nums max-w-xs sm:max-w-sm sm:text-3xl lg:mx-0 lg:w-auto lg:max-w-none lg:justify-end lg:gap-0 lg:text-4xl">
+      <div className="mx-auto flex w-full max-w-xs items-baseline justify-between gap-1 font-mono text-2xl font-bold tracking-tight text-foreground tabular-nums sm:max-w-sm sm:text-3xl lg:mx-0 lg:w-auto lg:max-w-none lg:justify-end lg:gap-0 lg:text-4xl">
         <span className="inline-flex items-baseline">
           <span>{weeks}</span>
           <span className="ml-0.5 font-sans text-xs font-semibold tracking-wider text-muted-foreground uppercase sm:text-sm lg:text-base">
@@ -273,7 +275,7 @@ function CountdownValue({
           </span>
         </span>
         <span className="font-sans font-normal text-muted-foreground/40 lg:mx-2">
-          {"·"}
+          {"\u00B7"}
         </span>
         <span className="inline-flex items-baseline">
           <span>{remainingDays}</span>
@@ -302,7 +304,7 @@ function CountdownValue({
       ]
 
   return (
-    <div className="mx-auto flex w-full items-baseline justify-between gap-1 font-mono text-2xl font-bold tracking-tight text-foreground tabular-nums max-w-xs sm:max-w-sm sm:text-3xl lg:mx-0 lg:w-auto lg:max-w-none lg:justify-end lg:gap-0 lg:text-4xl">
+    <div className="mx-auto flex w-full max-w-xs items-baseline justify-between gap-1 font-mono text-2xl font-bold tracking-tight text-foreground tabular-nums sm:max-w-sm sm:text-3xl lg:mx-0 lg:w-auto lg:max-w-none lg:justify-end lg:gap-0 lg:text-4xl">
       {clockParts.map((part, index) => (
         <Fragment key={part.unit}>
           <span className="inline-flex items-baseline">
@@ -326,6 +328,7 @@ export function ExamCountdown({
   expectedStartDate,
   officialStartAt,
   scheduleStatus,
+  onOpenSettings,
   settingsHref,
 }: ExamCountdownProps) {
   const target = useMemo(() => {
@@ -372,9 +375,9 @@ export function ExamCountdown({
           />
           <span>Exam schedule cancelled</span>
         </div>
-        {settingsHref ? (
+        {onOpenSettings || settingsHref ? (
           <CountdownSettingsButton
-            settingsHref={settingsHref}
+            onOpenSettings={onOpenSettings}
             className="size-11 border border-border/60 bg-background hover:bg-muted sm:size-9"
           />
         ) : null}
@@ -394,9 +397,9 @@ export function ExamCountdown({
           />
           <span>No exam date set</span>
         </div>
-        {settingsHref ? (
+        {onOpenSettings || settingsHref ? (
           <CountdownSettingsButton
-            settingsHref={settingsHref}
+            onOpenSettings={onOpenSettings}
             className="size-11 border border-border/60 bg-background hover:bg-muted sm:size-9"
           />
         ) : null}
@@ -410,6 +413,7 @@ export function ExamCountdown({
         <CountdownDisplay
           value={<CountdownPlaceholder />}
           view={view}
+          onOpenSettings={onOpenSettings}
           settingsHref={settingsHref}
         />
       </div>
@@ -437,7 +441,7 @@ export function ExamCountdown({
       <CountdownDisplay
         value={<CountdownValue timeLeft={timeLeft} view={view} />}
         view={view}
-        settingsHref={settingsHref}
+        onOpenSettings={onOpenSettings}
       />
     </section>
   )

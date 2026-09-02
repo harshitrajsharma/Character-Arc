@@ -38,18 +38,17 @@ export function RecommendationsSkeleton() {
         <div className="h-8 w-28 animate-pulse rounded bg-muted" />
       </div>
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+      <div className="flex gap-3 overflow-x-auto pb-2 md:grid md:grid-cols-3 md:gap-3 md:pb-0">
         {[1, 2, 3].map((i) => (
           <div
             key={i}
-            className="flex h-36 flex-col justify-between rounded-lg border border-border bg-card p-3.5"
+            className="flex h-32 w-[82vw] max-w-sm shrink-0 flex-col justify-between rounded-2xl border border-border bg-card p-3 sm:w-72 md:w-auto"
           >
             <div className="space-y-2">
               <div className="h-4 w-20 animate-pulse rounded bg-muted" />
               <div className="h-4 w-3/4 animate-pulse rounded bg-muted" />
-              <div className="h-3 w-1/2 animate-pulse rounded bg-muted" />
             </div>
-            <div className="h-9 w-full animate-pulse rounded bg-muted" />
+            <div className="h-8 w-full animate-pulse rounded bg-muted" />
           </div>
         ))}
       </div>
@@ -117,7 +116,10 @@ export function RecommendationsSection({
   }
 
   return (
-    <section aria-label="Study Path Recommendations" className="space-y-4">
+    <section
+      aria-label="Study Path Recommendations"
+      className="space-y-2.5 sm:space-y-3"
+    >
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0 flex-1">
           <h2 className="text-base font-semibold text-foreground md:text-lg">
@@ -132,27 +134,41 @@ export function RecommendationsSection({
           variant="outline"
           size="sm"
           className={cn(
-            "h-11 shrink-0 gap-1.5 px-3 text-xs font-semibold text-foreground sm:h-9 sm:px-3.5",
-            "border-border bg-card hover:bg-accent dark:hover:bg-accent!",
-            "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+            "h-8 shrink-0 gap-1.5 rounded-full px-3 text-xs font-medium text-foreground",
+            "border-border/70 bg-card hover:bg-accent",
+            "focus-visible:ring-2 focus-visible:ring-ring"
           )}
           onClick={() => setSheetOpen(true)}
           aria-haspopup="dialog"
         >
           <span className="sm:hidden">Full path</span>
           <span className="hidden sm:inline">View full study path</span>
-          <PanelRightOpenIcon className="h-3.5 w-3.5" aria-hidden="true" />
+          <PanelRightOpenIcon className="size-3.5" aria-hidden="true" />
         </Button>
       </div>
 
       <div className="space-y-2">
-        <h3 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+        <h3 className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
           Up Next
         </h3>
 
-        <div role="list" className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        {/* Clean, naturally aligned horizontal scroll on mobile (< md), 3-col grid on desktop */}
+        <div
+          role="list"
+          className={cn(
+          "flex snap-x snap-mandatory scrollbar-none gap-3 overflow-x-auto pb-2 md:grid md:gap-3 md:pb-0",
+          studyPath.nextSteps.slice(0, 3).length === 1 && "md:grid-cols-1 md:max-w-sm",
+          studyPath.nextSteps.slice(0, 3).length === 2 && "md:grid-cols-2 md:max-w-2xl",
+          studyPath.nextSteps.slice(0, 3).length >= 3 && "md:grid-cols-3"
+        )}
+        >
           {studyPath.nextSteps.slice(0, 3).map((step) => (
-            <UpNextCard key={step.id} step={step} onNavigate={onNavigate} />
+            <div
+              key={step.id}
+              className="flex w-[82vw] max-w-sm shrink-0 snap-start flex-col sm:w-72 md:w-auto"
+            >
+              <UpNextCard step={step} onNavigate={onNavigate} />
+            </div>
           ))}
         </div>
       </div>

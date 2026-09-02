@@ -1,6 +1,7 @@
 import { Navbar } from "@/components/navigation/navbar"
 import { MobileBottomBar } from "@/components/navigation/mobile-bottom-bar"
 import { SettingsProvider } from "@/components/settings/settings-provider"
+import { BreadcrumbProvider } from "@/components/navigation/breadcrumb-context"
 import { requireVerifiedClaims } from "@/lib/auth/session"
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/sidebar/app-sidebar"
@@ -34,18 +35,21 @@ export default async function AppLayout({
   const userInfo = { name, email, avatarUrl, initials }
 
   return (
-    <SettingsProvider>
-      <SidebarProvider defaultOpen={false}>
-        <Navbar user={userInfo} memberships={memberships} />
-        <AppSidebar
-          memberships={memberships}
-          collapsible="icon"
-          variant="sidebar"
-          className="top-15! h-[calc(100svh-60px)]! z-40!"
-        />
-        <SidebarInset className="pb-20 sm:pb-0">{children}</SidebarInset>
-        <MobileBottomBar user={userInfo} memberships={memberships} />
-      </SidebarProvider>
+    <SettingsProvider initialUser={userInfo} initialWorkspaces={memberships}>
+      <BreadcrumbProvider>
+        <SidebarProvider defaultOpen={false}>
+          <Navbar user={userInfo} memberships={memberships} />
+          <AppSidebar
+            memberships={memberships}
+            collapsible="icon"
+            variant="sidebar"
+            className="top-15! h-[calc(100svh-60px)]! z-40!"
+          />
+          <SidebarInset className="pb-20 sm:pb-0">{children}</SidebarInset>
+          <MobileBottomBar user={userInfo} memberships={memberships} />
+        </SidebarProvider>
+      </BreadcrumbProvider>
     </SettingsProvider>
   )
 }
+

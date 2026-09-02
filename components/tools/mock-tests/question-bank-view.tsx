@@ -215,60 +215,62 @@ export function QuestionBankView({
 
   return (
     <div className="space-y-6">
-      {/* Summary Stat Metric Cards */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="p-4 shadow-xs border-border/80 bg-card">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground">Total Questions</span>
-            <span className="flex size-7 items-center justify-center rounded-lg bg-brand-violet-soft text-brand-violet-ink">
-              <BookOpenTextIcon className="size-3.5" aria-hidden="true" />
-            </span>
+      {/* Summary Stat Metric Strip */}
+      <Card className="overflow-hidden p-0 border-border/80 bg-card shadow-xs">
+        <div className="grid grid-cols-1 divide-y divide-border/80 sm:grid-cols-2 sm:divide-y-0 sm:divide-x sm:[&>*:nth-child(n+3)]:border-t sm:[&>*:nth-child(n+3)]:border-border/80 lg:grid-cols-4 lg:[&>*:nth-child(n+3)]:border-t-0 lg:divide-x">
+          <div className="flex flex-col justify-between p-4 sm:p-5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-muted-foreground">Total Questions</span>
+              <span className="flex size-7 items-center justify-center rounded-lg bg-brand-violet-soft text-brand-violet-ink">
+                <BookOpenTextIcon className="size-3.5" aria-hidden="true" />
+              </span>
+            </div>
+            <div className="mt-2 text-2xl font-semibold tracking-tight text-foreground font-heading">
+              {stats.total}
+            </div>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">Ready for tests & practice</p>
           </div>
-          <div className="mt-2 text-2xl font-semibold tracking-tight text-foreground font-heading">
-            {stats.total}
-          </div>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">Ready for tests & practice</p>
-        </Card>
 
-        <Card className="p-4 shadow-xs border-border/80 bg-card">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground">Choice Questions</span>
-            <span className="flex size-7 items-center justify-center rounded-lg bg-brand-cyan-soft text-brand-cyan-ink">
-              <CircleCheckBigIcon className="size-3.5" aria-hidden="true" />
-            </span>
+          <div className="flex flex-col justify-between p-4 sm:p-5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-muted-foreground">Choice Questions</span>
+              <span className="flex size-7 items-center justify-center rounded-lg bg-brand-cyan-soft text-brand-cyan-ink">
+                <CircleCheckBigIcon className="size-3.5" aria-hidden="true" />
+              </span>
+            </div>
+            <div className="mt-2 text-2xl font-semibold tracking-tight text-foreground font-heading">
+              {stats.choiceCount}
+            </div>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">Single, multi & true/false</p>
           </div>
-          <div className="mt-2 text-2xl font-semibold tracking-tight text-foreground font-heading">
-            {stats.choiceCount}
-          </div>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">Single, multi & true/false</p>
-        </Card>
 
-        <Card className="p-4 shadow-xs border-border/80 bg-card">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground">Numeric & Short Answer</span>
-            <span className="flex size-7 items-center justify-center rounded-lg bg-brand-amber-soft text-brand-amber-ink">
-              <HashIcon className="size-3.5" aria-hidden="true" />
-            </span>
+          <div className="flex flex-col justify-between p-4 sm:p-5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-muted-foreground">Numeric & Short Answer</span>
+              <span className="flex size-7 items-center justify-center rounded-lg bg-brand-amber-soft text-brand-amber-ink">
+                <HashIcon className="size-3.5" aria-hidden="true" />
+              </span>
+            </div>
+            <div className="mt-2 text-2xl font-semibold tracking-tight text-foreground font-heading">
+              {stats.numericCount}
+            </div>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">Calculations & rubric answers</p>
           </div>
-          <div className="mt-2 text-2xl font-semibold tracking-tight text-foreground font-heading">
-            {stats.numericCount}
-          </div>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">Calculations & rubric answers</p>
-        </Card>
 
-        <Card className="p-4 shadow-xs border-border/80 bg-card">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground">Reused in Mock Tests</span>
-            <span className="flex size-7 items-center justify-center rounded-lg bg-brand-violet-soft text-brand-violet-ink">
-              <CheckCircle2Icon className="size-3.5" aria-hidden="true" />
-            </span>
+          <div className="flex flex-col justify-between p-4 sm:p-5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-muted-foreground">Reused in Mock Tests</span>
+              <span className="flex size-7 items-center justify-center rounded-lg bg-brand-violet-soft text-brand-violet-ink">
+                <CheckCircle2Icon className="size-3.5" aria-hidden="true" />
+              </span>
+            </div>
+            <div className="mt-2 text-2xl font-semibold tracking-tight text-foreground font-heading">
+              {stats.reusedCount} <span className="text-xs font-normal text-muted-foreground font-sans">({stats.reuseRate}%)</span>
+            </div>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">Active in published tests</p>
           </div>
-          <div className="mt-2 text-2xl font-semibold tracking-tight text-foreground font-heading">
-            {stats.reusedCount} <span className="text-xs font-normal text-muted-foreground font-sans">({stats.reuseRate}%)</span>
-          </div>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">Active in published tests</p>
-        </Card>
-      </div>
+        </div>
+      </Card>
 
       {/* Filter, Search & Sort Bar */}
       <div className="rounded-xl border border-border bg-card p-3.5 shadow-xs space-y-3">

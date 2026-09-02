@@ -1534,13 +1534,10 @@ export function AssessmentBuilder({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ALL">All types</SelectItem>
-                  <SelectItem value="SINGLE_CHOICE">Single choice</SelectItem>
-                  <SelectItem value="MULTIPLE_CHOICE">
-                    Multiple choice
-                  </SelectItem>
+                  <SelectItem value="SINGLE_CHOICE">Multiple Choice (MCQ)</SelectItem>
+                  <SelectItem value="MULTIPLE_CHOICE">Multiple Select (MSQ)</SelectItem>
+                  <SelectItem value="NUMERIC">Numerical Answer (NAT)</SelectItem>
                   <SelectItem value="TRUE_FALSE">True / False</SelectItem>
-                  <SelectItem value="NUMERIC">Numeric</SelectItem>
-                  <SelectItem value="SHORT_ANSWER">Short answer</SelectItem>
                 </SelectContent>
               </Select>
 

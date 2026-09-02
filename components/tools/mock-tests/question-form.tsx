@@ -82,33 +82,27 @@ type OptionRow = { key: string; content: string }
 const KIND_OPTIONS = [
   {
     value: "SINGLE_CHOICE",
-    label: "Single Choice",
+    label: "Multiple Choice (MCQ)",
     icon: CircleCheckBigIcon,
-    desc: "Exactly one correct answer choice.",
+    desc: "Single correct option among 4 choices.",
   },
   {
     value: "MULTIPLE_CHOICE",
-    label: "Multiple Choice",
+    label: "Multiple Select (MSQ)",
     icon: ListChecksIcon,
     desc: "One or more correct answer choices.",
+  },
+  {
+    value: "NUMERIC",
+    label: "Numerical Answer (NAT)",
+    icon: HashIcon,
+    desc: "Exact numerical value within specified tolerance.",
   },
   {
     value: "TRUE_FALSE",
     label: "True / False",
     icon: CircleDotIcon,
     desc: "Binary statement evaluation.",
-  },
-  {
-    value: "NUMERIC",
-    label: "Numeric Answer",
-    icon: HashIcon,
-    desc: "Exact numerical value within tolerance.",
-  },
-  {
-    value: "SHORT_ANSWER",
-    label: "Short Answer",
-    icon: AlignLeftIcon,
-    desc: "Short textual response evaluated against model answer.",
   },
 ] as const
 

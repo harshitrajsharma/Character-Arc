@@ -366,12 +366,7 @@ export async function updateSubjectSettingsAction(
     workspaceRoutes.examPrep.home(parsed.data.workspaceSlug),
     "layout"
   )
-  revalidatePath(
-    workspaceRoutes.examPrep.subjectSettings(
-      parsed.data.workspaceSlug,
-      parsed.data.subjectId
-    )
-  )
+
   return {
     status: "success",
     message: "Subject progress rules updated everywhere this subject is used.",

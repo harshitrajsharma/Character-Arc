@@ -17,18 +17,29 @@ function hashToken(token: string): string {
 }
 
 /**
- * Authenticates an incoming MCP HTTP request using Bearer JWT, McpToken secret, x-api-key, or cookie session.
+ * Authenticates an incoming MCP HTTP request using Bearer JWT, McpToken secret, x-api-key, URL query parameter (?apiKey= or ?token=), or cookie session.
  */
 export async function authenticateMcpRequest(
   req: Request
 ): Promise<McpAuthResult> {
+  const url = new URL(req.url)
+  const queryToken =
+    url.searchParams.get("apiKey") ||
+    url.searchParams.get("token") ||
+    url.searchParams.get("key")
+  const queryWorkspaceId =
+    url.searchParams.get("workspaceId") || url.searchParams.get("workspace")
+
   const authHeader = req.headers.get("authorization")
   const apiKeyHeader = req.headers.get("x-api-key")
-  const explicitWorkspaceId = req.headers.get("x-workspace-id")
+  const explicitWorkspaceId =
+    req.headers.get("x-workspace-id") || queryWorkspaceId
 
-  const bearerToken = authHeader?.startsWith("Bearer ")
-    ? authHeader.slice(7).trim()
-    : apiKeyHeader?.trim()
+  const bearerToken = queryToken?.trim()
+    ? queryToken.trim()
+    : authHeader?.startsWith("Bearer ")
+      ? authHeader.slice(7).trim()
+      : apiKeyHeader?.trim()
 
   // 1. Check for Character Arc API Token (mcp_sec_...)
   if (bearerToken?.startsWith("mcp_sec_")) {
@@ -104,7 +115,7 @@ export async function authenticateMcpRequest(
       success: false,
       errorCode: -32001,
       errorMessage:
-        "Unauthorized. Provide a valid Bearer token, MCP API key, or session in authorization headers.",
+        "Unauthorized. Provide a valid Bearer token, MCP API key (via header or ?apiKey= parameter), or session in authorization headers.",
     }
   }
 

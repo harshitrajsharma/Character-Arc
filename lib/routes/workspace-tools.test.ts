@@ -110,7 +110,7 @@ describe("workspaceRoutes", () => {
       "/workspace/test-slug/mock-tests/test-1/attempts/new"
     )
     expect(workspaceRoutes.mockTests.attempt(slug, "attempt-9")).toBe(
-      "/workspace/test-slug/mock-tests/attempts/attempt-9"
+      "/mock-test/attempt-9"
     )
     expect(workspaceRoutes.mockTests.analysis(slug, "attempt-9")).toBe(
       "/workspace/test-slug/mock-tests/attempts/attempt-9/analysis"

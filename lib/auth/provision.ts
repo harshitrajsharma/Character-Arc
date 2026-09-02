@@ -91,5 +91,47 @@ export const ensureUserProvisioned = cache(async (user: User) => {
       },
       update: {},
     })
+
+    // Ensure default core tools are active for new personal workspaces
+    try {
+      const coreToolKeys = ["core.exam-prep", "core.goals-paths", "core.mock-tests"]
+      const toolDefs = await prisma.toolDefinition.findMany({
+        where: { key: { in: coreToolKeys }, enabled: true },
+        include: {
+          releases: {
+            where: { status: "PUBLISHED" },
+            orderBy: { createdAt: "desc" },
+            take: 1,
+          },
+        },
+      })
+
+      for (const def of toolDefs) {
+        if (def.releases.length > 0) {
+          await prisma.toolInstallation.upsert({
+            where: {
+              workspaceId_toolDefinitionId: {
+                workspaceId: workspace.id,
+                toolDefinitionId: def.id,
+              },
+            },
+            create: {
+              workspaceId: workspace.id,
+              installedById: user.id,
+              toolDefinitionId: def.id,
+              toolReleaseId: def.releases[0].id,
+              status: "ACTIVE",
+            },
+            update: {
+              status: "ACTIVE",
+              disabledAt: null,
+            },
+          })
+        }
+      }
+    } catch (err) {
+      // Non-blocking fallback
+      console.error("Auto-installing core tools error:", err)
+    }
   }
 })

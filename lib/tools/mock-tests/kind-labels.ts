@@ -1,9 +1,8 @@
 export const QUESTION_KIND_LABELS: Record<string, string> = {
-  SINGLE_CHOICE: "Single choice",
-  MULTIPLE_CHOICE: "Multiple choice",
+  SINGLE_CHOICE: "Multiple Choice (MCQ)",
+  MULTIPLE_CHOICE: "Multiple Select (MSQ)",
   TRUE_FALSE: "True / False",
-  NUMERIC: "Numeric",
-  SHORT_ANSWER: "Short answer",
+  NUMERIC: "Numerical Answer (NAT)",
 }
 
 export function questionKindLabel(kind: string): string {

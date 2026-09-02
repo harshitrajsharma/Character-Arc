@@ -1,3 +1,5 @@
+import { SetNavbarBreadcrumbs } from "@/components/navigation/breadcrumb-context"
+import { workspaceRoutes } from "@/lib/routes/workspace-tools"
 import { notFound } from "next/navigation"
 import type { Metadata } from "next"
 
@@ -147,6 +149,16 @@ export default async function SubjectPage({
 
   return (
     <main className="mx-auto w-full max-w-6xl px-4 pt-16 pb-8 sm:pb-10 md:px-6 md:pt-24 xl:px-10">
+      <SetNavbarBreadcrumbs
+        segments={[
+          { label: "Workspace", href: `/workspace/${encodeURIComponent(workspaceSlug)}` },
+          { label: "Exam Prep", href: workspaceRoutes.examPrep.home(workspaceSlug) },
+          { label: exam?.title || "Exam", href: workspaceRoutes.examPrep.exam(workspaceSlug, examId) },
+          { label: subjectWithRelations.name },
+        ]}
+        backHref={workspaceRoutes.examPrep.exam(workspaceSlug, examId)}
+        backLabel="Back to Exam"
+      />
       <SubjectDetailPage
         workspaceSlug={workspaceSlug}
         examId={examId}

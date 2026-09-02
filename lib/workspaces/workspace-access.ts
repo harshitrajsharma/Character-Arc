@@ -1,6 +1,6 @@
 import "server-only"
 import { cache } from "react"
-import { notFound } from "next/navigation"
+import { notFound, redirect } from "next/navigation"
 
 import { requireVerifiedClaims } from "@/lib/auth/session"
 import { prisma } from "@/lib/prisma"
@@ -54,7 +54,7 @@ export const getWorkspaceIdentity = cache(async (slug: string) => {
 export const requireActiveToolInstallation = cache(
   async (workspaceSlug: string, toolKey: string) => {
     const workspace = await getWorkspaceIdentity(workspaceSlug)
-    const installation = await prisma.toolInstallation.findFirst({
+    let installation = await prisma.toolInstallation.findFirst({
       where: {
         workspaceId: workspace.id,
         status: "ACTIVE",
@@ -73,8 +73,54 @@ export const requireActiveToolInstallation = cache(
       },
     })
 
+    // If tool is not installed yet and caller is the owner, auto-install first-party tool
+    if (!installation && workspace.role === "OWNER") {
+      const toolDef = await prisma.toolDefinition.findUnique({
+        where: { key: toolKey },
+        include: {
+          releases: {
+            where: { status: "PUBLISHED" },
+            orderBy: { createdAt: "desc" },
+            take: 1,
+          },
+        },
+      })
+
+      if (toolDef && toolDef.releases.length > 0) {
+        const newInst = await prisma.toolInstallation.upsert({
+          where: {
+            workspaceId_toolDefinitionId: {
+              workspaceId: workspace.id,
+              toolDefinitionId: toolDef.id,
+            },
+          },
+          create: {
+            workspaceId: workspace.id,
+            installedById: workspace.userId,
+            toolDefinitionId: toolDef.id,
+            toolReleaseId: toolDef.releases[0].id,
+            status: "ACTIVE",
+          },
+          update: {
+            status: "ACTIVE",
+            disabledAt: null,
+          },
+          select: {
+            id: true,
+            toolDefinition: {
+              select: {
+                key: true,
+                name: true,
+              },
+            },
+          },
+        })
+        installation = newInst
+      }
+    }
+
     if (!installation) {
-      notFound()
+      redirect(`/tools/${encodeURIComponent(toolKey)}`)
     }
 
     return installation

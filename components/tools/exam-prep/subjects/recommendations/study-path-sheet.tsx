@@ -38,45 +38,58 @@ export function StudyPathSheet({
       (step.status === "completed" || step.status === "overachieved")
   ).length
 
+  const remainingCount = studyPath.allSteps.filter(
+    (step) =>
+      step.evidence !== "Not required" &&
+      step.status !== "completed" &&
+      step.status !== "overachieved"
+  ).length
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
-        className="flex flex-col p-0 sm:max-w-none! data-[side=right]:sm:w-[clamp(28rem,42vw,42.5rem)]!"
+        className="flex flex-col border-l border-border/60 bg-popover/60 p-0 shadow-2xl ring-1 ring-foreground/5 backdrop-blur-2xl sm:max-w-none! data-[side=right]:sm:w-[clamp(28rem,42vw,40rem)]! dark:ring-foreground/10"
         showCloseButton={true}
       >
-        <SheetHeader className="shrink-0 gap-0.5 border-b border-border/60 px-5 pt-3 pb-3">
-          {/* pr-10 keeps the toggle clear of the sheet's close button (top-4 right-4) */}
-          <div className="flex items-center justify-between gap-1 pr-10">
-            <div className="flex items-center gap-1.5 text-xs font-semibold tracking-wider text-brand-violet-ink">
-              <RouteIcon className="size-3.5" aria-hidden="true" />
-              Study path
+        {/* Header */}
+        <SheetHeader className="flex h-14 shrink-0 flex-row items-center justify-between border-b border-border/60 bg-muted/20 px-6 py-0">
+          <div className="flex min-w-0 items-center gap-3 pr-6">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-brand-violet-soft text-brand-violet-ink shadow-2xs">
+              <RouteIcon className="size-4" aria-hidden="true" />
+            </span>
+            <div className="min-w-0">
+              <SheetTitle className="truncate font-heading text-sm font-semibold text-foreground sm:text-base">
+                {subjectName}
+              </SheetTitle>
+              <p className="truncate text-[11px] text-muted-foreground">
+                Study Path Roadmap
+              </p>
             </div>
-            {completedCount > 0 ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="gap-1.5 rounded-full text-xs font-semibold text-muted-foreground hover:text-foreground"
-                onClick={() => setShowCompleted((v) => !v)}
-                aria-pressed={showCompleted}
-              >
-                {showCompleted ? (
-                  <EyeOffIcon className="size-3.5" aria-hidden="true" />
-                ) : (
-                  <EyeIcon className="size-3.5" aria-hidden="true" />
-                )}
-                {showCompleted
-                  ? "Hide completed"
-                  : `Show completed${completedCount > 0 ? ` (${completedCount})` : ""}`}
-              </Button>
-            ) : null}
           </div>
-          <SheetTitle className="text-lg leading-tight font-semibold">
-            {subjectName}
-          </SheetTitle>
+
+          {completedCount > 0 && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="mr-8 h-8 shrink-0 gap-1.5 rounded-full px-2.5 text-xs font-medium text-muted-foreground hover:text-foreground"
+              onClick={() => setShowCompleted((v) => !v)}
+              aria-pressed={showCompleted}
+            >
+              {showCompleted ? (
+                <EyeOffIcon className="size-3.5" aria-hidden="true" />
+              ) : (
+                <EyeIcon className="size-3.5" aria-hidden="true" />
+              )}
+              <span>
+                {showCompleted ? "Hide Done" : `Done (${completedCount})`}
+              </span>
+            </Button>
+          )}
         </SheetHeader>
 
-        <ScrollArea className="flex-1 min-h-0">
+        {/* Scrollable Timeline */}
+        <ScrollArea className="min-h-0 flex-1">
           <div className="p-6">
             <StudyPathTimeline
               studyPath={studyPath}
@@ -85,6 +98,24 @@ export function StudyPathSheet({
             />
           </div>
         </ScrollArea>
+
+        {/* Universal Footer (Desktop & Mobile) with Thumb-Reachable Close */}
+        <div className="flex h-14 shrink-0 items-center justify-between gap-3 border-t border-border/60 bg-muted/10 px-6 py-0">
+          <span className="truncate text-xs font-medium text-muted-foreground">
+            {remainingCount > 0
+              ? `${remainingCount} steps remaining`
+              : "All requirements complete"}
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-9 rounded-full px-5 text-xs font-semibold shadow-xs hover:bg-muted"
+            onClick={() => onOpenChange(false)}
+          >
+            Close
+          </Button>
+        </div>
       </SheetContent>
     </Sheet>
   )
