@@ -1,1 +1,1 @@
-export { metadata, default } from "@/app/mock-test/[attemptId]/page"
+export { metadata, default } from "@/app/(app)/assessments/[attemptId]/page"

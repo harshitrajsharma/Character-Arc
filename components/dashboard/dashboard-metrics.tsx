@@ -116,15 +116,15 @@ export function DashboardMetrics({
 
         {/* 3. Practice & Assessments */}
         <Link
-          href={"/workspace/" + encodeURIComponent(workspaceSlug) + "/mock-tests"}
+          href={"/workspace/" + encodeURIComponent(workspaceSlug) + "/assessments"}
           className="group relative flex flex-col justify-between p-4 sm:p-5 transition-colors hover:bg-muted/30 text-left"
         >
           <div className="flex items-center justify-between">
-            <span className="flex size-8 items-center justify-center rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400">
+            <span className="flex size-8 items-center justify-center rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400">
               <FileCheckIcon className="size-4" />
             </span>
             {metrics.bestAccuracyPercent !== null && (
-              <span className="rounded-full bg-purple-500/10 px-2 py-0.5 text-[10px] font-semibold text-purple-700 dark:text-purple-300">
+              <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-[10px] font-semibold text-sky-700 dark:text-sky-300">
                 {metrics.bestAccuracyPercent}% Best
               </span>
             )}

@@ -35,6 +35,10 @@ const assessmentPropertiesSchema = {
     /** Optional link to an exam-prep block (exam/subject/chapter/topic) that
      *  gives this test its study context. */
     examBlockId: { type: ["string", "null"], format: "uuid" },
+    /** Passing benchmark percentage (default 33%). */
+    passingBenchmark: { type: ["number", "null"], minimum: 1, maximum: 100 },
+    /** Distinction benchmark percentage (default 70%). */
+    distinctionBenchmark: { type: ["number", "null"], minimum: 1, maximum: 100 },
     /** Section blueprint. Sections map to `AssessmentQuestion.section`. */
     blueprint: {
       type: "object",
@@ -73,7 +77,6 @@ const questionPropertiesSchema = {
         "MULTIPLE_CHOICE",
         "TRUE_FALSE",
         "NUMERIC",
-        "SHORT_ANSWER",
       ],
     },
     difficulty: { type: ["integer", "null"], minimum: 1, maximum: 5 },
@@ -100,6 +103,39 @@ const blueprintSchema = {
         },
       },
     },
+    calculatorAllowed: {
+      type: "boolean",
+    },
+    taxonomy: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        paperType: {
+          type: "string",
+          enum: ["full_length", "multi_subject", "subject_wise", "topic_wise", "pyq"],
+        },
+        subjectScope: {
+          type: "string",
+          enum: ["single_subject", "multi_subject"],
+        },
+        subjects: {
+          type: "array",
+          maxItems: 30,
+          items: { type: "string", minLength: 1, maxLength: 60 },
+        },
+        examTag: {
+          type: ["string", "null"],
+          maxLength: 60,
+        },
+      },
+    },
+    visibility: {
+      type: "string",
+      enum: ["private", "unlisted", "public"],
+    },
+    allowCloning: {
+      type: "boolean",
+    },
   },
 }
 
@@ -113,7 +149,6 @@ const questionPayloadProperties = {
       "MULTIPLE_CHOICE",
       "TRUE_FALSE",
       "NUMERIC",
-      "SHORT_ANSWER",
     ],
   },
   /** 1 (easiest) to 5 (hardest). */
@@ -193,6 +228,8 @@ const assessmentCreateInputSchema = {
     totalMarks: { type: ["number", "null"], minimum: 0.01, maximum: 999999.99 },
     examBlockId: { type: ["string", "null"], format: "uuid" },
     blueprint: blueprintSchema,
+    passingBenchmark: { type: ["number", "null"], minimum: 1, maximum: 100 },
+    distinctionBenchmark: { type: ["number", "null"], minimum: 1, maximum: 100 },
   },
 }
 
@@ -209,6 +246,8 @@ const assessmentUpdateInputSchema = {
     totalMarks: { type: ["number", "null"], minimum: 0.01, maximum: 999999.99 },
     examBlockId: { type: ["string", "null"], format: "uuid" },
     blueprint: blueprintSchema,
+    passingBenchmark: { type: ["number", "null"], minimum: 1, maximum: 100 },
+    distinctionBenchmark: { type: ["number", "null"], minimum: 1, maximum: 100 },
   },
 }
 
@@ -282,6 +321,16 @@ const weakTopicsInputSchema = {
   required: [],
   properties: {
     limit: { type: ["integer", "null"], minimum: 1, maximum: 50 },
+  },
+}
+
+const cloneAssessmentInputSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["sourceAssessmentId"],
+  properties: {
+    sourceAssessmentId: { type: "string", format: "uuid" },
+    targetTitle: { type: ["string", "null"], minLength: 1, maxLength: 120 },
   },
 }
 
@@ -544,6 +593,20 @@ export const mockTestsManifest = parseToolManifest({
         rootBlockTypeKey: "mock-tests.assessment",
         createsBlockTypeKeys: [],
         writesBlockTypeKeys: ["mock-tests.assessment"],
+      },
+    },
+    {
+      key: "assessment.clone",
+      name: "Clone mock test",
+      description:
+        "Duplicates a community or shared mock test along with its question blueprint into the current workspace.",
+      execution: "deterministic",
+      requiredPermissions: ["blocks.write.owned"],
+      inputSchema: cloneAssessmentInputSchema,
+      output: {
+        rootBlockTypeKey: "mock-tests.assessment",
+        createsBlockTypeKeys: ["mock-tests.assessment"],
+        writesBlockTypeKeys: [],
       },
     },
 

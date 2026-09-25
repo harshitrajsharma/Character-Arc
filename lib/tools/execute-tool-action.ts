@@ -56,6 +56,7 @@ import {
 } from "./exam-prep-scheduled-test-handlers"
 import {
   executeMockTestsAssessmentAddQuestions,
+  executeMockTestsAssessmentClone,
   executeMockTestsAssessmentCreate,
   executeMockTestsAssessmentGetQuestions,
   executeMockTestsAssessmentGetWeakTopics,
@@ -438,6 +439,10 @@ const handlers = new Map<string, HandlerBinding>([
   [
     "core.mock-tests@1.0.0:assessment.publish",
     { handlerVersion: "mock-tests.assessment.publish.v1", execute: executeMockTestsAssessmentPublish.execute },
+  ],
+  [
+    "core.mock-tests@1.0.0:assessment.clone",
+    { handlerVersion: "mock-tests.assessment.clone.v1", execute: executeMockTestsAssessmentClone.execute },
   ],
   [
     "core.mock-tests@1.0.0:attempt.create",

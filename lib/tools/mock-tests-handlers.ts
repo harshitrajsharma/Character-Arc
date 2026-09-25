@@ -234,18 +234,10 @@ function validateQuestionPayload(payload: QuestionPayload): void {
       )
     }
   } else if (kind === QUESTION_KIND.SHORT_ANSWER) {
-    if (options.length > 0 || answerKeys.length > 0) {
-      throw new ToolActionExecutionError(
-        "SHORT_ANSWER questions cannot have options or answer keys.",
-        "INVALID_INPUT"
-      )
-    }
-    if (!payload.textAnswer?.trim()) {
-      throw new ToolActionExecutionError(
-        "SHORT_ANSWER questions require a textAnswer.",
-        "INVALID_INPUT"
-      )
-    }
+    throw new ToolActionExecutionError(
+      "Short answer questions are not supported because they cannot be evaluated automatically in CBT mock tests.",
+      "INVALID_INPUT"
+    )
   }
 }
 
@@ -761,6 +753,8 @@ export const executeMockTestsAssessmentCreate = {
           totalMarks?: number | null
           examBlockId?: string | null
           blueprint?: Record<string, unknown>
+          passingBenchmark?: number | null
+          distinctionBenchmark?: number | null
         }
         if (actionInput.examBlockId) {
           const examBlock = await tx.block.findFirst({
@@ -804,7 +798,10 @@ export const executeMockTestsAssessmentCreate = {
             title: actionInput.title.trim(),
             slug: `test-${blockId.replace(/-/g, "")}`,
             summary: null,
-            properties: {},
+            properties: {
+              passingBenchmark: actionInput.passingBenchmark ?? 33,
+              distinctionBenchmark: actionInput.distinctionBenchmark ?? 70,
+            },
             schemaVersion: 1,
             revision: 1,
           },
@@ -889,6 +886,8 @@ export const executeMockTestsAssessmentUpdate = {
           totalMarks?: number | null
           examBlockId?: string | null
           blueprint?: Record<string, unknown>
+          passingBenchmark?: number | null
+          distinctionBenchmark?: number | null
         }
         const actualRevision = await requireAssessmentRevision(tx, {
           workspaceId: input.workspaceId,
@@ -908,10 +907,43 @@ export const executeMockTestsAssessmentUpdate = {
           }
         }
 
+        const existingBlock = await tx.block.findUnique({
+          where: { id: actionInput.assessmentId },
+          select: { properties: true },
+        })
+        const currentProps = (existingBlock?.properties as Record<string, unknown>) ?? {}
+        const updatedProps = {
+          ...currentProps,
+          ...(actionInput.passingBenchmark !== undefined
+            ? { passingBenchmark: actionInput.passingBenchmark ?? 33 }
+            : {}),
+          ...(actionInput.distinctionBenchmark !== undefined
+            ? { distinctionBenchmark: actionInput.distinctionBenchmark ?? 70 }
+            : {}),
+        }
+
         await tx.block.update({
           where: { id: actionInput.assessmentId },
-          data: { title: actionInput.title.trim() },
+          data: {
+            title: actionInput.title.trim(),
+            properties: updatedProps,
+          },
         })
+        const existingAssessment = await tx.assessment.findUnique({
+          where: { blockId: actionInput.assessmentId },
+          select: { blueprint: true },
+        })
+        const currentBlueprint =
+          existingAssessment?.blueprint &&
+          typeof existingAssessment.blueprint === "object" &&
+          !Array.isArray(existingAssessment.blueprint)
+            ? (existingAssessment.blueprint as Record<string, unknown>)
+            : {}
+        const mergedBlueprint = {
+          ...currentBlueprint,
+          ...((actionInput.blueprint ?? {}) as Record<string, unknown>),
+        }
+
         await tx.assessment.update({
           where: { blockId: actionInput.assessmentId },
           data: {
@@ -919,7 +951,7 @@ export const executeMockTestsAssessmentUpdate = {
             durationMinutes: actionInput.durationMinutes ?? null,
             totalMarks: actionInput.totalMarks ?? null,
             instructions: actionInput.instructions ?? null,
-            blueprint: (actionInput.blueprint ?? {}) as Prisma.InputJsonValue,
+            blueprint: mergedBlueprint as Prisma.InputJsonValue,
           },
         })
         await bumpAssessmentRevision(
@@ -946,6 +978,241 @@ export const executeMockTestsAssessmentUpdate = {
           runId: reservation.runId,
           rootBlockId: actionInput.assessmentId,
           createdBlockIds: [],
+          evidenceIds: [],
+          data,
+        }
+      },
+    }),
+}
+
+export const executeMockTestsAssessmentClone = {
+  handlerVersion: "mock-tests.assessment.clone.v1",
+  execute: async (
+    input: ExecuteToolActionInput,
+    principal: ToolExecutionPrincipal,
+    handlerVersion: string
+  ): Promise<ToolActionResult> =>
+    runWriteAction({
+      input,
+      principal,
+      handlerVersion,
+      actionKey: "assessment.clone",
+      actionInput: input.input as object,
+      fallback: "Failed to clone the mock test.",
+      validate: () => {
+        const actionInput = input.input as {
+          sourceAssessmentId?: string
+          targetTitle?: string | null
+        }
+        if (!actionInput.sourceAssessmentId) {
+          throw new ToolActionExecutionError(
+            "Source assessment ID is required.",
+            "INVALID_INPUT"
+          )
+        }
+        if (actionInput.targetTitle && actionInput.targetTitle.trim().length > 120) {
+          throw new ToolActionExecutionError(
+            "Target title must be 120 characters or fewer.",
+            "INVALID_INPUT"
+          )
+        }
+      },
+      execute: async (tx, reservation, actorId) => {
+        const actionInput = input.input as {
+          sourceAssessmentId: string
+          targetTitle?: string | null
+        }
+
+        const source = await tx.assessment.findUnique({
+          where: { blockId: actionInput.sourceAssessmentId },
+          include: {
+            block: true,
+            questions: {
+              orderBy: { position: "asc" },
+              include: {
+                question: {
+                  include: {
+                    options: { orderBy: { position: "asc" } },
+                    solution: {
+                      include: {
+                        correctOptions: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        })
+
+        if (
+          !source ||
+          source.block.status !== BlockStatus.ACTIVE ||
+          source.block.archivedAt
+        ) {
+          throw new ToolActionExecutionError(
+            "The source test paper is not available.",
+            "NOT_AVAILABLE"
+          )
+        }
+
+        const sourceBlueprint =
+          source.blueprint &&
+          typeof source.blueprint === "object" &&
+          !Array.isArray(source.blueprint)
+            ? (source.blueprint as Record<string, unknown>)
+            : {}
+        const isSameWorkspace = source.workspaceId === input.workspaceId
+        const isPublicOrUnlisted =
+          sourceBlueprint.visibility === "public" ||
+          sourceBlueprint.visibility === "unlisted"
+        const isCloningAllowed = sourceBlueprint.allowCloning !== false
+
+        if (!isSameWorkspace && (!isPublicOrUnlisted || !isCloningAllowed)) {
+          throw new ToolActionExecutionError(
+            "This test paper does not permit cloning.",
+            "FORBIDDEN"
+          )
+        }
+
+        const blockType = await tx.blockType.findUnique({
+          where: { key: "mock-tests.assessment" },
+          select: { id: true },
+        })
+        if (!blockType) {
+          throw new ToolActionExecutionError(
+            "Mock test block type is not registered.",
+            "NOT_AVAILABLE"
+          )
+        }
+
+        const newBlockId = crypto.randomUUID()
+        const newTitle =
+          actionInput.targetTitle?.trim() || `${source.block.title} (Clone)`
+
+        const clonedBlueprint = {
+          ...sourceBlueprint,
+          visibility: "private",
+        }
+
+        await tx.block.create({
+          data: {
+            id: newBlockId,
+            workspaceId: input.workspaceId,
+            originToolInstallationId: input.installationId,
+            originToolRunId: reservation.runId,
+            createdById: actorId,
+            blockTypeId: blockType.id,
+            status: BlockStatus.ACTIVE,
+            visibility: BlockVisibility.WORKSPACE,
+            allowAgentAccess: true,
+            title: newTitle,
+            slug: `test-${newBlockId.replace(/-/g, "")}`,
+            summary: source.block.summary,
+            properties:
+              (source.block.properties as Prisma.InputJsonValue) ?? {
+                passingBenchmark: 33,
+                distinctionBenchmark: 70,
+              },
+            schemaVersion: 1,
+            revision: 1,
+          },
+        })
+
+        await tx.assessment.create({
+          data: {
+            blockId: newBlockId,
+            workspaceId: input.workspaceId,
+            examBlockId: isSameWorkspace ? source.examBlockId : null,
+            status: "DRAFT",
+            durationMinutes: source.durationMinutes,
+            totalMarks: source.totalMarks,
+            instructions: source.instructions,
+            blueprint: clonedBlueprint as Prisma.InputJsonValue,
+            publishedAt: null,
+          },
+        })
+
+        for (const aq of source.questions) {
+          const originalQ = aq.question
+          const newQuestionId = crypto.randomUUID()
+
+          await tx.question.create({
+            data: {
+              id: newQuestionId,
+              workspaceId: input.workspaceId,
+              authoredById: actorId,
+              kind: originalQ.kind,
+              status: "PUBLISHED",
+              stem: originalQ.stem,
+              difficulty: originalQ.difficulty,
+              metadata: (originalQ.metadata as Prisma.InputJsonValue) ?? {},
+              publishedAt: new Date(),
+            },
+          })
+
+          const correctOptionIds = new Set(
+            originalQ.solution?.correctOptions.map((co) => co.questionOptionId) ?? []
+          )
+          const answerKeys = originalQ.options
+            .filter((opt) => correctOptionIds.has(opt.id))
+            .map((opt) => opt.key)
+
+          await replaceQuestionContent(tx, {
+            workspaceId: input.workspaceId,
+            questionId: newQuestionId,
+            payload: {
+              kind: originalQ.kind,
+              stem: originalQ.stem,
+              difficulty: originalQ.difficulty,
+              options: originalQ.options.map((opt) => ({
+                key: opt.key,
+                content: opt.content,
+                position: opt.position,
+              })),
+              answerKeys,
+              explanation: originalQ.solution?.explanation ?? null,
+              numericAnswer: num(originalQ.solution?.numericAnswer),
+              textAnswer: originalQ.solution?.textAnswer ?? null,
+            },
+          })
+
+          await tx.assessmentQuestion.create({
+            data: {
+              id: crypto.randomUUID(),
+              workspaceId: input.workspaceId,
+              assessmentId: newBlockId,
+              questionId: newQuestionId,
+              section: aq.section,
+              position: aq.position,
+              marks: aq.marks,
+              negativeMarks: aq.negativeMarks,
+              isRequired: aq.isRequired,
+            },
+          })
+        }
+
+        const data = {
+          assessment: {
+            id: newBlockId,
+            title: newTitle,
+            status: "draft",
+            questionCount: source.questions.length,
+          },
+        }
+
+        await completeMockTestsRun(tx, reservation.runId, {
+          rootBlockId: newBlockId,
+          createdBlockIds: [newBlockId],
+          evidenceIds: [],
+          data,
+        })
+
+        return {
+          status: "succeeded",
+          runId: reservation.runId,
+          rootBlockId: newBlockId,
+          createdBlockIds: [newBlockId],
           evidenceIds: [],
           data,
         }

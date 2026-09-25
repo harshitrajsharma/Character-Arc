@@ -1,4 +1,4 @@
-﻿import type { Metadata } from "next"
+import type { Metadata } from "next"
 import { CircleAlertIcon } from "lucide-react"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -9,14 +9,18 @@ import {
   requireActiveToolInstallation,
 } from "@/lib/workspaces/workspace-access"
 
-export const metadata: Metadata = { title: "Mock Tests — Dashboard" }
+export const metadata: Metadata = { title: "Mock Tests & Assessments — Dashboard" }
+export const dynamic = "force-dynamic"
 
 export default async function MockTestsPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ workspaceSlug: string }>
+  searchParams: Promise<{ tab?: string }>
 }) {
   const { workspaceSlug } = await params
+  const { tab } = await searchParams
   const workspace = await getWorkspaceIdentity(workspaceSlug)
   const installation = await requireActiveToolInstallation(
     workspaceSlug,
@@ -32,7 +36,7 @@ export default async function MockTestsPage({
   const canWrite = workspace.role !== "VIEWER"
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 pt-20 pb-8 sm:pb-10 md:px-6 xl:px-10 space-y-6">
+    <main className="mx-auto w-full max-w-6xl px-4 pt-20 pb-12 sm:pb-16 md:px-6 xl:px-10 space-y-6">
       {overview.issue ? (
         <Alert variant="destructive" className="mt-6">
           <CircleAlertIcon aria-hidden="true" />
@@ -47,8 +51,10 @@ export default async function MockTestsPage({
       <MockTestsDashboard
         workspaceSlug={workspaceSlug}
         assessments={overview.assessments}
+        communityAssessments={overview.communityAssessments}
         recentAttempts={overview.recentAttempts}
         canWrite={canWrite}
+        initialTab={tab === "community" ? "community" : "workspace"}
       />
     </main>
   )

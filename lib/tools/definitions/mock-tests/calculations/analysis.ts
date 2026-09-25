@@ -79,6 +79,8 @@ export type AnalysisDoc = {
   questions: AnalysisQuestionRow[]
   weakTopics: WeakTopicItem[]
   recommendation: string
+  passingBenchmark?: number
+  distinctionBenchmark?: number
 }
 
 function round2(value: number): number {
@@ -182,8 +184,18 @@ export function buildAnalysis(input: {
   durationMinutes: number | null
   questions: AnalysisQuestionRow[]
   weakTopics: WeakTopicItem[]
+  passingBenchmark?: number | null
+  distinctionBenchmark?: number | null
 }): AnalysisDoc {
   const { questions } = input
+  const passingBenchmark =
+    typeof input.passingBenchmark === "number" && !Number.isNaN(input.passingBenchmark)
+      ? input.passingBenchmark
+      : 33
+  const distinctionBenchmark =
+    typeof input.distinctionBenchmark === "number" && !Number.isNaN(input.distinctionBenchmark)
+      ? input.distinctionBenchmark
+      : 70
   const totals = aggregateAttempt(questions.map(toScoredResponse))
   const answered = totals.correctCount + totals.incorrectCount
   const accuracy = accuracyOf(totals.correctCount, answered)
@@ -255,5 +267,7 @@ export function buildAnalysis(input: {
       questionCount: questions.length,
       weakTopicCount: input.weakTopics.length,
     }),
+    passingBenchmark,
+    distinctionBenchmark,
   }
 }

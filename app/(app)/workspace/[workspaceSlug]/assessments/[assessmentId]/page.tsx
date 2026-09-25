@@ -15,6 +15,7 @@ import { SetNavbarBreadcrumbs } from "@/components/navigation/breadcrumb-context
 import { workspaceRoutes } from "@/lib/routes/workspace-tools"
 
 export const metadata: Metadata = { title: "Mock Test" }
+export const dynamic = "force-dynamic"
 
 export default async function MockTestDetailPage({
   params,
@@ -22,6 +23,7 @@ export default async function MockTestDetailPage({
   params: Promise<{ workspaceSlug: string; assessmentId: string }>
 }) {
   const { workspaceSlug, assessmentId } = await params
+  console.log("[MockTestDetailPage] called with assessmentId:", assessmentId)
   const workspace = await getWorkspaceIdentity(workspaceSlug)
   await requireActiveToolInstallation(workspaceSlug, "core.mock-tests")
 

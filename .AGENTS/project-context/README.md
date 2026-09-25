@@ -2,6 +2,12 @@
 
 Detailed implementation choices and build order are documented in [TECH_STACK_AND_ROADMAP.md](./TECH_STACK_AND_ROADMAP.md). The current reusable entity and relationship architecture is documented in [GENERIC_BLOCK_MODEL.md](./GENERIC_BLOCK_MODEL.md); it supersedes the earlier page-model draft.
 
+Tool and database layer rules live in [tool-architecture-rules.md](./tool-architecture-rules.md), and the Mock Tests & Community Hub platform architecture is documented in [mock-tests-community-architecture.md](./mock-tests-community-architecture.md).
+
+Automated testing practices and headless browser guidelines live in [e2e-testing-guide.md](./e2e-testing-guide.md).
+
+Historical updates and architecture decisions are recorded in [PROJECT_LOGS.md](./PROJECT_LOGS.md).
+
 Frontend color decisions are governed by the agent-facing
 [CSS color context](./css-color-context.md). Read it before choosing, adding, or
 changing colors.

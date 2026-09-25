@@ -13,9 +13,17 @@ import { workspaceRoutes } from "@/lib/routes/workspace-tools"
 export function StartAttemptButton({
   workspaceSlug,
   assessmentId,
+  label = "Start test",
+  variant = "default",
+  size = "lg",
+  className,
 }: {
   workspaceSlug: string
   assessmentId: string
+  label?: string
+  variant?: "default" | "outline" | "secondary" | "ghost" | "destructive" | "link"
+  size?: "default" | "sm" | "lg" | "icon" | "xs"
+  className?: string
 }) {
   const router = useRouter()
   const [pending, startTransition] = useTransition()
@@ -44,13 +52,19 @@ export function StartAttemptButton({
   }
 
   return (
-    <Button onClick={handleStart} disabled={pending} size="lg">
+    <Button
+      onClick={handleStart}
+      disabled={pending}
+      variant={variant}
+      size={size}
+      className={className}
+    >
       {pending ? (
         <Loader2Icon className="animate-spin" aria-hidden="true" />
       ) : (
         <PlayIcon data-icon="inline-start" aria-hidden="true" />
       )}
-      Start test
+      {label}
     </Button>
   )
 }

@@ -95,40 +95,40 @@ describe("workspaceRoutes", () => {
   it("builds mock tests routes correctly", () => {
     const slug = "test-slug"
     expect(workspaceRoutes.mockTests.home(slug)).toBe(
-      "/workspace/test-slug/mock-tests"
+      "/workspace/test-slug/assessments"
     )
     expect(workspaceRoutes.mockTests.new(slug)).toBe(
-      "/workspace/test-slug/mock-tests/new"
+      "/workspace/test-slug/assessments/new"
     )
     expect(workspaceRoutes.mockTests.detail(slug, "test-1")).toBe(
-      "/workspace/test-slug/mock-tests/test-1"
+      "/workspace/test-slug/assessments/test-1"
     )
     expect(workspaceRoutes.mockTests.edit(slug, "test-1")).toBe(
-      "/workspace/test-slug/mock-tests/test-1/edit"
+      "/workspace/test-slug/assessments/test-1/edit"
     )
     expect(workspaceRoutes.mockTests.attemptNew(slug, "test-1")).toBe(
-      "/workspace/test-slug/mock-tests/test-1/attempts/new"
+      "/workspace/test-slug/assessments/test-1/attempts/new"
     )
     expect(workspaceRoutes.mockTests.attempt(slug, "attempt-9")).toBe(
-      "/mock-test/attempt-9"
+      "/assessments/attempt-9"
     )
     expect(workspaceRoutes.mockTests.analysis(slug, "attempt-9")).toBe(
-      "/workspace/test-slug/mock-tests/attempts/attempt-9/analysis"
+      "/workspace/test-slug/assessments/attempts/attempt-9/analysis"
     )
     expect(workspaceRoutes.mockTests.questions(slug)).toBe(
-      "/workspace/test-slug/mock-tests/questions"
+      "/workspace/test-slug/assessments/questions"
     )
     expect(workspaceRoutes.mockTests.questionNew(slug)).toBe(
-      "/workspace/test-slug/mock-tests/questions/new"
+      "/workspace/test-slug/assessments/questions/new"
     )
     expect(workspaceRoutes.mockTests.questionEdit(slug, "q-1")).toBe(
-      "/workspace/test-slug/mock-tests/questions/q-1/edit"
+      "/workspace/test-slug/assessments/questions/q-1/edit"
     )
   })
 
   it("maps mock tests to its workspace home", () => {
     expect(workspaceRoutes.toolHome("personal", "core.mock-tests")).toBe(
-      "/workspace/personal/mock-tests"
+      "/workspace/personal/assessments"
     )
     expect(
       resolveToolDestination({
@@ -137,7 +137,7 @@ describe("workspaceRoutes", () => {
         catalogRoute: "/tools/mock-tests",
         installed: true,
       })
-    ).toBe("/workspace/my%20workspace/mock-tests")
+    ).toBe("/workspace/my%20workspace/assessments")
     expect(
       resolveToolDestination({
         workspaceSlug: "my workspace",

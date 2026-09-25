@@ -30,7 +30,7 @@ const toolBadgeConfig: Record<
   },
   "core.mock-tests": {
     icon: FileCheckIcon,
-    color: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20",
+    color: "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20",
     label: "Mock Tests",
   },
 }
@@ -100,7 +100,7 @@ export function CurrentArcGrid({
             size="sm"
             variant="outline"
             className="rounded-full"
-            render={<Link href={`/workspace/${encodeURIComponent(workspaceSlug)}/mock-tests/new`} />}
+            render={<Link href={`/workspace/${encodeURIComponent(workspaceSlug)}/assessments/new`} />}
           >
             <FileCheckIcon className="mr-1.5 size-4" />
             Practice Mock Test

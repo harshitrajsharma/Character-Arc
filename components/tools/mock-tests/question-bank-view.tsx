@@ -325,7 +325,6 @@ export function QuestionBankView({
                 <SelectItem value="MULTIPLE_CHOICE">Multiple Choice</SelectItem>
                 <SelectItem value="TRUE_FALSE">True / False</SelectItem>
                 <SelectItem value="NUMERIC">Numeric</SelectItem>
-                <SelectItem value="SHORT_ANSWER">Short Answer</SelectItem>
               </SelectContent>
             </Select>
 

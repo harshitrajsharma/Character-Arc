@@ -10,6 +10,15 @@ import type { QuestionKind } from "./calculations/scoring"
 
 export type MockTestStatus = "draft" | "published" | "archived"
 
+export type AssessmentTaxonomy = {
+  paperType?: "full_length" | "multi_subject" | "subject_wise" | "topic_wise" | "pyq"
+  subjectScope?: "single_subject" | "multi_subject"
+  subjects?: string[]
+  examTag?: string | null
+}
+
+export type AssessmentVisibility = "private" | "unlisted" | "public"
+
 export type MockTestListItem = {
   id: string
   title: string
@@ -22,6 +31,45 @@ export type MockTestListItem = {
   updatedAt: string
   attemptsCount: number
   myBestPercentage: number | null
+  calculatorAllowed?: boolean
+  taxonomy?: AssessmentTaxonomy
+  visibility?: AssessmentVisibility
+  allowCloning?: boolean
+  authorName?: string | null
+  authorAvatarUrl?: string | null
+}
+
+export type CommunityMockTestItem = {
+  id: string
+  title: string
+  summary: string | null
+  questionCount: number
+  durationMinutes: number | null
+  totalMarks: number | null
+  publishedAt: string | null
+  attemptsCount: number
+  authorName: string
+  authorAvatarUrl: string | null
+  workspaceName: string
+  workspaceSlug: string
+  taxonomy?: AssessmentTaxonomy
+  visibility: AssessmentVisibility
+  allowCloning: boolean
+  calculatorAllowed: boolean
+  avgScorePercentage: number | null
+}
+
+export type CommunityLeaderboardEntry = {
+  rank: number
+  attemptId: string
+  userId: string
+  userName: string
+  userAvatarUrl: string | null
+  score: number | null
+  maxScore: number | null
+  percentage: number | null
+  timeSpentSeconds: number | null
+  submittedAt: string | null
 }
 
 export type RecentAttemptItem = {
@@ -91,6 +139,7 @@ export type WeakTopic = {
 
 export type MockTestsOverview = {
   assessments: MockTestListItem[]
+  communityAssessments: CommunityMockTestItem[]
   recentAttempts: RecentAttemptItem[]
   issue: "catalog_unavailable" | "data_unavailable" | null
 }
@@ -107,6 +156,12 @@ export type AssessmentAttemptHistory = {
   accuracyRate: number | null
 }
 
+export type SectionDefinition = {
+  key: string
+  title: string
+  description?: string | null
+}
+
 export type AssessmentDetail = {
   id: string
   title: string
@@ -116,10 +171,19 @@ export type AssessmentDetail = {
   durationMinutes: number | null
   totalMarks: number | null
   instructions: string | null
+  passingBenchmark: number
+  distinctionBenchmark: number
   publishedAt: string | null
   createdAt: string
   updatedAt: string
   questionCount: number
+  sections: SectionDefinition[]
+  calculatorAllowed?: boolean
+  taxonomy?: AssessmentTaxonomy
+  visibility?: AssessmentVisibility
+  allowCloning?: boolean
+  authorName?: string | null
+  authorAvatarUrl?: string | null
   questions: AssessmentQuestionView[]
   isPublishable: boolean
 }
@@ -138,6 +202,8 @@ export type PlayerAttempt = {
   candidateName?: string | null
   candidateAvatarUrl?: string | null
   organizerName?: string | null
+  sections: SectionDefinition[]
+  calculatorAllowed?: boolean
   questions: Array<
     AssessmentQuestionView & {
       selectedKeys: string[]
@@ -160,6 +226,68 @@ function statusOf(value: string): MockTestStatus {
   return "draft"
 }
 
+export function parseAssessmentSections(
+  blueprintRaw: unknown,
+  questionSections: Array<string | null | undefined>
+): SectionDefinition[] {
+  if (
+    blueprintRaw &&
+    typeof blueprintRaw === "object" &&
+    !Array.isArray(blueprintRaw)
+  ) {
+    const bp = blueprintRaw as Record<string, unknown>
+    if (Array.isArray(bp.sections)) {
+      const parsedSections: SectionDefinition[] = []
+      const seenKeys = new Set<string>()
+
+      for (const item of bp.sections) {
+        if (item && typeof item === "object" && !Array.isArray(item)) {
+          const s = item as { key?: unknown; title?: unknown; description?: unknown }
+          if (
+            typeof s.key === "string" &&
+            s.key.trim().length > 0 &&
+            typeof s.title === "string" &&
+            s.title.trim().length > 0
+          ) {
+            const key = s.key.trim()
+            if (!seenKeys.has(key)) {
+              seenKeys.add(key)
+              parsedSections.push({
+                key,
+                title: s.title.trim(),
+                ...(typeof s.description === "string"
+                  ? { description: s.description }
+                  : s.description === null
+                    ? { description: null }
+                    : {}),
+              })
+            }
+          }
+        }
+      }
+
+      if (parsedSections.length > 0) {
+        return parsedSections
+      }
+    }
+  }
+
+  const seen = new Set<string>()
+  const fallbackSections: SectionDefinition[] = []
+  for (const rawSec of questionSections) {
+    const sec = typeof rawSec === "string" ? rawSec.trim() : ""
+    if (sec.length > 0 && !seen.has(sec)) {
+      seen.add(sec)
+      fallbackSections.push({
+        key: sec,
+        title: sec,
+      })
+    }
+  }
+
+  return fallbackSections
+}
+
 export async function getMockTestsOverview(
   workspaceId: string,
   workspaceSlug: string,
@@ -174,7 +302,12 @@ export async function getMockTestsOverview(
     select: { id: true },
   })
   if (!blockType) {
-    return { assessments: [], recentAttempts: [], issue: "catalog_unavailable" }
+    return {
+      assessments: [],
+      communityAssessments: [],
+      recentAttempts: [],
+      issue: "catalog_unavailable",
+    }
   }
 
   const blocks = await prisma.block.findMany({
@@ -190,12 +323,16 @@ export async function getMockTestsOverview(
       title: true,
       createdAt: true,
       updatedAt: true,
+      createdBy: {
+        select: { displayName: true, avatarUrl: true },
+      },
       assessmentDetails: {
         select: {
           status: true,
           durationMinutes: true,
           totalMarks: true,
           publishedAt: true,
+          blueprint: true,
           _count: { select: { questions: true, attempts: true } },
         },
       },
@@ -229,19 +366,45 @@ export async function getMockTestsOverview(
     }
   }
 
-  const assessments: MockTestListItem[] = blocks.map((block) => ({
-    id: block.id,
-    title: block.title,
-    status: statusOf(block.assessmentDetails?.status ?? "DRAFT"),
-    questionCount: block.assessmentDetails?._count.questions ?? 0,
-    durationMinutes: block.assessmentDetails?.durationMinutes ?? null,
-    totalMarks: toNumber(block.assessmentDetails?.totalMarks ?? null),
-    publishedAt: block.assessmentDetails?.publishedAt?.toISOString() ?? null,
-    createdAt: block.createdAt.toISOString(),
-    updatedAt: block.updatedAt.toISOString(),
-    attemptsCount: block.assessmentDetails?._count.attempts ?? 0,
-    myBestPercentage: bestByAssessment.get(block.id) ?? null,
-  }))
+  const assessments: MockTestListItem[] = blocks.map((block) => {
+    const blueprintObj =
+      block.assessmentDetails?.blueprint &&
+      typeof block.assessmentDetails.blueprint === "object" &&
+      !Array.isArray(block.assessmentDetails.blueprint)
+        ? (block.assessmentDetails.blueprint as Record<string, unknown>)
+        : null
+    const calculatorAllowed =
+      typeof blueprintObj?.calculatorAllowed === "boolean"
+        ? blueprintObj.calculatorAllowed
+        : true
+    const taxonomy = blueprintObj?.taxonomy as AssessmentTaxonomy | undefined
+    const visibility =
+      (blueprintObj?.visibility as AssessmentVisibility) ?? "private"
+    const allowCloning =
+      typeof blueprintObj?.allowCloning === "boolean"
+        ? blueprintObj.allowCloning
+        : true
+
+    return {
+      id: block.id,
+      title: block.title,
+      status: statusOf(block.assessmentDetails?.status ?? "DRAFT"),
+      questionCount: block.assessmentDetails?._count.questions ?? 0,
+      durationMinutes: block.assessmentDetails?.durationMinutes ?? null,
+      totalMarks: toNumber(block.assessmentDetails?.totalMarks ?? null),
+      publishedAt: block.assessmentDetails?.publishedAt?.toISOString() ?? null,
+      createdAt: block.createdAt.toISOString(),
+      updatedAt: block.updatedAt.toISOString(),
+      attemptsCount: block.assessmentDetails?._count.attempts ?? 0,
+      myBestPercentage: bestByAssessment.get(block.id) ?? null,
+      calculatorAllowed,
+      taxonomy,
+      visibility,
+      allowCloning,
+      authorName: block.createdBy?.displayName ?? null,
+      authorAvatarUrl: block.createdBy?.avatarUrl ?? null,
+    }
+  })
 
   const recentAttemptsData = await prisma.attempt.findMany({
     where: { workspaceId, userId: claims.sub },
@@ -280,7 +443,8 @@ export async function getMockTestsOverview(
     }
   )
 
-  return { assessments, recentAttempts, issue: null }
+  const communityAssessments = await getCommunityMockTests()
+  return { assessments, communityAssessments, recentAttempts, issue: null }
 }
 
 export const getAssessmentDetail = cache(
@@ -299,14 +463,19 @@ export const getAssessmentDetail = cache(
         durationMinutes: true,
         totalMarks: true,
         instructions: true,
+        blueprint: true,
         publishedAt: true,
         block: {
           select: {
             title: true,
             summary: true,
+            properties: true,
             revision: true,
             createdAt: true,
             updatedAt: true,
+            createdBy: {
+              select: { displayName: true, avatarUrl: true },
+            },
           },
         },
         questions: {
@@ -351,6 +520,32 @@ export const getAssessmentDetail = cache(
     })
     if (!assessment) return null
 
+    const blockProps = (assessment.block.properties ?? {}) as Record<
+      string,
+      unknown
+    >
+    const passingBenchmark =
+      typeof blockProps.passingBenchmark === "number"
+        ? blockProps.passingBenchmark
+        : 33
+    const distinctionBenchmark =
+      typeof blockProps.distinctionBenchmark === "number"
+        ? blockProps.distinctionBenchmark
+        : 70
+
+    const sections = parseAssessmentSections(
+      assessment.blueprint,
+      assessment.questions.map((row) => row.section)
+    )
+
+    const blueprintObj =
+      assessment.blueprint &&
+      typeof assessment.blueprint === "object" &&
+      !Array.isArray(assessment.blueprint)
+        ? (assessment.blueprint as Record<string, unknown>)
+        : {}
+    const calculatorAllowed = Boolean(blueprintObj.calculatorAllowed)
+
     return {
       id: assessment.blockId,
       title: assessment.block.title,
@@ -360,10 +555,23 @@ export const getAssessmentDetail = cache(
       durationMinutes: assessment.durationMinutes,
       totalMarks: toNumber(assessment.totalMarks),
       instructions: assessment.instructions,
+      passingBenchmark,
+      distinctionBenchmark,
       publishedAt: assessment.publishedAt?.toISOString() ?? null,
       createdAt: assessment.block.createdAt.toISOString(),
       updatedAt: assessment.block.updatedAt.toISOString(),
       questionCount: assessment.questions.length,
+      sections,
+      calculatorAllowed,
+      taxonomy: (blueprintObj.taxonomy as AssessmentTaxonomy) ?? undefined,
+      visibility:
+        (blueprintObj.visibility as AssessmentVisibility) ?? "private",
+      allowCloning:
+        typeof blueprintObj.allowCloning === "boolean"
+          ? blueprintObj.allowCloning
+          : true,
+      authorName: assessment.block.createdBy?.displayName ?? null,
+      authorAvatarUrl: assessment.block.createdBy?.avatarUrl ?? null,
       questions: assessment.questions.map((row) => ({
         id: row.question.id,
         kind: row.question.kind as QuestionKind,
@@ -492,6 +700,7 @@ export const getAttemptForPlayer = cache(
           select: {
             durationMinutes: true,
             instructions: true,
+            blueprint: true,
             block: { select: { title: true } },
           },
         },
@@ -544,6 +753,19 @@ export const getAttemptForPlayer = cache(
       ])
     )
 
+    const sections = parseAssessmentSections(
+      attempt.assessment.blueprint,
+      questionsData.map((row) => row.section)
+    )
+
+    const blueprintObj =
+      attempt.assessment.blueprint &&
+      typeof attempt.assessment.blueprint === "object" &&
+      !Array.isArray(attempt.assessment.blueprint)
+        ? (attempt.assessment.blueprint as Record<string, unknown>)
+        : {}
+    const calculatorAllowed = Boolean(blueprintObj.calculatorAllowed)
+
     return {
       attemptId: attempt.id,
       attemptStatus:
@@ -559,6 +781,8 @@ export const getAttemptForPlayer = cache(
       candidateName: attempt.user?.displayName ?? null,
       candidateAvatarUrl: attempt.user?.avatarUrl ?? null,
       organizerName: attempt.workspace?.name ?? null,
+      sections,
+      calculatorAllowed,
       questions: questionsData.map((row) => {
         const saved = responsesByQuestion.get(row.question.id)
         return {
@@ -603,7 +827,7 @@ export const getAttemptAnalysis = cache(
           select: {
             blockId: true,
             durationMinutes: true,
-            block: { select: { title: true } },
+            block: { select: { title: true, properties: true } },
           },
         },
         responses: {
@@ -700,6 +924,19 @@ export const getAttemptAnalysis = cache(
 
     const weakTopics = await getWeakTopics(workspaceId, userId, 10)
 
+    const attemptBlockProps = (attempt.assessment.block.properties ?? {}) as Record<
+      string,
+      unknown
+    >
+    const passingBenchmark =
+      typeof attemptBlockProps.passingBenchmark === "number"
+        ? attemptBlockProps.passingBenchmark
+        : 33
+    const distinctionBenchmark =
+      typeof attemptBlockProps.distinctionBenchmark === "number"
+        ? attemptBlockProps.distinctionBenchmark
+        : 70
+
     return buildAnalysis({
       attemptId: attempt.id,
       assessmentId: attempt.assessmentId,
@@ -710,6 +947,8 @@ export const getAttemptAnalysis = cache(
       durationMinutes: attempt.assessment.durationMinutes,
       questions,
       weakTopics,
+      passingBenchmark,
+      distinctionBenchmark,
     })
   }
 )
@@ -975,3 +1214,333 @@ export const getAttemptForExamRoom = cache(
     }
   }
 )
+
+export const getCommunityMockTests = cache(
+  async (): Promise<CommunityMockTestItem[]> => {
+    const blockType = await prisma.blockType.findUnique({
+      where: { key: "mock-tests.assessment" },
+      select: { id: true },
+    })
+    if (!blockType) return []
+
+    const rows = await prisma.assessment.findMany({
+      where: {
+        status: "PUBLISHED",
+        block: {
+          blockTypeId: blockType.id,
+          status: "ACTIVE",
+          archivedAt: null,
+        },
+      },
+      select: {
+        blockId: true,
+        durationMinutes: true,
+        totalMarks: true,
+        publishedAt: true,
+        blueprint: true,
+        workspace: {
+          select: { name: true, slug: true },
+        },
+        block: {
+          select: {
+            id: true,
+            title: true,
+            summary: true,
+            createdAt: true,
+            updatedAt: true,
+            createdBy: {
+              select: { displayName: true, avatarUrl: true },
+            },
+          },
+        },
+        _count: {
+          select: { questions: true, attempts: true },
+        },
+        attempts: {
+          where: {
+            status: "EVALUATED",
+            score: { not: null },
+            maxScore: { gt: 0 },
+          },
+          select: { score: true, maxScore: true },
+        },
+      },
+      orderBy: { publishedAt: "desc" },
+      take: 100,
+    })
+
+    const items: CommunityMockTestItem[] = []
+
+    for (const row of rows) {
+      const blueprintObj =
+        row.blueprint &&
+        typeof row.blueprint === "object" &&
+        !Array.isArray(row.blueprint)
+          ? (row.blueprint as Record<string, unknown>)
+          : {}
+
+      const visibility =
+        (blueprintObj.visibility as AssessmentVisibility) ?? "private"
+      if (visibility !== "public") continue
+
+      const taxonomy = blueprintObj.taxonomy as AssessmentTaxonomy | undefined
+      const allowCloning =
+        typeof blueprintObj.allowCloning === "boolean"
+          ? blueprintObj.allowCloning
+          : true
+      const calculatorAllowed =
+        typeof blueprintObj.calculatorAllowed === "boolean"
+          ? blueprintObj.calculatorAllowed
+          : true
+
+      let avgScorePercentage: number | null = null
+      if (row.attempts.length > 0) {
+        let totalPct = 0
+        let validAttempts = 0
+        for (const att of row.attempts) {
+          const sc = toNumber(att.score)
+          const mx = toNumber(att.maxScore)
+          if (sc !== null && mx !== null && mx > 0) {
+            totalPct += (sc / mx) * 100
+            validAttempts += 1
+          }
+        }
+        if (validAttempts > 0) {
+          avgScorePercentage = Math.round(totalPct / validAttempts)
+        }
+      }
+
+      items.push({
+        id: row.blockId,
+        title: row.block.title,
+        summary: row.block.summary,
+        questionCount: row._count.questions,
+        durationMinutes: row.durationMinutes,
+        totalMarks: toNumber(row.totalMarks),
+        publishedAt: row.publishedAt?.toISOString() ?? null,
+        attemptsCount: row._count.attempts,
+        authorName:
+          row.block.createdBy?.displayName ?? row.workspace.name ?? "Anonymous",
+        authorAvatarUrl: row.block.createdBy?.avatarUrl ?? null,
+        workspaceName: row.workspace.name,
+        workspaceSlug: row.workspace.slug,
+        taxonomy,
+        visibility,
+        allowCloning,
+        calculatorAllowed,
+        avgScorePercentage,
+      })
+    }
+
+    return items
+  }
+)
+
+export type CommunityPaperDetailView = CommunityMockTestItem & {
+  instructions: string | null
+  sections: SectionDefinition[]
+  questionsPreview: Array<{
+    id: string
+    kind: QuestionKind
+    section: string | null
+    position: number
+    marks: number
+    negativeMarks: number
+  }>
+}
+
+export const getCommunityPaperDetail = cache(
+  async (assessmentId: string): Promise<CommunityPaperDetailView | null> => {
+    const parsed = z.string().uuid().safeParse(assessmentId)
+    if (!parsed.success) return null
+
+    const row = await prisma.assessment.findFirst({
+      where: {
+        blockId: assessmentId,
+        status: "PUBLISHED",
+        block: {
+          status: "ACTIVE",
+          archivedAt: null,
+        },
+      },
+      select: {
+        blockId: true,
+        durationMinutes: true,
+        totalMarks: true,
+        instructions: true,
+        publishedAt: true,
+        blueprint: true,
+        workspace: {
+          select: { name: true, slug: true },
+        },
+        block: {
+          select: {
+            id: true,
+            title: true,
+            summary: true,
+            createdAt: true,
+            updatedAt: true,
+            createdBy: {
+              select: { displayName: true, avatarUrl: true },
+            },
+          },
+        },
+        _count: {
+          select: { questions: true, attempts: true },
+        },
+        questions: {
+          orderBy: { position: "asc" },
+          select: {
+            id: true,
+            section: true,
+            position: true,
+            marks: true,
+            negativeMarks: true,
+            question: {
+              select: { id: true, kind: true },
+            },
+          },
+        },
+        attempts: {
+          where: {
+            status: "EVALUATED",
+            score: { not: null },
+            maxScore: { gt: 0 },
+          },
+          select: { score: true, maxScore: true },
+        },
+      },
+    })
+
+    if (!row) return null
+
+    const blueprintObj =
+      row.blueprint &&
+      typeof row.blueprint === "object" &&
+      !Array.isArray(row.blueprint)
+        ? (row.blueprint as Record<string, unknown>)
+        : {}
+
+    const visibility =
+      (blueprintObj.visibility as AssessmentVisibility) ?? "private"
+    if (visibility === "private") return null
+
+    const taxonomy = blueprintObj.taxonomy as AssessmentTaxonomy | undefined
+    const allowCloning =
+      typeof blueprintObj.allowCloning === "boolean"
+        ? blueprintObj.allowCloning
+        : true
+    const calculatorAllowed =
+      typeof blueprintObj.calculatorAllowed === "boolean"
+        ? blueprintObj.calculatorAllowed
+        : true
+
+    const sections = parseAssessmentSections(
+      row.blueprint,
+      row.questions.map((q) => q.section)
+    )
+
+    let avgScorePercentage: number | null = null
+    if (row.attempts.length > 0) {
+      let totalPct = 0
+      let validAttempts = 0
+      for (const att of row.attempts) {
+        const sc = toNumber(att.score)
+        const mx = toNumber(att.maxScore)
+        if (sc !== null && mx !== null && mx > 0) {
+          totalPct += (sc / mx) * 100
+          validAttempts += 1
+        }
+      }
+      if (validAttempts > 0) {
+        avgScorePercentage = Math.round(totalPct / validAttempts)
+      }
+    }
+
+    return {
+      id: row.blockId,
+      title: row.block.title,
+      summary: row.block.summary,
+      questionCount: row._count.questions,
+      durationMinutes: row.durationMinutes,
+      totalMarks: toNumber(row.totalMarks),
+      instructions: row.instructions,
+      publishedAt: row.publishedAt?.toISOString() ?? null,
+      attemptsCount: row._count.attempts,
+      authorName:
+        row.block.createdBy?.displayName ?? row.workspace.name ?? "Anonymous",
+      authorAvatarUrl: row.block.createdBy?.avatarUrl ?? null,
+      workspaceName: row.workspace.name,
+      workspaceSlug: row.workspace.slug,
+      taxonomy,
+      visibility,
+      allowCloning,
+      calculatorAllowed,
+      avgScorePercentage,
+      sections,
+      questionsPreview: row.questions.map((q) => ({
+        id: q.id,
+        kind: q.question.kind as QuestionKind,
+        section: q.section,
+        position: q.position,
+        marks: toNumber(q.marks) ?? 1,
+        negativeMarks: toNumber(q.negativeMarks) ?? 0,
+      })),
+    }
+  }
+)
+
+export const getCommunityPaperLeaderboard = cache(
+  async (assessmentId: string): Promise<CommunityLeaderboardEntry[]> => {
+    const parsed = z.string().uuid().safeParse(assessmentId)
+    if (!parsed.success) return []
+
+    const attempts = await prisma.attempt.findMany({
+      where: {
+        assessmentId,
+        status: "EVALUATED",
+        score: { not: null },
+      },
+      select: {
+        id: true,
+        userId: true,
+        score: true,
+        maxScore: true,
+        timeSpentSeconds: true,
+        submittedAt: true,
+        user: {
+          select: {
+            displayName: true,
+            avatarUrl: true,
+          },
+        },
+      },
+      orderBy: [{ score: "desc" }, { timeSpentSeconds: "asc" }],
+      take: 25,
+    })
+
+    return attempts.map((att, index) => {
+      const score = toNumber(att.score)
+      const maxScore = toNumber(att.maxScore)
+      const percentage =
+        score !== null && maxScore !== null && maxScore > 0
+          ? Math.round((score / maxScore) * 100)
+          : null
+
+      return {
+        rank: index + 1,
+        attemptId: att.id,
+        userId: att.userId,
+        userName:
+          att.user.displayName ?? `Candidate ${att.userId.slice(0, 5)}`,
+        userAvatarUrl: att.user.avatarUrl ?? null,
+        score,
+        maxScore,
+        percentage,
+        timeSpentSeconds: att.timeSpentSeconds,
+        submittedAt: att.submittedAt?.toISOString() ?? null,
+      }
+    })
+  }
+)
+

@@ -781,11 +781,21 @@ function BubbleMenuContent({ editor }: { editor: Editor }) {
   )
 }
 
+function parseCssLengthToPx(val?: string, fallback = 140): number {
+  if (!val) return fallback
+  const num = parseFloat(val)
+  if (isNaN(num)) return fallback
+  if (val.endsWith("rem") || val.endsWith("em")) return num * 16
+  return num
+}
+
 export function RichTextEditor({
   value,
   onChange,
   placeholder = "Type your content…",
   minHeight,
+  maxHeight,
+  resizable = true,
   className,
   id,
   ariaLabelledBy,
@@ -797,12 +807,19 @@ export function RichTextEditor({
   placeholder?: string
   /** CSS length, e.g. "3.5rem" for compact option editors. */
   minHeight?: string
+  /** Maximum CSS height when resizing (default: 800px). */
+  maxHeight?: string
+  /** Whether the bottom-right corner shows a draggable resize grip like a textarea. Default true. */
+  resizable?: boolean
   className?: string
   id?: string
   ariaLabelledBy?: string
   invalid?: boolean
   showMathHint?: boolean
 }) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [customHeight, setCustomHeight] = useState<number | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
   const onChangeRef = useRef(onChange)
   const lastEmittedRef = useRef(value)
 
@@ -811,6 +828,44 @@ export function RichTextEditor({
   useEffect(() => {
     onChangeRef.current = onChange
   })
+
+  // Pointer drag resizing logic
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    const startY = e.clientY
+    const startHeight =
+      containerRef.current?.getBoundingClientRect().height ??
+      parseCssLengthToPx(minHeight, 140)
+
+    const prevUserSelect = document.body.style.userSelect
+    const prevCursor = document.body.style.cursor
+
+    document.body.style.userSelect = "none"
+    document.body.style.cursor = "se-resize"
+    setIsDragging(true)
+
+    const minH = parseCssLengthToPx(minHeight, 120)
+    const maxH = parseCssLengthToPx(maxHeight, 800)
+
+    const onPointerMove = (moveEvent: PointerEvent) => {
+      const deltaY = moveEvent.clientY - startY
+      const newHeight = Math.max(minH, Math.min(maxH, Math.round(startHeight + deltaY)))
+      setCustomHeight(newHeight)
+    }
+
+    const onPointerUp = () => {
+      document.body.style.userSelect = prevUserSelect
+      document.body.style.cursor = prevCursor
+      setIsDragging(false)
+      window.removeEventListener("pointermove", onPointerMove)
+      window.removeEventListener("pointerup", onPointerUp)
+    }
+
+    window.addEventListener("pointermove", onPointerMove)
+    window.addEventListener("pointerup", onPointerUp)
+  }
 
   const editor = useEditor(
     {
@@ -872,22 +927,28 @@ export function RichTextEditor({
   return (
     <div className={cn("grid gap-1.5", className)}>
       <div
+        ref={containerRef}
         id={id}
         className={cn(
-          "rich-text-editor overflow-hidden rounded-xl border bg-background transition-colors focus-within:ring-2 focus-within:ring-ring/25",
+          "rich-text-editor relative flex flex-col overflow-hidden rounded-xl border bg-background transition-[border-color,box-shadow] focus-within:ring-2 focus-within:ring-ring/25",
           invalid
             ? "border-destructive"
             : "border-input focus-within:border-brand-violet-line"
         )}
         style={
-          { "--rich-editor-min-height": minHeight } as CSSProperties
+          {
+            "--rich-editor-min-height": minHeight,
+            height: customHeight ? `${customHeight}px` : undefined,
+            minHeight: minHeight ?? "140px",
+            maxHeight: maxHeight ?? "800px",
+          } as CSSProperties
         }
       >
         {editor ? (
           <>
             <Toolbar editor={editor} />
             {showMathHint ? (
-              <div className="flex flex-wrap items-center gap-1 border-b border-border/70 bg-muted/15 px-3 py-1.5 text-[11px] text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-1 border-b border-border/70 bg-muted/15 px-3 py-1.5 text-[11px] text-muted-foreground shrink-0">
                 <SigmaIcon className="size-3.5 text-brand-violet-ink" aria-hidden="true" />
                 <span>Math shortcuts:</span>
                 <code className="rounded bg-muted px-1 py-0.5 font-mono">$x^2$</code>
@@ -907,9 +968,35 @@ export function RichTextEditor({
         ) : null}
         <EditorContent
           editor={editor}
+          className="flex-1 min-h-0 overflow-y-auto"
           aria-labelledby={ariaLabelledBy}
           aria-invalid={invalid || undefined}
         />
+        {resizable ? (
+          <div
+            onPointerDown={handlePointerDown}
+            onDoubleClick={() => setCustomHeight(null)}
+            role="separator"
+            aria-orientation="horizontal"
+            title="Drag corner to resize height (double-click to reset)"
+            className={cn(
+              "group absolute bottom-0 right-0 z-10 flex size-6 cursor-se-resize items-end justify-end p-1 select-none touch-none",
+              isDragging ? "opacity-100" : "opacity-40 hover:opacity-100 transition-opacity"
+            )}
+            aria-hidden="true"
+          >
+            <svg
+              className="size-3 text-muted-foreground transition-colors group-hover:text-foreground"
+              viewBox="0 0 12 12"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            >
+              <path d="M10.5 3.5L3.5 10.5M10.5 6.5L6.5 10.5M10.5 9.5L9.5 10.5" />
+            </svg>
+          </div>
+        ) : null}
       </div>
     </div>
   )

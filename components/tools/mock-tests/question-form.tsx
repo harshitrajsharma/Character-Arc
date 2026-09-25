@@ -327,8 +327,6 @@ export function QuestionForm({
       if (numericAnswer.trim() === "" || !Number.isFinite(parsed)) {
         return "Enter a valid numeric answer."
       }
-    } else if (kind === "SHORT_ANSWER") {
-      if (!textAnswer.trim()) return "Enter a model answer for grading."
     } else {
       const filled = options.filter((option) => stripHtml(option.content) !== "")
       if (kind === "TRUE_FALSE") {
@@ -389,7 +387,7 @@ export function QuestionForm({
           : [],
         answerKeys: choiceKind ? answerKeys : [],
         numericAnswer: kind === "NUMERIC" ? Number(numericAnswer) : null,
-        textAnswer: kind === "SHORT_ANSWER" ? textAnswer.trim() : null,
+        textAnswer: null,
         explanation: stripHtml(explanation) ? explanation.trim() : null,
         targets: targets.map((target) => ({
           blockId: target.blockId,

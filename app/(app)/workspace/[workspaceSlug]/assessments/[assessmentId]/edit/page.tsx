@@ -3,6 +3,7 @@ import { notFound } from "next/navigation"
 import { ListChecksIcon, PlusIcon } from "lucide-react"
 import Link from "next/link"
 
+import { SetNavbarBreadcrumbs } from "@/components/navigation/breadcrumb-context"
 import { Button } from "@/components/ui/button"
 import { ToolPageHeader } from "@/components/tools/tool-page-header"
 import { AssessmentBuilder } from "@/components/tools/mock-tests/assessment-builder"
@@ -16,7 +17,7 @@ import {
   requireActiveToolInstallation,
 } from "@/lib/workspaces/workspace-access"
 
-export const metadata: Metadata = { title: "Edit Mock Test" }
+export const metadata: Metadata = { title: "Edit Mock Test Blueprint" }
 
 export default async function EditMockTestPage({
   params,
@@ -33,17 +34,23 @@ export default async function EditMockTestPage({
   const bank = await getQuestionBank(workspace.id)
 
   return (
-    <main className="mx-auto w-full max-w-7xl px-4 pt-24 pb-28 sm:pb-10 md:px-6 lg:pb-10 xl:px-8">
+    <main className="mx-auto w-full max-w-6xl px-4 pt-20 pb-12 sm:pb-16 md:px-6 xl:px-10 space-y-8 font-sans antialiased text-foreground">
+      <SetNavbarBreadcrumbs
+        segments={[
+          { label: "Workspace", href: `/workspace/${encodeURIComponent(workspaceSlug)}` },
+          { label: "Mock Tests", href: workspaceRoutes.mockTests.home(workspaceSlug) },
+          { label: assessment.title || "Edit Blueprint" },
+        ]}
+        backHref={workspaceRoutes.mockTests.detail(workspaceSlug, assessment.id)}
+        backLabel="Back to test detail"
+      />
+
       <ToolPageHeader
-        eyebrow="Mock tests"
-        title="Edit test"
-        description="Tune the metadata and build your question paper. Marks, negative marks and sections are set per question."
-        backHref={workspaceRoutes.mockTests.detail(
-          workspaceSlug,
-          assessment.id
-        )}
+        eyebrow="Mock Tests"
+        title="Edit Paper Blueprint"
+        description="Configure paper details, organize sections, and assemble questions."
         icon={<ListChecksIcon aria-hidden="true" />}
-        iconClassName="bg-brand-violet-soft text-brand-violet-ink"
+        iconClassName="bg-muted text-foreground"
         primaryAction={
           <Button
             variant="outline"
@@ -58,13 +65,13 @@ export default async function EditMockTestPage({
           </Button>
         }
       />
-      <div className="mt-6">
-        <AssessmentBuilder
-          workspaceSlug={workspaceSlug}
-          assessment={assessment}
-          bank={bank}
-        />
-      </div>
+
+      <AssessmentBuilder
+        workspaceSlug={workspaceSlug}
+        assessment={assessment}
+        bank={bank}
+      />
     </main>
   )
 }
+

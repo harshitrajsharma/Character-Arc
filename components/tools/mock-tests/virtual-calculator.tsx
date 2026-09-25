@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { CalculatorIcon, XIcon } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
+import { CalculatorIcon, MoveIcon, XIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface VirtualCalculatorProps {
@@ -16,6 +16,53 @@ export function VirtualCalculator({ isOpen, onClose }: VirtualCalculatorProps) {
   const [isScientific, setIsScientific] = useState<boolean>(true)
   const [memory, setMemory] = useState<number>(0)
   const [shouldResetDisplay, setShouldResetDisplay] = useState<boolean>(false)
+
+  // Draggable window state
+  const [position, setPosition] = useState<{ x: number; y: number } | null>(null)
+  const isDraggingRef = useRef(false)
+  const dragStartRef = useRef<{ startX: number; startY: number; posX: number; posY: number }>({
+    startX: 0,
+    startY: 0,
+    posX: 0,
+    posY: 0,
+  })
+
+  useEffect(() => {
+    function handleMouseMove(e: MouseEvent) {
+      if (!isDraggingRef.current) return
+      const dx = e.clientX - dragStartRef.current.startX
+      const dy = e.clientY - dragStartRef.current.startY
+      const nextX = Math.max(0, Math.min(window.innerWidth - 380, dragStartRef.current.posX + dx))
+      const nextY = Math.max(0, Math.min(window.innerHeight - 200, dragStartRef.current.posY + dy))
+      setPosition({ x: nextX, y: nextY })
+    }
+
+    function handleMouseUp() {
+      isDraggingRef.current = false
+    }
+
+    window.addEventListener("mousemove", handleMouseMove)
+    window.addEventListener("mouseup", handleMouseUp)
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove)
+      window.removeEventListener("mouseup", handleMouseUp)
+    }
+  }, [])
+
+  function handleMouseDown(e: React.MouseEvent) {
+    if ((e.target as HTMLElement).closest("button")) return
+    isDraggingRef.current = true
+    const initialPos = position ?? {
+      x: Math.max(20, window.innerWidth - 420),
+      y: Math.max(60, window.innerHeight - 560),
+    }
+    dragStartRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      posX: initialPos.x,
+      posY: initialPos.y,
+    }
+  }
 
   if (!isOpen) return null
 
@@ -278,26 +325,42 @@ export function VirtualCalculator({ isOpen, onClose }: VirtualCalculatorProps) {
     }
   }
 
+  const customStyle: React.CSSProperties = position
+    ? { left: `${position.x}px`, top: `${position.y}px` }
+    : {}
+
   return (
-    <div className="fixed bottom-20 right-4 z-50 w-80 sm:w-96 rounded-2xl border border-border bg-card/95 shadow-2xl backdrop-blur-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 select-none">
-      {/* Top Header Bar */}
-      <div className="flex items-center justify-between border-b border-border bg-muted/60 px-3 py-2">
+    <div
+      style={customStyle}
+      className={cn(
+        "fixed z-50 w-80 sm:w-96 rounded-none border border-slate-300 bg-white text-slate-900 shadow-xl select-none",
+        !position && "bottom-16 right-6"
+      )}
+    >
+      {/* Draggable Title Header Bar */}
+      <div
+        onMouseDown={handleMouseDown}
+        className="flex items-center justify-between border-b border-slate-300 bg-[#e2e8f0] px-3 py-2 cursor-move font-sans"
+      >
         <div className="flex items-center gap-2">
-          <CalculatorIcon className="size-4 text-brand-violet-ink" />
-          <span className="text-xs font-bold text-foreground">CBT Virtual Calculator</span>
+          <MoveIcon className="size-3 text-blue-700 shrink-0" />
+          <CalculatorIcon className="size-3.5 text-blue-700" />
+          <span className="text-xs font-bold text-slate-900">
+            Virtual Calculator
+          </span>
         </div>
         <div className="flex items-center gap-1.5">
           <button
             type="button"
             onClick={() => setIsScientific(!isScientific)}
-            className="rounded px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground hover:bg-background hover:text-foreground transition-colors border border-border"
+            className="rounded-none px-2 py-0.5 text-[10px] font-bold text-slate-700 hover:bg-slate-200 hover:text-slate-900 transition-colors border border-slate-300 bg-white"
           >
             {isScientific ? "Basic" : "Scientific"}
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="size-6 rounded-md flex items-center justify-center text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+            className="size-6 rounded-none flex items-center justify-center text-slate-500 hover:bg-red-50 hover:text-red-700 transition-colors border border-slate-300 bg-white"
             aria-label="Close Calculator"
           >
             <XIcon className="size-3.5" />
@@ -306,108 +369,121 @@ export function VirtualCalculator({ isOpen, onClose }: VirtualCalculatorProps) {
       </div>
 
       {/* Screen Readout */}
-      <div className="bg-background/90 p-3 border-b border-border text-right space-y-1">
-        <div className="h-4 text-[11px] font-mono text-muted-foreground truncate">
-          {equation || " "}
+      <div className="bg-[#f8fafc] p-3 border-b border-slate-300 text-right space-y-1 font-mono">
+        <div className="h-4 text-[11px] text-slate-500 truncate">
+          {equation || "\u00A0"}
         </div>
-        <div className="text-2xl font-mono font-bold tracking-tight text-foreground truncate">
+        <div className="text-2xl font-bold tracking-tight text-slate-950 truncate tabular-nums">
           {display}
         </div>
-        <div className="flex items-center justify-between text-[10px] font-mono text-muted-foreground pt-1 border-t border-border/40">
-          <div className="flex items-center gap-1.5">
+        <div className="flex items-center justify-between text-[10px] text-slate-500 pt-1.5 border-t border-slate-200">
+          <div className="flex items-center gap-1">
             <button
               type="button"
-              onClick={() => setIsRad(!isRad)}
+              onClick={() => setIsRad(true)}
               className={cn(
-                "px-1.5 py-0.5 rounded font-bold transition-colors",
-                isRad ? "bg-brand-violet text-brand-violet-foreground" : "text-muted-foreground"
+                "px-1.5 py-0.5 rounded-none font-bold border transition-colors",
+                isRad
+                  ? "bg-blue-600 text-white border-blue-600"
+                  : "border-transparent text-slate-500 hover:text-slate-900"
               )}
             >
               RAD
             </button>
             <button
               type="button"
-              onClick={() => setIsRad(!isRad)}
+              onClick={() => setIsRad(false)}
               className={cn(
-                "px-1.5 py-0.5 rounded font-bold transition-colors",
-                !isRad ? "bg-brand-violet text-brand-violet-foreground" : "text-muted-foreground"
+                "px-1.5 py-0.5 rounded-none font-bold border transition-colors",
+                !isRad
+                  ? "bg-blue-600 text-white border-blue-600"
+                  : "border-transparent text-slate-500 hover:text-slate-900"
               )}
             >
               DEG
             </button>
           </div>
-          <span className="font-semibold">{memory !== 0 ? `M = ${memory}` : ""}</span>
+          <span className="font-semibold text-slate-600">{memory !== 0 ? `M = ${memory}` : ""}</span>
         </div>
       </div>
 
       {/* Memory Bar */}
-      <div className="grid grid-cols-5 gap-1 p-1.5 bg-muted/30 border-b border-border text-[11px] font-mono">
-        <button type="button" onClick={() => handleMemory("MC")} className="py-1 rounded hover:bg-muted font-semibold text-muted-foreground hover:text-foreground transition-colors">MC</button>
-        <button type="button" onClick={() => handleMemory("MR")} className="py-1 rounded hover:bg-muted font-semibold text-muted-foreground hover:text-foreground transition-colors">MR</button>
-        <button type="button" onClick={() => handleMemory("M+")} className="py-1 rounded hover:bg-muted font-semibold text-muted-foreground hover:text-foreground transition-colors">M+</button>
-        <button type="button" onClick={() => handleMemory("M-")} className="py-1 rounded hover:bg-muted font-semibold text-muted-foreground hover:text-foreground transition-colors">M-</button>
-        <button type="button" onClick={() => handleMemory("MS")} className="py-1 rounded hover:bg-muted font-semibold text-muted-foreground hover:text-foreground transition-colors">MS</button>
+      <div className="grid grid-cols-5 border-b border-slate-300 text-[11px] font-mono bg-[#f1f5f9]">
+        {(["MC", "MR", "M+", "M-", "MS"] as const).map((m, idx) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => handleMemory(m)}
+            className={cn(
+              "py-1 rounded-none hover:bg-slate-200 font-semibold text-slate-600 hover:text-slate-900 transition-colors",
+              idx !== 4 && "border-r border-slate-300"
+            )}
+          >
+            {m}
+          </button>
+        ))}
       </div>
 
       {/* Calculator Keypad */}
-      <div className="p-2.5 space-y-1.5">
+      <div className="p-3 space-y-2 bg-[#f8fafc]">
         {/* Scientific Functions */}
         {isScientific ? (
           <div className="grid grid-cols-5 gap-1 text-xs font-mono">
-            <button type="button" onClick={() => handleScientific("sin")} className="h-7 rounded border border-border/80 bg-muted/40 hover:bg-muted font-medium text-foreground transition-colors">sin</button>
-            <button type="button" onClick={() => handleScientific("cos")} className="h-7 rounded border border-border/80 bg-muted/40 hover:bg-muted font-medium text-foreground transition-colors">cos</button>
-            <button type="button" onClick={() => handleScientific("tan")} className="h-7 rounded border border-border/80 bg-muted/40 hover:bg-muted font-medium text-foreground transition-colors">tan</button>
-            <button type="button" onClick={() => handleScientific("ln")} className="h-7 rounded border border-border/80 bg-muted/40 hover:bg-muted font-medium text-foreground transition-colors">ln</button>
-            <button type="button" onClick={() => handleScientific("log")} className="h-7 rounded border border-border/80 bg-muted/40 hover:bg-muted font-medium text-foreground transition-colors">log</button>
+            <button type="button" onClick={() => handleScientific("sin")} className="h-7 rounded-none border border-slate-300 bg-white hover:bg-slate-100 font-medium text-slate-800 transition-colors">sin</button>
+            <button type="button" onClick={() => handleScientific("cos")} className="h-7 rounded-none border border-slate-300 bg-white hover:bg-slate-100 font-medium text-slate-800 transition-colors">cos</button>
+            <button type="button" onClick={() => handleScientific("tan")} className="h-7 rounded-none border border-slate-300 bg-white hover:bg-slate-100 font-medium text-slate-800 transition-colors">tan</button>
+            <button type="button" onClick={() => handleScientific("ln")} className="h-7 rounded-none border border-slate-300 bg-white hover:bg-slate-100 font-medium text-slate-800 transition-colors">ln</button>
+            <button type="button" onClick={() => handleScientific("log")} className="h-7 rounded-none border border-slate-300 bg-white hover:bg-slate-100 font-medium text-slate-800 transition-colors">log</button>
 
-            <button type="button" onClick={() => handleScientific("asin")} className="h-7 rounded border border-border/80 bg-muted/40 hover:bg-muted font-medium text-foreground transition-colors">sin⁻¹</button>
-            <button type="button" onClick={() => handleScientific("acos")} className="h-7 rounded border border-border/80 bg-muted/40 hover:bg-muted font-medium text-foreground transition-colors">cos⁻¹</button>
-            <button type="button" onClick={() => handleScientific("atan")} className="h-7 rounded border border-border/80 bg-muted/40 hover:bg-muted font-medium text-foreground transition-colors">tan⁻¹</button>
-            <button type="button" onClick={() => handleScientific("exp")} className="h-7 rounded border border-border/80 bg-muted/40 hover:bg-muted font-medium text-foreground transition-colors">eˣ</button>
-            <button type="button" onClick={() => handleScientific("10x")} className="h-7 rounded border border-border/80 bg-muted/40 hover:bg-muted font-medium text-foreground transition-colors">10ˣ</button>
+            <button type="button" onClick={() => handleScientific("asin")} className="h-7 rounded-none border border-slate-300 bg-white hover:bg-slate-100 font-medium text-slate-800 transition-colors">sin⁻¹</button>
+            <button type="button" onClick={() => handleScientific("acos")} className="h-7 rounded-none border border-slate-300 bg-white hover:bg-slate-100 font-medium text-slate-800 transition-colors">cos⁻¹</button>
+            <button type="button" onClick={() => handleScientific("atan")} className="h-7 rounded-none border border-slate-300 bg-white hover:bg-slate-100 font-medium text-slate-800 transition-colors">tan⁻¹</button>
+            <button type="button" onClick={() => handleScientific("exp")} className="h-7 rounded-none border border-slate-300 bg-white hover:bg-slate-100 font-medium text-slate-800 transition-colors">eˣ</button>
+            <button type="button" onClick={() => handleScientific("10x")} className="h-7 rounded-none border border-slate-300 bg-white hover:bg-slate-100 font-medium text-slate-800 transition-colors">10ˣ</button>
 
-            <button type="button" onClick={() => handleScientific("sqrt")} className="h-7 rounded border border-border/80 bg-muted/40 hover:bg-muted font-medium text-foreground transition-colors">√x</button>
-            <button type="button" onClick={() => handleScientific("sqr")} className="h-7 rounded border border-border/80 bg-muted/40 hover:bg-muted font-medium text-foreground transition-colors">x²</button>
-            <button type="button" onClick={() => handleOperator("^")} className="h-7 rounded border border-border/80 bg-muted/40 hover:bg-muted font-medium text-foreground transition-colors">xʸ</button>
-            <button type="button" onClick={() => handleScientific("inv")} className="h-7 rounded border border-border/80 bg-muted/40 hover:bg-muted font-medium text-foreground transition-colors">1/x</button>
-            <button type="button" onClick={() => handleScientific("fact")} className="h-7 rounded border border-border/80 bg-muted/40 hover:bg-muted font-medium text-foreground transition-colors">n!</button>
+            <button type="button" onClick={() => handleScientific("sqrt")} className="h-7 rounded-none border border-slate-300 bg-white hover:bg-slate-100 font-medium text-slate-800 transition-colors">√x</button>
+            <button type="button" onClick={() => handleScientific("sqr")} className="h-7 rounded-none border border-slate-300 bg-white hover:bg-slate-100 font-medium text-slate-800 transition-colors">x²</button>
+            <button type="button" onClick={() => handleOperator("^")} className="h-7 rounded-none border border-slate-300 bg-white hover:bg-slate-100 font-medium text-slate-800 transition-colors">xʸ</button>
+            <button type="button" onClick={() => handleScientific("inv")} className="h-7 rounded-none border border-slate-300 bg-white hover:bg-slate-100 font-medium text-slate-800 transition-colors">1/x</button>
+            <button type="button" onClick={() => handleScientific("fact")} className="h-7 rounded-none border border-slate-300 bg-white hover:bg-slate-100 font-medium text-slate-800 transition-colors">n!</button>
 
-            <button type="button" onClick={() => handleConstant("pi")} className="h-7 rounded border border-border/80 bg-muted/40 hover:bg-muted font-medium text-foreground transition-colors">π</button>
-            <button type="button" onClick={() => handleConstant("e")} className="h-7 rounded border border-border/80 bg-muted/40 hover:bg-muted font-medium text-foreground transition-colors">e</button>
-            <button type="button" onClick={() => handleOperator("mod")} className="h-7 rounded border border-border/80 bg-muted/40 hover:bg-muted font-medium text-foreground transition-colors">mod</button>
-            <button type="button" onClick={() => handleScientific("abs")} className="h-7 rounded border border-border/80 bg-muted/40 hover:bg-muted font-medium text-foreground transition-colors">|x|</button>
-            <button type="button" onClick={() => handleScientific("cbrt")} className="h-7 rounded border border-border/80 bg-muted/40 hover:bg-muted font-medium text-foreground transition-colors">∛x</button>
+            <button type="button" onClick={() => handleConstant("pi")} className="h-7 rounded-none border border-slate-300 bg-white hover:bg-slate-100 font-medium text-slate-800 transition-colors">π</button>
+            <button type="button" onClick={() => handleConstant("e")} className="h-7 rounded-none border border-slate-300 bg-white hover:bg-slate-100 font-medium text-slate-800 transition-colors">e</button>
+            <button type="button" onClick={() => handleOperator("mod")} className="h-7 rounded-none border border-slate-300 bg-white hover:bg-slate-100 font-medium text-slate-800 transition-colors">mod</button>
+            <button type="button" onClick={() => handleScientific("abs")} className="h-7 rounded-none border border-slate-300 bg-white hover:bg-slate-100 font-medium text-slate-800 transition-colors">|x|</button>
+            <button type="button" onClick={() => handleScientific("cbrt")} className="h-7 rounded-none border border-slate-300 bg-white hover:bg-slate-100 font-medium text-slate-800 transition-colors">∛x</button>
           </div>
         ) : null}
 
         {/* Standard Keypad */}
-        <div className="grid grid-cols-4 gap-1.5 text-sm font-mono">
-          <button type="button" onClick={handleClear} className="h-9 rounded-lg border border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/20 font-bold transition-colors">C</button>
-          <button type="button" onClick={handleClearEntry} className="h-9 rounded-lg border border-border bg-muted/60 text-muted-foreground hover:bg-muted font-semibold transition-colors">CE</button>
-          <button type="button" onClick={handleBackspace} className="h-9 rounded-lg border border-border bg-muted/60 text-muted-foreground hover:bg-muted font-semibold transition-colors">⌫</button>
-          <button type="button" onClick={() => handleOperator("÷")} className="h-9 rounded-lg border border-border/80 bg-muted hover:bg-muted/80 font-bold text-foreground transition-colors">÷</button>
+        <div className="grid grid-cols-4 gap-1 text-sm font-mono">
+          <button type="button" onClick={handleClear} className="h-9 rounded-none border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 font-bold transition-colors">C</button>
+          <button type="button" onClick={handleClearEntry} className="h-9 rounded-none border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 font-semibold transition-colors">CE</button>
+          <button type="button" onClick={handleBackspace} className="h-9 rounded-none border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 font-semibold transition-colors">⌫</button>
+          <button type="button" onClick={() => handleOperator("÷")} className="h-9 rounded-none border border-slate-300 bg-slate-100 hover:bg-slate-200 font-bold text-blue-700 transition-colors">÷</button>
 
-          <button type="button" onClick={() => handleNumber("7")} className="h-9 rounded-lg border border-border bg-card hover:bg-muted font-semibold text-foreground transition-colors">7</button>
-          <button type="button" onClick={() => handleNumber("8")} className="h-9 rounded-lg border border-border bg-card hover:bg-muted font-semibold text-foreground transition-colors">8</button>
-          <button type="button" onClick={() => handleNumber("9")} className="h-9 rounded-lg border border-border bg-card hover:bg-muted font-semibold text-foreground transition-colors">9</button>
-          <button type="button" onClick={() => handleOperator("×")} className="h-9 rounded-lg border border-border/80 bg-muted hover:bg-muted/80 font-bold text-foreground transition-colors">×</button>
+          <button type="button" onClick={() => handleNumber("7")} className="h-9 rounded-none border border-slate-300 bg-white hover:bg-slate-100 font-semibold text-slate-900 transition-colors">7</button>
+          <button type="button" onClick={() => handleNumber("8")} className="h-9 rounded-none border border-slate-300 bg-white hover:bg-slate-100 font-semibold text-slate-900 transition-colors">8</button>
+          <button type="button" onClick={() => handleNumber("9")} className="h-9 rounded-none border border-slate-300 bg-white hover:bg-slate-100 font-semibold text-slate-900 transition-colors">9</button>
+          <button type="button" onClick={() => handleOperator("×")} className="h-9 rounded-none border border-slate-300 bg-slate-100 hover:bg-slate-200 font-bold text-blue-700 transition-colors">×</button>
 
-          <button type="button" onClick={() => handleNumber("4")} className="h-9 rounded-lg border border-border bg-card hover:bg-muted font-semibold text-foreground transition-colors">4</button>
-          <button type="button" onClick={() => handleNumber("5")} className="h-9 rounded-lg border border-border bg-card hover:bg-muted font-semibold text-foreground transition-colors">5</button>
-          <button type="button" onClick={() => handleNumber("6")} className="h-9 rounded-lg border border-border bg-card hover:bg-muted font-semibold text-foreground transition-colors">6</button>
-          <button type="button" onClick={() => handleOperator("-")} className="h-9 rounded-lg border border-border/80 bg-muted hover:bg-muted/80 font-bold text-foreground transition-colors">−</button>
+          <button type="button" onClick={() => handleNumber("4")} className="h-9 rounded-none border border-slate-300 bg-white hover:bg-slate-100 font-semibold text-slate-900 transition-colors">4</button>
+          <button type="button" onClick={() => handleNumber("5")} className="h-9 rounded-none border border-slate-300 bg-white hover:bg-slate-100 font-semibold text-slate-900 transition-colors">5</button>
+          <button type="button" onClick={() => handleNumber("6")} className="h-9 rounded-none border border-slate-300 bg-white hover:bg-slate-100 font-semibold text-slate-900 transition-colors">6</button>
+          <button type="button" onClick={() => handleOperator("-")} className="h-9 rounded-none border border-slate-300 bg-slate-100 hover:bg-slate-200 font-bold text-blue-700 transition-colors">−</button>
 
-          <button type="button" onClick={() => handleNumber("1")} className="h-9 rounded-lg border border-border bg-card hover:bg-muted font-semibold text-foreground transition-colors">1</button>
-          <button type="button" onClick={() => handleNumber("2")} className="h-9 rounded-lg border border-border bg-card hover:bg-muted font-semibold text-foreground transition-colors">2</button>
-          <button type="button" onClick={() => handleNumber("3")} className="h-9 rounded-lg border border-border bg-card hover:bg-muted font-semibold text-foreground transition-colors">3</button>
-          <button type="button" onClick={() => handleOperator("+")} className="h-9 rounded-lg border border-border/80 bg-muted hover:bg-muted/80 font-bold text-foreground transition-colors">+</button>
+          <button type="button" onClick={() => handleNumber("1")} className="h-9 rounded-none border border-slate-300 bg-white hover:bg-slate-100 font-semibold text-slate-900 transition-colors">1</button>
+          <button type="button" onClick={() => handleNumber("2")} className="h-9 rounded-none border border-slate-300 bg-white hover:bg-slate-100 font-semibold text-slate-900 transition-colors">2</button>
+          <button type="button" onClick={() => handleNumber("3")} className="h-9 rounded-none border border-slate-300 bg-white hover:bg-slate-100 font-semibold text-slate-900 transition-colors">3</button>
+          <button type="button" onClick={() => handleOperator("+")} className="h-9 rounded-none border border-slate-300 bg-slate-100 hover:bg-slate-200 font-bold text-blue-700 transition-colors">+</button>
 
-          <button type="button" onClick={handleToggleSign} className="h-9 rounded-lg border border-border bg-card hover:bg-muted font-semibold text-foreground transition-colors">±</button>
-          <button type="button" onClick={() => handleNumber("0")} className="h-9 rounded-lg border border-border bg-card hover:bg-muted font-semibold text-foreground transition-colors">0</button>
-          <button type="button" onClick={handleDecimal} className="h-9 rounded-lg border border-border bg-card hover:bg-muted font-semibold text-foreground transition-colors">.</button>
-          <button type="button" onClick={handleEquals} className="h-9 rounded-lg bg-brand-violet text-brand-violet-foreground hover:bg-brand-violet/90 font-bold text-base transition-colors">=</button>
+          <button type="button" onClick={handleToggleSign} className="h-9 rounded-none border border-slate-300 bg-white hover:bg-slate-100 font-semibold text-slate-900 transition-colors">±</button>
+          <button type="button" onClick={() => handleNumber("0")} className="h-9 rounded-none border border-slate-300 bg-white hover:bg-slate-100 font-semibold text-slate-900 transition-colors">0</button>
+          <button type="button" onClick={handleDecimal} className="h-9 rounded-none border border-slate-300 bg-white hover:bg-slate-100 font-semibold text-slate-900 transition-colors">.</button>
+          <button type="button" onClick={handleEquals} className="h-9 rounded-none border border-blue-600 bg-blue-600 hover:bg-blue-700 text-white font-bold text-base transition-colors">=</button>
         </div>
       </div>
     </div>
   )
 }
+

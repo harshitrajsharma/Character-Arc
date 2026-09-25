@@ -56,10 +56,10 @@ export function DashboardQuickActions({
           size="sm"
           variant="outline"
           className="gap-1.5 rounded-full border-border/60 text-xs"
-          render={<Link href={`/workspace/${encodeURIComponent(workspaceSlug)}/mock-tests/new`} />}
+          render={<Link href={`/workspace/${encodeURIComponent(workspaceSlug)}/assessments/new`} />}
         >
-          <FileCheckIcon className="size-3.5 text-purple-500" />
-          <span>Mock Test</span>
+          <FileCheckIcon className="size-3.5 text-sky-500" />
+          <span>Assessment</span>
         </Button>
 
         <Button

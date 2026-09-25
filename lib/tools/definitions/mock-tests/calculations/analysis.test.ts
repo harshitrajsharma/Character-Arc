@@ -139,5 +139,28 @@ describe("buildAnalysis", () => {
     expect(doc.sections.map((section) => section.section)).toEqual(["A", "B"])
     expect(doc.sections[0].correctCount).toBe(1)
     expect(doc.sections[1].incorrectCount).toBe(1)
+    expect(doc.passingBenchmark).toBe(33)
+    expect(doc.distinctionBenchmark).toBe(70)
+  })
+
+  it("preserves custom benchmarks when provided", () => {
+    const doc = buildAnalysis({
+      attemptId: "attempt-1",
+      assessmentId: "assessment-1",
+      assessmentTitle: "GATE CS Mock",
+      status: "EVALUATED",
+      startedAt: "2026-01-01T00:00:00Z",
+      submittedAt: "2026-01-01T01:00:00Z",
+      durationMinutes: 180,
+      questions: [
+        row({ questionId: "a", isCorrect: true, awardedMarks: 25, marks: 100 }),
+      ],
+      weakTopics: [],
+      passingBenchmark: 25,
+      distinctionBenchmark: 65,
+    })
+
+    expect(doc.passingBenchmark).toBe(25)
+    expect(doc.distinctionBenchmark).toBe(65)
   })
 })

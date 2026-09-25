@@ -29,9 +29,11 @@ export function BreadcrumbProvider({ children }: { children: React.ReactNode }) 
   const pathname = usePathname()
 
   // Clear custom breadcrumbs when navigating to a new route unless replaced by new component
-  React.useEffect(() => {
+  const [prevPathname, setPrevPathname] = React.useState(pathname)
+  if (prevPathname !== pathname) {
+    setPrevPathname(pathname)
     setBreadcrumbs(null)
-  }, [pathname])
+  }
 
   return (
     <BreadcrumbContext.Provider value={{ breadcrumbs, setBreadcrumbs }}>

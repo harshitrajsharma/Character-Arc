@@ -16,9 +16,9 @@ if (globalForPrisma.prisma && globalForPrisma.pool) {
 } else {
   pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    max: 10,
+    max: 20,
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 10000,
+    connectionTimeoutMillis: 30000,
   })
   const adapter = new PrismaPg(pool)
 

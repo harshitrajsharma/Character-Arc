@@ -715,6 +715,7 @@
   /* ── Rich text editor surface ───────────────────────────────────────────── */
   .rich-text-editor .tiptap {
     min-height: var(--rich-editor-min-height, 9rem);
+    height: 100%;
     padding: 0.875rem 1rem;
     outline: none;
     caret-color: var(--brand-violet-ink);
@@ -761,6 +762,72 @@
 
   .paper-rule {
     border-bottom: 1px solid var(--border);
+  }
+
+  /* ── CBT Flat Cyber-Terminal Scrollbar (Dark fallback) ──────────────── */
+  .cbt-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .cbt-scrollbar::-webkit-scrollbar-track {
+    background: #0a0d1a;
+  }
+  .cbt-scrollbar::-webkit-scrollbar-thumb {
+    background: #222c54;
+    border-radius: 0;
+  }
+  .cbt-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #6b8eff;
+  }
+  .cbt-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #222c54 #0a0d1a;
+  }
+
+  /* ── CBT Dedicated Exam Room Pure Light-Mode Overrides ── */
+  .cbt-exam-root,
+  [data-cbt-theme="light"] {
+    --background: #f8fafc !important;
+    --foreground: #020617 !important;
+    --card: #ffffff !important;
+    --card-foreground: #020617 !important;
+    --popover: #ffffff !important;
+    --popover-foreground: #020617 !important;
+    --muted: #f1f5f9 !important;
+    --muted-foreground: #475569 !important;
+    --border: #cbd5e1 !important;
+    color: #020617 !important;
+  }
+
+  .cbt-exam-root .rich-text,
+  .cbt-exam-root .rich-text *,
+  .cbt-exam-root .tiptap,
+  .cbt-exam-root .tiptap *,
+  .cbt-exam-root .katex,
+  .cbt-exam-root .katex *,
+  .cbt-exam-root .katex-html,
+  .cbt-exam-root .katex-html * {
+    color: #020617 !important;
+  }
+
+  /* ── Light-mode Institutional CBT Scrollbar ── */
+  .cbt-scrollbar-light::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .cbt-scrollbar-light::-webkit-scrollbar-track {
+    background: #f1f5f9;
+  }
+  .cbt-scrollbar-light::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 0;
+  }
+  .cbt-scrollbar-light::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+  .cbt-scrollbar-light {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 #f1f5f9;
   }
 }
 

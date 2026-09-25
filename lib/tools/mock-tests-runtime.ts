@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Runtime helpers for core.mock-tests action executors: idempotent tool runs,
  * serializable transactions, and installation authorization. Modeled on the
  * exam-prep scheduled-test runtime, but scoped to the `core.mock-tests`
@@ -65,7 +65,6 @@ export async function withMockTestsSerializableTransaction<T>(
   ) {
     try {
       return await prisma.$transaction(operation, {
-        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
         timeout: 30000,
       })
     } catch (error) {
@@ -349,31 +348,33 @@ export async function failMockTestsRunAndThrow(
     ? error.message
     : reportUnexpectedError(error, fallback)
 
-  try {
-    await prisma.$transaction(async (tx) => {
-      const failed = await tx.toolRun.updateMany({
-        where: { id: runId, status: ToolRunStatus.RUNNING },
-        data: {
-          status: ToolRunStatus.FAILED,
-          errorCode: code,
-          errorMessage: message,
-          completedAt: new Date(),
-        },
-      })
-      if (failed.count === 1) {
-        await tx.toolRunPayload.update({
-          where: { toolRunId: runId },
+  if (runId && runId !== "no-run") {
+    try {
+      await prisma.$transaction(async (tx) => {
+        const failed = await tx.toolRun.updateMany({
+          where: { id: runId, status: ToolRunStatus.RUNNING },
           data: {
-            error: { code, message } as Prisma.InputJsonValue,
+            status: ToolRunStatus.FAILED,
+            errorCode: code,
+            errorMessage: message,
+            completedAt: new Date(),
           },
         })
-      }
-    })
-  } catch (auditError) {
-    console.error("[mock-tests] Failed to persist ToolRun failure", {
-      runId,
-      auditError,
-    })
+        if (failed.count === 1) {
+          await tx.toolRunPayload.update({
+            where: { toolRunId: runId },
+            data: {
+              error: { code, message } as Prisma.InputJsonValue,
+            },
+          })
+        }
+      })
+    } catch (auditError) {
+      console.error("[mock-tests] Failed to persist ToolRun failure", {
+        runId,
+        auditError,
+      })
+    }
   }
 
   if (isPublicError) throw error

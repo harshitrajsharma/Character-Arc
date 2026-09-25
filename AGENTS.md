@@ -52,3 +52,20 @@ Before choosing, adding, or changing frontend colors, read [`css-color-context.m
 
 ## Tool Architecture and Data Layer
 Before building or modifying Tools, Block Types, or database synchronizations, read [`tool-architecture-rules.md`](.AGENTS/project-context/tool-architecture-rules.md). This project uses a strict Next.js Prisma-driven Tool Registry rather than custom Supabase SQL triggers or RPCs.
+
+## Mock Tests & Community Hub Architecture
+Before working on or extending the Mock Tests tool, question types, community distribution, or CBT exam player, read [`mock-tests-community-architecture.md`](.AGENTS/project-context/mock-tests-community-architecture.md).
+
+## 🧪 E2E Headless Browser Testing
+Before concluding major full-stack, UI/UX, or routing updates, run the automated Playwright browser test suite to verify everything in a real browser environment. Read [`e2e-testing-guide.md`](.AGENTS/project-context/e2e-testing-guide.md) and execute:
+```bash
+npx tsx scripts/e2e-browser-test.ts
+```
+
+## 📝 Mandatory Agent Context Maintenance Rule
+**Every AI agent working on this codebase MUST maintain the proper context of the project with every update:**
+1. **Always Read Context:** Inspect `.AGENTS/project-context/` before proposing or making changes to tools, models, or design systems.
+2. **Always Update Documentation:** Whenever you introduce new features, alter data contracts, add tool actions, or refactor UI/UX patterns, update the relevant file in `.AGENTS/project-context/` to reflect current reality.
+3. **Always Log Major Updates:** Document your changes, architecture decisions, and test results chronologically in [`PROJECT_LOGS.md`](.AGENTS/project-context/PROJECT_LOGS.md).
+
+

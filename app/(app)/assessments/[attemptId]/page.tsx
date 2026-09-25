@@ -25,7 +25,11 @@ export default async function DedicatedExamRoomPage({
   }
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-background text-foreground font-sans antialiased flex flex-col">
+    <div
+      className="cbt-exam-root light fixed inset-0 z-50 overflow-hidden bg-white text-slate-950 font-sans antialiased flex flex-col select-none"
+      data-cbt-theme="light"
+      data-theme="light"
+    >
       <AttemptPlayer workspaceSlug={workspaceSlug} attempt={attempt} />
     </div>
   )

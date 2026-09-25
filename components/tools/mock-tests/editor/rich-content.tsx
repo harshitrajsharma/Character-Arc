@@ -54,9 +54,11 @@ function enhanceLegacyMath(root: HTMLElement) {
 export function RichContent({
   html,
   className,
+  style,
 }: {
   html: string
   className?: string
+  style?: React.CSSProperties
 }) {
   const rootRef = useRef<HTMLDivElement | null>(null)
 
@@ -79,6 +81,7 @@ export function RichContent({
   return (
     <div
       ref={rootRef}
+      style={style}
       className={cn("rich-text", className)}
       // Author-authored HTML is trusted: it is produced by the rich editor
       // and sanitized by Tiptap's schema on the way in.

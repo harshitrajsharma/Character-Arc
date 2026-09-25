@@ -25,7 +25,6 @@ const questionPayloadSchema = z.object({
     "MULTIPLE_CHOICE",
     "TRUE_FALSE",
     "NUMERIC",
-    "SHORT_ANSWER",
   ]),
   difficulty: z.number().int().min(1).max(5).nullable().optional(),
   options: z

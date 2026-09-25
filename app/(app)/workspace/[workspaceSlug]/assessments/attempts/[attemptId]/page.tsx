@@ -27,7 +27,9 @@ export default async function AttemptPage({
   if (!attempt) notFound()
 
   if (attempt.attemptStatus === "in_progress") {
-    redirect(`/mock-test/${encodeURIComponent(attempt.attemptId)}`)
+    redirect(
+      workspaceRoutes.mockTests.attempt(workspaceSlug, attempt.attemptId)
+    )
   }
 
   redirect(

@@ -13,7 +13,11 @@ export default async function ToolDetailPage({ params }: ToolDetailPageProps) {
   const catalog = await getToolCatalog()
   const catalogRoute = workspaceRoutes.tools.detail(toolSlug)
   const item = catalog.items.find(
-    (candidate) => candidate.homeRoute === catalogRoute
+    (candidate) =>
+      candidate.homeRoute === catalogRoute ||
+      candidate.key === toolSlug ||
+      candidate.key === `core.${toolSlug}` ||
+      candidate.homeRoute === `/tools/${toolSlug}`
   )
 
   if (!item) notFound()

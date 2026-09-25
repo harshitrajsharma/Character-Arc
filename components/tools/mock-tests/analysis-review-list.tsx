@@ -1,32 +1,28 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import {
   CheckCircle2Icon,
   ChevronDownIcon,
   ChevronUpIcon,
   ClockIcon,
-  HelpCircleIcon,
+  LightbulbIcon,
   XCircleIcon,
   AlertTriangleIcon,
+  SearchIcon,
+  CheckIcon,
+  XIcon,
 } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { RichContent } from "@/components/tools/mock-tests/editor/rich-content"
-import { questionKindLabel, formatNumber } from "@/lib/tools/mock-tests/kind-labels"
+import { questionKindLabel, formatNumber, formatDuration } from "@/lib/tools/mock-tests/kind-labels"
 import type { AnalysisQuestionRow } from "@/lib/tools/definitions/mock-tests/calculations/analysis"
 
 type FilterMode = "ALL" | "INCORRECT" | "NEGATIVE" | "UNANSWERED" | "CORRECT"
-
-function formatTimeSpent(seconds: number | null): string {
-  if (seconds === null || seconds === undefined || seconds <= 0) return ""
-  const m = Math.floor(seconds / 60)
-  const s = seconds % 60
-  if (m > 0) return `${m}m ${s}s`
-  return `${s}s`
-}
 
 export function AnalysisReviewList({
   questions,
@@ -34,6 +30,8 @@ export function AnalysisReviewList({
   questions: AnalysisQuestionRow[]
 }) {
   const [filter, setFilter] = useState<FilterMode>("ALL")
+  const [searchQuery, setSearchQuery] = useState("")
+  const [selectedSection, setSelectedSection] = useState<string>("ALL")
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>(() => {
     // Expand incorrect by default for high-yield learning
     const initial: Record<string, boolean> = {}
@@ -42,6 +40,55 @@ export function AnalysisReviewList({
     })
     return initial
   })
+
+  const sections = useMemo(() => {
+    return Array.from(new Set(questions.map((q) => q.section).filter(Boolean))) as string[]
+  }, [questions])
+
+  // Heatmap click interaction bridge
+  useEffect(() => {
+    function handleSelect(e: Event) {
+      const customEvent = e as CustomEvent<{ questionId: string }>
+      const targetId = customEvent.detail?.questionId
+      if (!targetId) return
+
+      const q = questions.find((item) => item.questionId === targetId)
+      if (!q) return
+
+      // If active filter would hide this question, reset filter to ALL
+      setFilter((currentFilter) => {
+        if (currentFilter === "CORRECT" && q.isCorrect !== true) return "ALL"
+        if (currentFilter === "INCORRECT" && q.isCorrect !== false) return "ALL"
+        if (currentFilter === "NEGATIVE" && (q.isCorrect !== false || q.awardedMarks >= 0)) return "ALL"
+        if (currentFilter === "UNANSWERED" && q.isCorrect !== null) return "ALL"
+        return currentFilter
+      })
+
+      // Ensure search query or section doesn't hide it
+      setSearchQuery("")
+      setSelectedSection("ALL")
+
+      // Expand the targeted question card
+      setExpandedIds((prev) => ({ ...prev, [targetId]: true }))
+
+      // Smooth scroll into view
+      setTimeout(() => {
+        const el = document.getElementById(`question-review-${targetId}`)
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" })
+          el.classList.add("ring-2", "ring-primary", "ring-offset-2")
+          setTimeout(() => {
+            el.classList.remove("ring-2", "ring-primary", "ring-offset-2")
+          }, 2000)
+        }
+      }, 100)
+    }
+
+    window.addEventListener("select-review-question", handleSelect)
+    return () => {
+      window.removeEventListener("select-review-question", handleSelect)
+    }
+  }, [questions])
 
   const counts = useMemo(() => {
     let correct = 0
@@ -59,12 +106,34 @@ export function AnalysisReviewList({
   }, [questions])
 
   const filteredQuestions = useMemo(() => {
-    if (filter === "CORRECT") return questions.filter((q) => q.isCorrect === true)
-    if (filter === "INCORRECT") return questions.filter((q) => q.isCorrect === false)
-    if (filter === "NEGATIVE") return questions.filter((q) => q.isCorrect === false && q.awardedMarks < 0)
-    if (filter === "UNANSWERED") return questions.filter((q) => q.isCorrect === null)
-    return questions
-  }, [questions, filter])
+    let result = questions
+
+    // Status filter
+    if (filter === "CORRECT") result = result.filter((q) => q.isCorrect === true)
+    else if (filter === "INCORRECT") result = result.filter((q) => q.isCorrect === false)
+    else if (filter === "NEGATIVE") result = result.filter((q) => q.isCorrect === false && q.awardedMarks < 0)
+    else if (filter === "UNANSWERED") result = result.filter((q) => q.isCorrect === null)
+
+    // Section filter
+    if (selectedSection !== "ALL") {
+      result = result.filter((q) => q.section === selectedSection)
+    }
+
+    // Search query filter
+    const query = searchQuery.trim().toLowerCase()
+    if (query) {
+      result = result.filter((q, index) => {
+        const qNum = `q${index + 1}`
+        if (qNum.includes(query)) return true
+        if (q.stem.toLowerCase().includes(query)) return true
+        if (q.options?.some((o) => o.content.toLowerCase().includes(query))) return true
+        if (q.explanation && q.explanation.toLowerCase().includes(query)) return true
+        return false
+      })
+    }
+
+    return result
+  }, [questions, filter, selectedSection, searchQuery])
 
   function toggleExpand(id: string) {
     setExpandedIds((prev) => ({ ...prev, [id]: !prev[id] }))
@@ -80,7 +149,7 @@ export function AnalysisReviewList({
 
   return (
     <section aria-labelledby="review-title" className="mt-8 space-y-4">
-      {/* Section Header & Filter Pills */}
+      {/* Section Header */}
       <div className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
@@ -91,95 +160,143 @@ export function AnalysisReviewList({
           </h2>
         </div>
 
-        {/* Filter Pills & Collapse Controls */}
+        {/* Global Expand/Collapse controls */}
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            onClick={() => toggleAll(true)}
+            className="text-xs text-muted-foreground hover:text-foreground h-7 px-2.5 rounded-full"
+          >
+            Expand all
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            onClick={() => toggleAll(false)}
+            className="text-xs text-muted-foreground hover:text-foreground h-7 px-2.5 rounded-full"
+          >
+            Collapse all
+          </Button>
+        </div>
+      </div>
+
+      {/* Filter & Search Toolbar */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        {/* Status Filter Tabs */}
+        <div className="flex flex-wrap items-center gap-1 rounded-xl border border-border bg-muted/40 p-1 text-xs font-medium">
+          <button
+            type="button"
+            onClick={() => setFilter("ALL")}
+            className={cn(
+              "rounded-lg px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer",
+              filter === "ALL"
+                ? "bg-background text-foreground shadow-xs font-bold"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            All ({counts.all})
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilter("INCORRECT")}
+            className={cn(
+              "rounded-lg px-2.5 py-1 text-xs font-medium transition-colors flex items-center gap-1 cursor-pointer",
+              filter === "INCORRECT"
+                ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 shadow-xs font-bold"
+                : "text-muted-foreground hover:text-rose-500"
+            )}
+          >
+            <XCircleIcon className="size-3" />
+            Incorrect ({counts.incorrect})
+          </button>
+          {counts.negative > 0 ? (
+            <button
+              type="button"
+              onClick={() => setFilter("NEGATIVE")}
+              className={cn(
+                "rounded-lg px-2.5 py-1 text-xs font-medium transition-colors flex items-center gap-1 cursor-pointer",
+                filter === "NEGATIVE"
+                  ? "bg-destructive/15 text-destructive shadow-xs font-bold"
+                  : "text-muted-foreground hover:text-destructive"
+              )}
+            >
+              <AlertTriangleIcon className="size-3" />
+              -ve Marks ({counts.negative})
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => setFilter("UNANSWERED")}
+            className={cn(
+              "rounded-lg px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer",
+              filter === "UNANSWERED"
+                ? "bg-background text-foreground shadow-xs font-bold"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            Skipped ({counts.unanswered})
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilter("CORRECT")}
+            className={cn(
+              "rounded-lg px-2.5 py-1 text-xs font-medium transition-colors flex items-center gap-1 cursor-pointer",
+              filter === "CORRECT"
+                ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 shadow-xs font-bold"
+                : "text-muted-foreground hover:text-emerald-500"
+            )}
+          >
+            <CheckCircle2Icon className="size-3" />
+            Correct ({counts.correct})
+          </button>
+        </div>
+
+        {/* Search & Section Controls */}
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex flex-wrap items-center gap-1 rounded-xl border border-border bg-muted/40 p-1 text-xs font-medium">
-            <button
-              type="button"
-              onClick={() => setFilter("ALL")}
-              className={cn(
-                "rounded-lg px-2.5 py-1 text-xs font-medium transition-colors",
-                filter === "ALL"
-                  ? "bg-background text-foreground shadow-xs font-bold"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              All ({counts.all})
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilter("INCORRECT")}
-              className={cn(
-                "rounded-lg px-2.5 py-1 text-xs font-medium transition-colors flex items-center gap-1",
-                filter === "INCORRECT"
-                  ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 shadow-xs font-bold"
-                  : "text-muted-foreground hover:text-rose-500"
-              )}
-            >
-              <XCircleIcon className="size-3" />
-              Incorrect ({counts.incorrect})
-            </button>
-            {counts.negative > 0 ? (
+          {sections.length > 1 ? (
+            <div className="flex items-center gap-1">
               <button
                 type="button"
-                onClick={() => setFilter("NEGATIVE")}
+                onClick={() => setSelectedSection("ALL")}
                 className={cn(
-                  "rounded-lg px-2.5 py-1 text-xs font-medium transition-colors flex items-center gap-1",
-                  filter === "NEGATIVE"
-                    ? "bg-destructive/15 text-destructive shadow-xs font-bold"
-                    : "text-muted-foreground hover:text-destructive"
+                  "rounded-full px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer",
+                  selectedSection === "ALL"
+                    ? "bg-secondary text-secondary-foreground font-bold"
+                    : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                <AlertTriangleIcon className="size-3" />
-                -ve Marks ({counts.negative})
+                All Sections
               </button>
-            ) : null}
-            <button
-              type="button"
-              onClick={() => setFilter("UNANSWERED")}
-              className={cn(
-                "rounded-lg px-2.5 py-1 text-xs font-medium transition-colors",
-                filter === "UNANSWERED"
-                  ? "bg-background text-foreground shadow-xs font-bold"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              Unanswered ({counts.unanswered})
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilter("CORRECT")}
-              className={cn(
-                "rounded-lg px-2.5 py-1 text-xs font-medium transition-colors flex items-center gap-1",
-                filter === "CORRECT"
-                  ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 shadow-xs font-bold"
-                  : "text-muted-foreground hover:text-emerald-500"
-              )}
-            >
-              <CheckCircle2Icon className="size-3" />
-              Correct ({counts.correct})
-            </button>
-          </div>
+              {sections.map((sec) => (
+                <button
+                  key={sec}
+                  type="button"
+                  onClick={() => setSelectedSection(sec)}
+                  className={cn(
+                    "rounded-full px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer",
+                    selectedSection === sec
+                      ? "bg-secondary text-secondary-foreground font-bold"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {sec}
+                </button>
+              ))}
+            </div>
+          ) : null}
 
-          <div className="flex items-center gap-1">
-            <Button
-              type="button"
-              variant="ghost"
-              size="xs"
-              onClick={() => toggleAll(true)}
-              className="text-[11px] text-muted-foreground hover:text-foreground h-7 px-2"
-            >
-              Expand all
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="xs"
-              onClick={() => toggleAll(false)}
-              className="text-[11px] text-muted-foreground hover:text-foreground h-7 px-2"
-            >
-              Collapse all
-            </Button>
+          <div className="relative w-full sm:w-56">
+            <SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+            <Input
+              type="text"
+              placeholder="Search solutions..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="h-8 pl-8 pr-3 text-xs rounded-full bg-muted/40 border-border"
+            />
           </div>
         </div>
       </div>
@@ -187,7 +304,7 @@ export function AnalysisReviewList({
       {/* Questions list */}
       {filteredQuestions.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border bg-card p-8 text-center text-xs text-muted-foreground">
-          No questions match the active filter ({filter.toLowerCase()}).
+          No questions match the current filters.
         </div>
       ) : (
         <ol className="space-y-4">
@@ -231,7 +348,7 @@ export function AnalysisReviewList({
                     {question.timeSpentSeconds ? (
                       <span className="inline-flex items-center gap-1 text-[11px] font-mono text-muted-foreground ml-1">
                         <ClockIcon className="size-3" />
-                        {formatTimeSpent(question.timeSpentSeconds)}
+                        {formatDuration(question.timeSpentSeconds)}
                       </span>
                     ) : null}
                   </div>
@@ -256,7 +373,7 @@ export function AnalysisReviewList({
 
                     <button
                       type="button"
-                      className="size-6 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground"
+                      className="size-6 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground cursor-pointer"
                       aria-label={isExpanded ? "Collapse solution" : "Expand solution"}
                     >
                       {isExpanded ? <ChevronUpIcon className="size-4" /> : <ChevronDownIcon className="size-4" />}
@@ -272,7 +389,7 @@ export function AnalysisReviewList({
                       <RichContent html={question.stem} />
                     </div>
 
-                    {/* Option Choices with Keypad / Selection Display */}
+                    {/* Option Choices with High-Contrast Feedback */}
                     {question.options && question.options.length > 0 ? (
                       <ul className="space-y-2 pt-1">
                         {question.options.map((option) => {
@@ -284,11 +401,13 @@ export function AnalysisReviewList({
                               key={option.key}
                               className={cn(
                                 "flex items-start gap-3 rounded-xl border p-3.5 text-xs transition-all",
-                                correct
-                                  ? "border-emerald-500/40 bg-emerald-500/5 text-foreground ring-1 ring-emerald-500/20"
-                                  : selected
-                                    ? "border-rose-500/40 bg-rose-500/5 text-foreground"
-                                    : "border-border/80 bg-background text-foreground"
+                                correct && selected
+                                  ? "border-emerald-500/60 bg-emerald-500/10 text-foreground ring-1 ring-emerald-500/30"
+                                  : correct
+                                    ? "border-emerald-500/50 bg-emerald-500/5 text-foreground ring-1 ring-emerald-500/20"
+                                    : selected
+                                      ? "border-rose-500/60 bg-rose-500/10 text-foreground ring-1 ring-rose-500/30"
+                                      : "border-border/80 bg-background/50 text-foreground"
                               )}
                             >
                               <span
@@ -306,13 +425,20 @@ export function AnalysisReviewList({
                               <div className="min-w-0 flex-1 rich-text leading-relaxed">
                                 <RichContent html={option.content} />
                               </div>
-                              {correct ? (
-                                <span className="shrink-0 text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                                  Correct answer
+                              {correct && selected ? (
+                                <span className="inline-flex items-center gap-1 shrink-0 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                                  <CheckIcon className="size-3.5" />
+                                  Your Choice &amp; Correct
+                                </span>
+                              ) : correct ? (
+                                <span className="inline-flex items-center gap-1 shrink-0 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                                  <CheckIcon className="size-3.5" />
+                                  Correct Answer
                                 </span>
                               ) : selected ? (
-                                <span className="shrink-0 text-xs font-bold text-rose-600 dark:text-rose-400">
-                                  Your choice
+                                <span className="inline-flex items-center gap-1 shrink-0 text-xs font-bold text-rose-600 dark:text-rose-400">
+                                  <XIcon className="size-3.5" />
+                                  Your Choice
                                 </span>
                               ) : null}
                             </li>
@@ -320,9 +446,9 @@ export function AnalysisReviewList({
                         })}
                       </ul>
                     ) : question.kind === "NUMERIC" ? (
-                      <div className="rounded-xl border border-border/80 bg-muted/20 p-4 text-xs flex flex-wrap items-center gap-6">
+                      <div className="rounded-xl border border-border/80 bg-muted/20 p-4 text-xs flex flex-wrap items-center gap-8">
                         <div>
-                          <span className="text-muted-foreground font-semibold block mb-0.5">Your Input:</span>
+                          <span className="text-muted-foreground font-semibold block mb-0.5">Your Response:</span>
                           <span className={cn(
                             "font-mono text-sm font-bold",
                             isCorrect ? "text-emerald-600 dark:text-emerald-400" : isIncorrect ? "text-rose-600 dark:text-rose-400" : "text-muted-foreground"
@@ -331,7 +457,7 @@ export function AnalysisReviewList({
                           </span>
                         </div>
                         <div>
-                          <span className="text-muted-foreground font-semibold block mb-0.5">Correct Numerical Value:</span>
+                          <span className="text-muted-foreground font-semibold block mb-0.5">Accepted Correct Value:</span>
                           <span className="font-mono text-sm font-bold text-emerald-600 dark:text-emerald-400">
                             {question.numericAnswer !== null && question.numericAnswer !== undefined
                               ? formatNumber(question.numericAnswer)
@@ -351,7 +477,7 @@ export function AnalysisReviewList({
                     {question.explanation ? (
                       <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 sm:p-5 space-y-2">
                         <div className="flex items-center gap-1.5 text-xs font-bold text-primary uppercase tracking-wide">
-                          <HelpCircleIcon className="size-4" />
+                          <LightbulbIcon className="size-4" />
                           Step-by-Step Solution Derivation
                         </div>
                         <div className="text-xs leading-relaxed text-foreground rich-text">

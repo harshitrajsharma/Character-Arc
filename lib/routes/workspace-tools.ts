@@ -45,29 +45,34 @@ export const workspaceRoutes = {
   },
   mockTests: {
     home: (slug: string) =>
-      `/workspace/${encodeURIComponent(slug)}/mock-tests`,
+      `/workspace/${encodeURIComponent(slug)}/assessments`,
     authoring: (slug: string) =>
-      `/workspace/${encodeURIComponent(slug)}/mock-tests/authoring`,
+      `/workspace/${encodeURIComponent(slug)}/assessments/authoring`,
     new: (slug: string) =>
-      `/workspace/${encodeURIComponent(slug)}/mock-tests/new`,
+      `/workspace/${encodeURIComponent(slug)}/assessments/new`,
     detail: (slug: string, assessmentId: string) =>
-      `/workspace/${encodeURIComponent(slug)}/mock-tests/${encodeURIComponent(assessmentId)}`,
+      `/workspace/${encodeURIComponent(slug)}/assessments/${encodeURIComponent(assessmentId)}`,
     assessment: (slug: string, assessmentId: string) =>
-      `/workspace/${encodeURIComponent(slug)}/mock-tests/${encodeURIComponent(assessmentId)}`,
+      `/workspace/${encodeURIComponent(slug)}/assessments/${encodeURIComponent(assessmentId)}`,
     edit: (slug: string, assessmentId: string) =>
-      `/workspace/${encodeURIComponent(slug)}/mock-tests/${encodeURIComponent(assessmentId)}/edit`,
+      `/workspace/${encodeURIComponent(slug)}/assessments/${encodeURIComponent(assessmentId)}/edit`,
     attemptNew: (slug: string, assessmentId: string) =>
-      `/workspace/${encodeURIComponent(slug)}/mock-tests/${encodeURIComponent(assessmentId)}/attempts/new`,
+      `/workspace/${encodeURIComponent(slug)}/assessments/${encodeURIComponent(assessmentId)}/attempts/new`,
     attempt: (_slug: string, attemptId: string) =>
-      `/mock-test/${encodeURIComponent(attemptId)}`,
+      `/assessments/${encodeURIComponent(attemptId)}`,
+    share: (assessmentId: string) =>
+      `/assessments/share/${encodeURIComponent(assessmentId)}`,
     analysis: (slug: string, attemptId: string) =>
-      `/workspace/${encodeURIComponent(slug)}/mock-tests/attempts/${encodeURIComponent(attemptId)}/analysis`,
+      `/workspace/${encodeURIComponent(slug)}/assessments/attempts/${encodeURIComponent(attemptId)}/analysis`,
     questions: (slug: string) =>
-      `/workspace/${encodeURIComponent(slug)}/mock-tests/questions`,
+      `/workspace/${encodeURIComponent(slug)}/assessments/questions`,
     questionNew: (slug: string) =>
-      `/workspace/${encodeURIComponent(slug)}/mock-tests/questions/new`,
+      `/workspace/${encodeURIComponent(slug)}/assessments/questions/new`,
     questionEdit: (slug: string, questionId: string) =>
-      `/workspace/${encodeURIComponent(slug)}/mock-tests/questions/${encodeURIComponent(questionId)}/edit`,
+      `/workspace/${encodeURIComponent(slug)}/assessments/questions/${encodeURIComponent(questionId)}/edit`,
+  },
+  get assessments() {
+    return this.mockTests
   },
 }
 

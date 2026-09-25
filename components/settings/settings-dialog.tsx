@@ -119,13 +119,17 @@ export function SettingsDialog({
     React.useState<SettingsSectionKey>(defaultSection)
   const [tokens, setTokens] = React.useState<TokenItem[]>(initialTokens)
 
-  React.useEffect(() => {
+  const [prevInitialTokens, setPrevInitialTokens] = React.useState(initialTokens)
+  if (prevInitialTokens !== initialTokens) {
+    setPrevInitialTokens(initialTokens)
     setTokens(initialTokens)
-  }, [initialTokens])
+  }
 
-  React.useEffect(() => {
+  const [prevDefaultSection, setPrevDefaultSection] = React.useState(defaultSection)
+  if (prevDefaultSection !== defaultSection) {
+    setPrevDefaultSection(defaultSection)
     setActiveSection(defaultSection)
-  }, [defaultSection])
+  }
   const [isCreateKeyOpen, setIsCreateKeyOpen] = React.useState(false)
   const [keyName, setKeyName] = React.useState("")
   const [newlyCreatedKey, setNewlyCreatedKey] = React.useState<string | null>(null)
