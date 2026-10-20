@@ -818,3 +818,8 @@ Decomposed the monolithic component into 10 modular, single-responsibility subco
 - Updated storage setup documentation and app-wide rollout plan. Full E2E and final static-check results follow below.
 
 - Final checks: TypeScript `tsc --noEmit` and targeted ESLint passed. Mandated full E2E rerun passed login, paper creation, builder save, publish, CBT/calculator/answer entry, then failed at the 60-second analysis redirect while the submit modal remained `Submitting Exam...`. Sharing checks were not reached. This is a separate broad-workflow failure; live image storage checks passed. Evidence: `scratch/storage-setup/full-e2e.log` and `scratch/storage-setup/e2e/error-state.png`.
+
+### 2026-10-20 — Keep local development artifacts out of Git
+
+- Ignore the scratch directory (including screenshots and verification logs), root debug log, local agent teamwork directory, and teamwork checkpoint.
+- Remove previously tracked scratch artifacts from the Git index while preserving all local files. Verification uses Git ignore and index checks; no application behavior changed.

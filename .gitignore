@@ -40,3 +40,9 @@ next-env.d.ts
 
 # Internal Docs
 Docs
+
+# Local development artifacts and agent coordination
+/scratch/
+/debug.log
+/.AGENTS/teamwork/
+/TEAMWORK_CHECKPOINT.md
