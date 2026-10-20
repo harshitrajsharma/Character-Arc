@@ -23,7 +23,19 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
-import { RichTextEditor } from "@/components/tools/mock-tests/editor/rich-text-editor"
+import dynamic from "next/dynamic"
+import { RichTextEditorSkeleton } from "@/components/tools/mock-tests/editor/rich-text-editor"
+
+const RichTextEditor = dynamic(
+  () =>
+    import("@/components/tools/mock-tests/editor/rich-text-editor").then(
+      (mod) => mod.RichTextEditor
+    ),
+  {
+    ssr: false,
+    loading: () => <RichTextEditorSkeleton minHeight="140px" />,
+  }
+)
 import { htmlTextLength } from "@/components/tools/mock-tests/editor/html-utils"
 import { cn } from "@/lib/utils"
 

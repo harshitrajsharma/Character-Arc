@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useId, useMemo, useRef, useState, useTransition } from "react"
+import { flushSync } from "react-dom"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import {
@@ -76,7 +77,6 @@ import {
 } from "@/lib/tools/mock-tests/kind-labels"
 import { workspaceRoutes } from "@/lib/routes/workspace-tools"
 import { RichContent } from "@/components/tools/mock-tests/editor/rich-content"
-import { RichTextEditor } from "@/components/tools/mock-tests/editor/rich-text-editor"
 import { stripHtml, htmlTextLength } from "@/components/tools/mock-tests/editor/html-utils"
 import { reportSaveError } from "@/components/tools/mock-tests/save-error"
 import { SectionDialog } from "./section-dialog"
@@ -698,6 +698,10 @@ export function AssessmentBuilder({
   )
 
   const [saving, startSaving] = useTransition()
+  const [isPendingSave, setIsPendingSave] = useState(false)
+  const [isPendingPublish, setIsPendingPublish] = useState(false)
+  const isSaveActive = saving || isPendingSave
+  const isPublishActive = saving || isPendingPublish
   const [detailsKey, setDetailsKey] = useState(() => createIdempotencyKey())
   const [questionsKey, setQuestionsKey] = useState(() => createIdempotencyKey())
 
@@ -1091,6 +1095,7 @@ export function AssessmentBuilder({
   }
 
   function handleSaveAll() {
+    if (isSaveActive || isPublishActive) return
     if (!validateBenchmarkValues()) return
     const durationMinutes = duration.trim() === "" ? null : Number(duration)
     const marks = totalMarks.trim() === "" ? null : Number(totalMarks)
@@ -1111,81 +1116,90 @@ export function AssessmentBuilder({
     }
     if (!validateQuestionValues()) return
 
-    const subjects = subjectsText
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean)
-    const subjectScope = subjects.length > 1 ? "multi_subject" : "single_subject"
-
-    const questions = entries.map((entry) => ({
-      questionId: entry.id,
-      section:
-        entry.section && entry.section.trim() !== ""
-          ? entry.section.trim()
-          : null,
-      position: entry.position,
-      marks: entry.marks,
-      negativeMarks: entry.negativeMarks,
-    }))
-    const snapshot = currentSnapshot
-
-    startSaving(async () => {
-      try {
-        const detailsResult = await updateAssessmentAction({
-          workspaceSlug,
-          assessmentId: assessment.id,
-          expectedRevision: revision,
-          title: title.trim(),
-          instructions: instructions.trim() === "" ? null : instructions.trim(),
-          durationMinutes,
-          totalMarks: marks,
-          blueprint: {
-            sections,
-            calculatorAllowed,
-            taxonomy: {
-              paperType,
-              subjectScope,
-              subjects,
-              examTag: examTag.trim() || null,
-            },
-          },
-          passingBenchmark,
-          distinctionBenchmark,
-          idempotencyKey: detailsKey,
-        })
-        const questionsResult = await saveQuestionsAction({
-          workspaceSlug,
-          assessmentId: assessment.id,
-          expectedRevision: detailsResult.revision,
-          questions,
-          idempotencyKey: questionsKey,
-        })
-        setRevision(questionsResult.revision)
-        setDetailsKey(createIdempotencyKey())
-        setQuestionsKey(createIdempotencyKey())
-        setEntries((current) =>
-          current.map((entry) => ({ ...entry, isNew: false }))
-        )
-        setSavedSnapshot({
-          ...snapshot,
-          sections: [...sections],
-          questions: snapshot.questions.map((question) => ({
-            ...question,
-            isNew: false,
-          })),
-        })
-        setViewMode("build")
-        toast.success("Mock test saved")
-        router.refresh()
-      } catch (error) {
-        setDetailsKey(createIdempotencyKey())
-        setQuestionsKey(createIdempotencyKey())
-        reportSaveError(error, "Failed to save the test.")
-      }
+    flushSync(() => {
+      setIsPendingSave(true)
     })
+
+    setTimeout(() => {
+      const subjects = subjectsText
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+      const subjectScope = subjects.length > 1 ? "multi_subject" : "single_subject"
+
+      const questions = entries.map((entry) => ({
+        questionId: entry.id,
+        section:
+          entry.section && entry.section.trim() !== ""
+            ? entry.section.trim()
+            : null,
+        position: entry.position,
+        marks: entry.marks,
+        negativeMarks: entry.negativeMarks,
+      }))
+      const snapshot = currentSnapshot
+
+      startSaving(async () => {
+        try {
+          const detailsResult = await updateAssessmentAction({
+            workspaceSlug,
+            assessmentId: assessment.id,
+            expectedRevision: revision,
+            title: title.trim(),
+            instructions: instructions.trim() === "" ? null : instructions.trim(),
+            durationMinutes,
+            totalMarks: marks,
+            blueprint: {
+              sections,
+              calculatorAllowed,
+              taxonomy: {
+                paperType,
+                subjectScope,
+                subjects,
+                examTag: examTag.trim() || null,
+              },
+            },
+            passingBenchmark,
+            distinctionBenchmark,
+            idempotencyKey: detailsKey,
+          })
+          const questionsResult = await saveQuestionsAction({
+            workspaceSlug,
+            assessmentId: assessment.id,
+            expectedRevision: detailsResult.revision,
+            questions,
+            idempotencyKey: questionsKey,
+          })
+          setRevision(questionsResult.revision)
+          setDetailsKey(createIdempotencyKey())
+          setQuestionsKey(createIdempotencyKey())
+          setEntries((current) =>
+            current.map((entry) => ({ ...entry, isNew: false }))
+          )
+          setSavedSnapshot({
+            ...snapshot,
+            sections: [...sections],
+            questions: snapshot.questions.map((question) => ({
+              ...question,
+              isNew: false,
+            })),
+          })
+          setViewMode("build")
+          toast.success("Mock test saved")
+          router.refresh()
+        } catch (error) {
+          setDetailsKey(createIdempotencyKey())
+          setQuestionsKey(createIdempotencyKey())
+          reportSaveError(error, "Failed to save the test.")
+        } finally {
+          setIsPendingSave(false)
+        }
+      })
+    }, 0)
   }
 
   function handlePublishAndStartExam() {
+    if (isSaveActive || isPublishActive) return
     if (entries.length === 0) {
       toast.warning("Incomplete Paper", {
         description: "Add at least one question before publishing & attempting.",
@@ -1196,81 +1210,89 @@ export function AssessmentBuilder({
     if (!validateQuestionValues()) return
     if (!validateBenchmarkValues()) return
 
-    const durationMinutes = duration.trim() === "" ? null : Number(duration)
-    const marks = totalMarks.trim() === "" ? null : Number(totalMarks)
+    flushSync(() => {
+      setIsPendingPublish(true)
+    })
 
-    const subjects = subjectsText
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean)
-    const subjectScope = subjects.length > 1 ? "multi_subject" : "single_subject"
+    setTimeout(() => {
+      const durationMinutes = duration.trim() === "" ? null : Number(duration)
+      const marks = totalMarks.trim() === "" ? null : Number(totalMarks)
 
-    const questions = entries.map((entry) => ({
-      questionId: entry.id,
-      section: entry.section ? entry.section.trim() : null,
-      position: entry.position,
-      marks: entry.marks,
-      negativeMarks: entry.negativeMarks,
-    }))
+      const subjects = subjectsText
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+      const subjectScope = subjects.length > 1 ? "multi_subject" : "single_subject"
 
-    startSaving(async () => {
-      try {
-        const detailsResult = await updateAssessmentAction({
-          workspaceSlug,
-          assessmentId: assessment.id,
-          expectedRevision: revision,
-          title: title.trim(),
-          instructions: instructions.trim() === "" ? null : instructions.trim(),
-          durationMinutes,
-          totalMarks: marks,
-          blueprint: {
-            sections,
-            calculatorAllowed,
-            taxonomy: {
-              paperType,
-              subjectScope,
-              subjects,
-              examTag: examTag.trim() || null,
-            },
-          },
-          passingBenchmark,
-          distinctionBenchmark,
-          idempotencyKey: detailsKey,
-        })
-        const questionsResult = await saveQuestionsAction({
-          workspaceSlug,
-          assessmentId: assessment.id,
-          expectedRevision: detailsResult.revision,
-          questions,
-          idempotencyKey: questionsKey,
-        })
+      const questions = entries.map((entry) => ({
+        questionId: entry.id,
+        section: entry.section ? entry.section.trim() : null,
+        position: entry.position,
+        marks: entry.marks,
+        negativeMarks: entry.negativeMarks,
+      }))
 
-        const currentRev = questionsResult.revision
-        setRevision(currentRev)
-
-        if (assessment.status !== "published") {
-          await publishAssessmentAction({
+      startSaving(async () => {
+        try {
+          const detailsResult = await updateAssessmentAction({
             workspaceSlug,
             assessmentId: assessment.id,
-            expectedRevision: currentRev,
+            expectedRevision: revision,
+            title: title.trim(),
+            instructions: instructions.trim() === "" ? null : instructions.trim(),
+            durationMinutes,
+            totalMarks: marks,
+            blueprint: {
+              sections,
+              calculatorAllowed,
+              taxonomy: {
+                paperType,
+                subjectScope,
+                subjects,
+                examTag: examTag.trim() || null,
+              },
+            },
+            passingBenchmark,
+            distinctionBenchmark,
+            idempotencyKey: detailsKey,
+          })
+          const questionsResult = await saveQuestionsAction({
+            workspaceSlug,
+            assessmentId: assessment.id,
+            expectedRevision: detailsResult.revision,
+            questions,
+            idempotencyKey: questionsKey,
+          })
+
+          const currentRev = questionsResult.revision
+          setRevision(currentRev)
+
+          if (assessment.status !== "published") {
+            await publishAssessmentAction({
+              workspaceSlug,
+              assessmentId: assessment.id,
+              expectedRevision: currentRev,
+              idempotencyKey: createIdempotencyKey(),
+            })
+          }
+
+          const attemptRes = await createAttemptAction({
+            workspaceSlug,
+            assessmentId: assessment.id,
             idempotencyKey: createIdempotencyKey(),
           })
+
+          toast.success("Exam paper published! Entering CBT Exam Room...")
+          router.push(workspaceRoutes.mockTests.attempt(workspaceSlug, attemptRes.attemptId))
+        } catch (error) {
+          setDetailsKey(createIdempotencyKey())
+          setQuestionsKey(createIdempotencyKey())
+          reportSaveError(error, "Failed to publish & start exam.")
+        } finally {
+          setIsPendingPublish(false)
         }
-
-        const attemptRes = await createAttemptAction({
-          workspaceSlug,
-          assessmentId: assessment.id,
-          idempotencyKey: createIdempotencyKey(),
-        })
-
-        toast.success("Exam paper published! Entering CBT Exam Room...")
-        router.push(workspaceRoutes.mockTests.attempt(workspaceSlug, attemptRes.attemptId))
-      } catch (error) {
-        setDetailsKey(createIdempotencyKey())
-        setQuestionsKey(createIdempotencyKey())
-        reportSaveError(error, "Failed to publish & start exam.")
-      }
-    })
+      })
+    }, 0)
   }
 
   const handleSaveAllRef = useRef(handleSaveAll)
@@ -1647,22 +1669,34 @@ export function AssessmentBuilder({
             <Button
               variant="outline"
               onClick={() => openAddFromBank()}
-              disabled={saving}
+              disabled={isSaveActive || isPublishActive}
             >
               <PlusIcon data-icon="inline-start" aria-hidden="true" />
               Add from bank
             </Button>
-            <Button onClick={handlePublishAndStartExam} disabled={saving} className="font-bold gap-1 text-xs">
-              <PlayIcon className="size-3.5 fill-current stroke-none" />
-              {assessment.status === "published" ? "Test run CBT" : "Publish paper"}
+            <Button
+              onClick={handlePublishAndStartExam}
+              disabled={isSaveActive || isPublishActive}
+              className="font-bold gap-1 text-xs"
+            >
+              {isPublishActive ? (
+                <Loader2Icon className="size-3.5 animate-spin" aria-hidden="true" />
+              ) : (
+                <PlayIcon className="size-3.5 fill-current stroke-none" />
+              )}
+              {isPublishActive
+                ? "Publishing..."
+                : assessment.status === "published"
+                  ? "Test run CBT"
+                  : "Publish paper"}
             </Button>
-            <Button onClick={handleSaveAll} disabled={!isDirty || saving}>
-              {saving ? (
+            <Button onClick={handleSaveAll} disabled={!isDirty || isSaveActive || isPublishActive}>
+              {isSaveActive ? (
                 <Loader2Icon className="animate-spin" aria-hidden="true" />
               ) : (
                 <CheckIcon data-icon="inline-start" aria-hidden="true" />
               )}
-              Save changes
+              {isSaveActive ? "Saving..." : "Save changes"}
             </Button>
           </div>
         </div>
@@ -2718,7 +2752,7 @@ export function AssessmentBuilder({
             size="lg"
             className="h-11 flex-1"
             onClick={() => openAddFromBank()}
-            disabled={saving}
+            disabled={isSaveActive || isPublishActive}
           >
             <PlusIcon data-icon="inline-start" aria-hidden="true" />
             Add
@@ -2728,27 +2762,31 @@ export function AssessmentBuilder({
             size="lg"
             className="h-11 flex-1 font-semibold"
             onClick={handlePublishAndStartExam}
-            disabled={saving || entries.length === 0}
+            disabled={isSaveActive || isPublishActive || entries.length === 0}
           >
-            {saving ? (
+            {isPublishActive ? (
               <Loader2Icon className="animate-spin" aria-hidden="true" />
             ) : (
               <PlayIcon className="size-4 fill-current stroke-none" aria-hidden="true" />
             )}
-            {assessment.status === "published" ? "Test run" : "Publish"}
+            {isPublishActive
+              ? "Publishing..."
+              : assessment.status === "published"
+                ? "Test run"
+                : "Publish"}
           </Button>
           <Button
             size="lg"
             className="h-11 flex-1"
             onClick={handleSaveAll}
-            disabled={!isDirty || saving}
+            disabled={!isDirty || isSaveActive || isPublishActive}
           >
-            {saving ? (
+            {isSaveActive ? (
               <Loader2Icon className="animate-spin" aria-hidden="true" />
             ) : (
               <CheckIcon data-icon="inline-start" aria-hidden="true" />
             )}
-            Save
+            {isSaveActive ? "Saving..." : "Save"}
           </Button>
         </div>
       </div>

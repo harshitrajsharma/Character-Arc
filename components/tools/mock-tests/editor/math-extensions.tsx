@@ -1,14 +1,8 @@
 "use client"
 
 import { useId, useMemo, useState } from "react"
-import { Extension, InputRule, Node, mergeAttributes } from "@tiptap/core"
-import { Fragment } from "@tiptap/pm/model"
-import {
-  Plugin,
-  PluginKey,
-  TextSelection,
-  type Transaction,
-} from "@tiptap/pm/state"
+import { Extension, Node, mergeAttributes } from "@tiptap/core"
+import { Plugin, PluginKey } from "@tiptap/pm/state"
 import type { EditorView } from "@tiptap/pm/view"
 import {
   NodeViewWrapper,
@@ -27,14 +21,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import {
-  Field,
-  FieldDescription,
-  FieldLabel,
-} from "@/components/ui/field"
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field"
 import { Textarea } from "@/components/ui/textarea"
 
-import { parseDelimitedMath } from "./legacy-math"
+import {
+  buildMathNormalizationTransaction,
+  mathClipboardSlice,
+} from "./math-normalization"
 
 /**
  * KaTeX math atoms for the rich question editor.
@@ -124,7 +117,7 @@ function MathEditDialog({
           </Field>
 
           <div className="flex flex-col gap-2 rounded-lg border border-border bg-muted/40 p-3">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            <p className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
               Live preview
             </p>
             <div
@@ -176,6 +169,9 @@ function InlineMathNodeView({
   return (
     <NodeViewWrapper
       as="span"
+      data-math-inline="true"
+      data-tex={tex}
+      contentEditable={false}
       className="math-inline"
       onClick={() => selectNode(editor, getPos)}
       onDoubleClick={(event: React.MouseEvent) => {
@@ -227,6 +223,9 @@ function BlockMathNodeView({
 
   return (
     <NodeViewWrapper
+      data-math-block="true"
+      data-tex={tex}
+      contentEditable={false}
       className="math-block"
       onClick={() => selectNode(editor, getPos)}
       onDoubleClick={(event: React.MouseEvent) => {
@@ -276,168 +275,71 @@ const mathAttributes = {
   },
 }
 
-/**
- * Decide whether a `$...$` / `$$...$$` capture is really LaTeX rather than
- * plain text. Real LaTeX almost always contains a command, superscript,
- * subscript, or brace. We also accept compact whitespace-free formulas
- * (`$2x+3$`) so simple math converts too, while avoiding mangling dollar
- * amounts like "$5 and $10".
- */
-function looksLikeLatex(tex: string): boolean {
-  const source = tex.trim()
-  if (!source || /^[\d\s.,%]+$/.test(source)) return false
-  return /\\|[\^_{}=+\-*/<>]/.test(source) || !/\s/.test(source)
-}
-
-/** Auto-convert `$...$` to an inline math atom as you type. */
-function inlineMathInputRule(): InputRule {
-  return new InputRule({
-    // Opening `$` must not be escaped (`\$`) or be the second of a `$$` block.
-    find: /(?<![\\$])\$([^$]+)\$$/,
-    handler: ({ state, range, match }) => {
-      const tex = match[1]?.trim()
-      if (!tex || !looksLikeLatex(tex)) return null
-
-      const { tr, schema } = state
-      const start = range.from
-      const end = range.to
-      if (tr.doc.resolve(start).parent !== tr.doc.resolve(end).parent) return null
-
-      try {
-        tr.replaceRangeWith(start, end, schema.nodes.mathInline.create({ tex }))
-        tr.setSelection(TextSelection.near(tr.doc.resolve(start + 1)))
-      } catch {
-        // Replacement would produce an invalid document (e.g. spans a hard
-        // break); leave the text as typed.
-        return null
-      }
-    },
-  })
-}
-
-/**
- * Auto-convert `$$...$$` to a block math atom when it is the entire content of
- * its own paragraph (i.e. typed on its own line). The paragraph is replaced
- * with the equation followed by an empty paragraph so typing can continue.
- */
-function blockMathInputRule(): InputRule {
-  return new InputRule({
-    find: /\$\$([\s\S]+?)\$\$$/,
-    handler: ({ state, range, match }) => {
-      const tex = match[1]?.trim()
-      if (!tex) return null
-
-      const { tr, schema } = state
-      const start = range.from
-      const end = range.to
-      const $start = tr.doc.resolve(start)
-      const $end = tr.doc.resolve(end)
-
-      if ($start.parent !== $end.parent) return null
-      if ($start.parentOffset !== 0) return null
-      if ($end.parentOffset !== $end.parent.content.size) return null
-
-      const from = $start.before()
-      const to = $end.after()
-      replaceParagraphWithBlockMath(tr, schema, from, to, tex)
-    },
-  })
-}
-
-/** Replace a textblock with a valid block equation followed by an empty paragraph. */
-function replaceParagraphWithBlockMath(
-  tr: Transaction,
-  schema: Transaction["doc"]["type"]["schema"],
-  from: number,
-  to: number,
-  tex: string
-): boolean {
-  const block = schema.nodes.mathBlock?.create({ tex })
-  const paragraph = schema.nodes.paragraph?.create()
-  if (!block || !paragraph) return false
-
-  try {
-    tr.replaceWith(from, to, Fragment.fromArray([block, paragraph]))
-    tr.setSelection(
-      TextSelection.near(tr.doc.resolve(from + block.nodeSize + 1))
-    )
-    return true
-  } catch {
-    return false
-  }
-}
-
 function isCodeContext(view: EditorView): boolean {
   const { $from } = view.state.selection
   return Boolean(
     $from.parent.type.spec.code ||
-      $from.nodeBefore?.marks.some((mark) => mark.type.spec.code)
+    (view.state.storedMarks ?? $from.marks()).some(
+      (mark) => mark.type.spec.code
+    )
   )
 }
 
-function insertPastedMath(view: EditorView, text: string): boolean {
-  const math = parseDelimitedMath(text)
-  if (!math || isCodeContext(view)) return false
+const mathNormalizationKey = new PluginKey("mathPaste")
 
-  const { state } = view
-  const { selection } = state
-  const { $from, $to } = selection
-
-  if (math.display) {
-    if (
-      $from.parent !== $to.parent ||
-      $from.parent.type.name !== "paragraph"
-    ) {
-      return false
-    }
-
-    const replacesWholeParagraph =
-      $from.parentOffset === 0 &&
-      $to.parentOffset === $to.parent.content.size
-    if (!replacesWholeParagraph) return false
-
-    const tr = state.tr
-    const handled = replaceParagraphWithBlockMath(
-      tr,
-      state.schema,
-      $from.before(),
-      $from.after(),
-      math.tex
-    )
-    if (!handled) return false
-
-    view.dispatch(tr.scrollIntoView())
-    return true
-  }
-
-  if ($from.parent !== $to.parent || !$from.parent.isTextblock) {
-    return false
-  }
-
-  const node = state.schema.nodes.mathInline?.create({ tex: math.tex })
-  if (!node) return false
-
-  const tr = state.tr.replaceSelectionWith(node)
-  if (!tr.docChanged) return false
-
-  view.dispatch(tr.scrollIntoView())
-  return true
-}
-
-/** Converts exact `$...$` / `$$...$$` clipboard text into a math atom. */
+/** Normalize initial, externally synced, typed and pasted dollar-delimited math. */
 export const MathPaste = Extension.create({
   name: "mathPaste",
+
+  onCreate() {
+    const tr = buildMathNormalizationTransaction(this.editor.state)
+    if (tr)
+      this.editor.view.dispatch(
+        tr.setMeta(mathNormalizationKey, true).setMeta("addToHistory", false)
+      )
+  },
 
   addProseMirrorPlugins() {
     return [
       new Plugin({
-        key: new PluginKey("mathPaste"),
+        key: mathNormalizationKey,
+        appendTransaction(transactions, _previousState, state) {
+          if (
+            !transactions.some(
+              (tr) => tr.docChanged && !tr.getMeta(mathNormalizationKey)
+            )
+          )
+            return null
+          return (
+            buildMathNormalizationTransaction(state)?.setMeta(
+              mathNormalizationKey,
+              true
+            ) ?? null
+          )
+        },
         props: {
-          handlePaste: (view, event) => {
+          handlePaste(view, event) {
+            if (isCodeContext(view)) return false
+            // Rich clipboard content follows ProseMirror's parser to preserve its marks;
+            // appendTransaction normalizes its text after insertion.
+            if (event.clipboardData?.getData("text/html")) return false
             const text = event.clipboardData?.getData("text/plain") ?? ""
-            const handled = insertPastedMath(view, text)
-            if (handled) event.preventDefault()
-            return handled
+            const slice = mathClipboardSlice(
+              text,
+              view.state.schema,
+              view.state.storedMarks ?? view.state.selection.$from.marks()
+            )
+            if (!slice) return false
+            try {
+              const tr = view.state.tr.replaceSelection(slice)
+              tr.doc.check()
+              if (!tr.docChanged) return false
+              view.dispatch(tr.scrollIntoView())
+              event.preventDefault()
+              return true
+            } catch {
+              return false
+            }
           },
         },
       }),
@@ -476,10 +378,6 @@ export const MathInline = Node.create({
   addNodeView() {
     return ReactNodeViewRenderer(InlineMathNodeView)
   },
-
-  addInputRules() {
-    return [inlineMathInputRule()]
-  },
 })
 
 /** Display math atom (`$$...$$`). Serializes as `<div data-math-block>`. */
@@ -511,9 +409,5 @@ export const MathBlock = Node.create({
 
   addNodeView() {
     return ReactNodeViewRenderer(BlockMathNodeView)
-  },
-
-  addInputRules() {
-    return [blockMathInputRule()]
   },
 })

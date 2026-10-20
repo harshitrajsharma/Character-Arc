@@ -124,3 +124,10 @@ The automated suite in `scripts/e2e-browser-test.ts` executes and validates the 
 6. **CBT Exam Room Simulation:** Fullscreen exam player, virtual scientific calculator keypad toggling, answering MCQ questions, submit confirmation dialog.
 7. **Scorecard Diagnostics:** Automated scoring (`2/2 (100%)`), Question Performance Heatmap, sectional breakdown, step-by-step solution derivations.
 8. **Community Distribution:** Share modal configuration (Private -> Community Hub with clone permissions), followed by incognito public verification of syllabus and live cohort leaderboard.
+
+
+### Local development stability (2026-10-19)
+- This workstation exhausted disk space through Turbopack's generated persistent cache. `next.config.ts` disables optional `experimental.turbopackFileSystemCacheForDev`; production build caching is unchanged. In-memory dev compilation remains available. Do not delete user/project source files to recover cache space.
+- The full harness allows 90s for cold navigations and 60s for publication completion. Sharing selects the named Publish & Share Mock Test dialog rather than every role=dialog (Next's development overlay may also contain a dialog).
+- The anonymous public-paper phase must assert the actual fixture heading and fail on a login redirect; merely taking a screenshot is not sufficient evidence.
+- After moving routes, run `next typegen` before `tsc --noEmit` if generated `.next/types/validator.ts` still references an old path.

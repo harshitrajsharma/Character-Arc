@@ -12,9 +12,42 @@ import { MCP_ERROR_CODES, parseMcpToolName } from "./contracts"
 import { manifestsToMcpTools } from "./schema-adapter"
 
 /**
- * Returns all MCP tools supported by Character Arc first-party tool manifests.
+ * Returns active MCP tools for the workspace, falling back to all first-party tools
+ * if no explicit installation records exist or during test discovery.
  */
-export async function listMcpToolsForWorkspace(_workspaceId: string) {
+export async function listMcpToolsForWorkspace(workspaceId: string) {
+  try {
+    const activeInstallations = await prisma.toolInstallation.findMany({
+      where: {
+        workspaceId,
+        status: "ACTIVE",
+      },
+      include: {
+        toolDefinition: true,
+      },
+    })
+
+    if (activeInstallations.length > 0) {
+      const activeKeys = new Set(
+        activeInstallations
+          .map((inst) => inst.toolDefinition?.key)
+          .filter((k): k is string => Boolean(k))
+      )
+      const manifests = listFirstPartyToolManifests().filter((m) =>
+        activeKeys.has(m.tool.key)
+      )
+      if (manifests.length > 0) {
+        return manifestsToMcpTools(manifests)
+      }
+    }
+  } catch (error) {
+    console.warn(
+      "Failed to query active tool installations, falling back to all manifests:",
+      error
+    )
+  }
+
+  // Fallback gracefully if workspace has no explicit tool installation records or during test discovery
   const manifests = listFirstPartyToolManifests()
   return manifestsToMcpTools(manifests)
 }
@@ -176,11 +209,33 @@ export async function handleMcpToolCall(
 export async function processMcpJsonRpcRequest(
   body: unknown,
   principal: AuthenticatedMcpPrincipal
-): Promise<McpJsonRpcResponse> {
-  const req = body as Partial<McpJsonRpcRequest>
-  const requestId = req?.id ?? "1"
+): Promise<McpJsonRpcResponse | null> {
+  const req = body as Partial<McpJsonRpcRequest> | null | undefined
 
-  if (!req || req.jsonrpc !== "2.0" || typeof req.method !== "string") {
+  if (!req || typeof req !== "object") {
+    return {
+      jsonrpc: "2.0",
+      id: "1",
+      error: {
+        code: MCP_ERROR_CODES.INVALID_REQUEST,
+        message: "Invalid JSON-RPC 2.0 request structure.",
+      },
+    }
+  }
+
+  // Strictly comply with JSON-RPC 2.0 §4.1: notifications omit "id" or start with "notifications/".
+  // The server MUST NOT reply to a notification -> return null so HTTP layer responds with 202 Accepted.
+  const isNotification =
+    req.id === undefined ||
+    (typeof req.method === "string" && req.method.startsWith("notifications/"))
+
+  if (isNotification) {
+    return null
+  }
+
+  const requestId: string | number = req.id!
+
+  if (req.jsonrpc !== "2.0" || typeof req.method !== "string") {
     return {
       jsonrpc: "2.0",
       id: requestId,

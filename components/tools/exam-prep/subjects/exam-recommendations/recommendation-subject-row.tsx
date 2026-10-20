@@ -19,7 +19,7 @@ export interface RecommendationSubjectRowProps {
   actionClassName: string
 }
 
-const weightageFormatter = new Intl.NumberFormat("en", {
+const weightageFormatter = new Intl.NumberFormat("en-US", {
   maximumFractionDigits: 1,
 })
 

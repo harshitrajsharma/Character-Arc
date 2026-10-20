@@ -48,7 +48,16 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { VirtualCalculator } from "./virtual-calculator"
+import { flushSync } from "react-dom"
+import dynamic from "next/dynamic"
+
+const VirtualCalculator = dynamic(
+  () => import("./virtual-calculator").then((mod) => mod.VirtualCalculator),
+  { ssr: false }
+)
+
+const CBT_RICH_STYLE: React.CSSProperties = { color: "#020617" }
+
 import { InstructionsDialog } from "./instructions-dialog"
 import { QuestionPaperDialog } from "./question-paper-dialog"
 import type {
@@ -74,6 +83,41 @@ function formatTimer(totalSeconds: number): string {
   const mm = String(minutes).padStart(2, "0")
   const ss = String(seconds).padStart(2, "0")
   return hours > 0 ? `${hh}:${mm}:${ss}` : `${mm}:${ss}`
+}
+
+function ExamCountdown({
+  durationMinutes,
+  startedAt,
+  onTimeUp,
+}: {
+  durationMinutes: number | null
+  startedAt: string | Date
+  onTimeUp: () => void
+}) {
+  const [remainingSeconds, setRemainingSeconds] = useState<number | null>(() => {
+    if (!durationMinutes) return null
+    const end = new Date(startedAt).getTime() + durationMinutes * 60_000
+    return Math.max(0, Math.floor((end - Date.now()) / 1000))
+  })
+
+  useEffect(() => {
+    if (durationMinutes === null) return
+    const interval = window.setInterval(() => {
+      const end =
+        new Date(startedAt).getTime() +
+        durationMinutes * 60_000
+      const remaining = Math.max(0, Math.floor((end - Date.now()) / 1000))
+      setRemainingSeconds(remaining)
+      if (remaining <= 0) {
+        window.clearInterval(interval)
+        onTimeUp()
+      }
+    }, 1000)
+    return () => window.clearInterval(interval)
+  }, [durationMinutes, startedAt, onTimeUp])
+
+  if (remainingSeconds === null) return <span>Untimed</span>
+  return <span>{formatTimer(remainingSeconds)}</span>
 }
 
 const subscribeToMounted = () => () => {}
@@ -215,11 +259,6 @@ export function AttemptPlayer({
     answersRef.current = answers
   }, [answers])
 
-  const [remainingSeconds, setRemainingSeconds] = useState<number | null>(() => {
-    if (!attempt.durationMinutes) return null
-    const end = new Date(attempt.startedAt).getTime() + attempt.durationMinutes * 60_000
-    return Math.max(0, Math.floor((end - Date.now()) / 1000))
-  })
 
   // Palette stats calculated for the active section (or all if "ALL" / no sections)
   const paletteStats = useMemo(() => {
@@ -496,8 +535,9 @@ export function AttemptPlayer({
   function handleConfirmSubmit() {
     if (submitStarted.current || submitting) return
     submitStarted.current = true
-    setSubmitting(true)
-    setShowSubmitModal(false)
+    flushSync(() => {
+      setSubmitting(true)
+    })
     void startSubmit()
   }
 
@@ -581,27 +621,7 @@ export function AttemptPlayer({
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [currentQuestion, current, answers, showSubmitModal, abandonOpen, isCalculatorOpen, isInstructionsOpen, isQuestionPaperOpen])
 
-  // Timer countdown hook
-  useEffect(() => {
-    if (attempt.durationMinutes === null) return
-    const interval = window.setInterval(() => {
-      const end =
-        new Date(attempt.startedAt).getTime() +
-        attempt.durationMinutes! * 60_000
-      const remaining = Math.max(0, Math.floor((end - Date.now()) / 1000))
-      setRemainingSeconds(remaining)
-      if (remaining <= 0) {
-        window.clearInterval(interval)
-        if (!submitStarted.current) {
-          submitStarted.current = true
-          setSubmitting(true)
-          toast.info("Time is up. Submitting your attempt…")
-          void startSubmit()
-        }
-      }
-    }, 1000)
-    return () => window.clearInterval(interval)
-  }, [attempt.durationMinutes, attempt.startedAt, startSubmit])
+
 
 
   if (!currentQuestion) {
@@ -776,7 +796,23 @@ export function AttemptPlayer({
 
         {/* Time Left & Calculator Icon */}
         <div className="flex items-center gap-1.5 text-xs sm:text-sm font-bold text-slate-900 font-mono">
-          <span>Time Left :{mounted ? (remainingSeconds !== null ? formatTimer(remainingSeconds) : "Untimed") : "--:--"}</span>
+          <span>Time Left :</span>
+          {mounted ? (
+            <ExamCountdown
+              durationMinutes={attempt.durationMinutes}
+              startedAt={attempt.startedAt}
+              onTimeUp={() => {
+                if (!submitStarted.current) {
+                  submitStarted.current = true
+                  setSubmitting(true)
+                  toast.info("Time is up. Submitting your attempt…")
+                  void startSubmit()
+                }
+              }}
+            />
+          ) : (
+            <span>--:--</span>
+          )}
           {attempt.calculatorAllowed ? (
             <button
               type="button"
@@ -836,7 +872,7 @@ export function AttemptPlayer({
                 style={{ color: "#020617" }}
                 className="text-slate-950 leading-relaxed text-sm sm:text-base font-sans [&_*]:!text-slate-950 [&_.rich-text]:!text-slate-950 [&_.katex]:!text-slate-950 [&_.katex-html]:!text-slate-950 select-text"
               >
-                <RichContent html={currentQuestion.stem} style={{ color: "#020617" }} />
+                <RichContent html={currentQuestion.stem} style={CBT_RICH_STYLE} />
               </div>
 
               {/* Options / Answer Input Area */}
@@ -881,7 +917,7 @@ export function AttemptPlayer({
                             style={{ color: "#020617" }}
                             className="flex-1 rich-text text-slate-950 leading-relaxed [&_*]:!text-slate-950"
                           >
-                            <RichContent html={opt.content} style={{ color: "#020617" }} />
+                            <RichContent html={opt.content} style={CBT_RICH_STYLE} />
                           </div>
                         </div>
                       )
@@ -1202,7 +1238,7 @@ export function AttemptPlayer({
       </div>
 
       {/* CBT VIRTUAL CALCULATOR (Floating / Draggable) */}
-      {attempt.calculatorAllowed ? (
+      {attempt.calculatorAllowed && isCalculatorOpen ? (
         <VirtualCalculator isOpen={isCalculatorOpen} onClose={() => setIsCalculatorOpen(false)} />
       ) : null}
 
@@ -1226,7 +1262,12 @@ export function AttemptPlayer({
       />
 
       {/* SUBMIT CONFIRMATION DIALOG */}
-      <Dialog open={showSubmitModal} onOpenChange={setShowSubmitModal}>
+      <Dialog
+        open={showSubmitModal}
+        onOpenChange={(open) => {
+          if (!submitting) setShowSubmitModal(open)
+        }}
+      >
         <DialogContent className="max-w-md rounded-none border border-slate-300 bg-white text-slate-900 p-6 shadow-xl font-sans space-y-4">
           <DialogHeader className="border-b border-slate-200 pb-3">
             <DialogTitle className="text-sm font-bold tracking-tight text-slate-900 flex items-center gap-2">
@@ -1261,8 +1302,8 @@ export function AttemptPlayer({
               <span className="font-mono font-bold text-red-700">{totalStats.notAnswered}</span>
             </div>
             <div className="flex justify-between items-center p-2.5">
-              <span className="text-violet-700 font-semibold">Marked for Review:</span>
-              <span className="font-mono font-bold text-violet-700">{totalStats.markedForReview}</span>
+              <span className="text-indigo-700 font-semibold">Marked for Review:</span>
+              <span className="font-mono font-bold text-indigo-700">{totalStats.markedForReview}</span>
             </div>
             <div className="flex justify-between items-center p-2.5">
               <span className="text-slate-600">Not Visited:</span>
@@ -1275,7 +1316,8 @@ export function AttemptPlayer({
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => setShowSubmitModal(false)}
+              disabled={submitting}
+              onClick={() => !submitting && setShowSubmitModal(false)}
               className="rounded-none border border-slate-300 bg-white text-slate-700 hover:text-slate-900 hover:bg-slate-100 text-xs font-semibold shadow-none"
             >
               Resume Test
@@ -1288,11 +1330,36 @@ export function AttemptPlayer({
               className="rounded-none border border-blue-600 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-none flex items-center gap-1.5"
             >
               {submitting ? <Loader2Icon className="animate-spin size-3.5" /> : null}
-              Submit Test
+              {submitting ? "Submitting Exam..." : "Submit Test"}
             </Button>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Full-Screen Grading Overlay Modal */}
+      {submitting ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-900/85 backdrop-blur-sm text-white animate-in fade-in duration-200"
+        >
+          <div className="flex flex-col items-center max-w-sm p-6 text-center space-y-4">
+            <div className="size-16 rounded-full bg-blue-600/20 border border-blue-500/40 flex items-center justify-center">
+              <Loader2Icon className="size-8 animate-spin text-blue-400" aria-hidden="true" />
+            </div>
+            <div className="space-y-1.5">
+              <h3 className="text-lg font-bold tracking-tight text-white">Grading Exam Paper</h3>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Evaluating your answers against the official answer key and calculating performance metrics...
+              </p>
+            </div>
+            <div className="flex items-center gap-2 text-[11px] font-mono text-slate-400">
+              <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
+              Generating diagnostic scorecard
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {/* ABANDON ATTEMPT CONFIRMATION */}
       <AlertDialog

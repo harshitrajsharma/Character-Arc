@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { CircleAlertIcon } from "lucide-react"
 
+import { SetNavbarBreadcrumbs } from "@/components/navigation/breadcrumb-context"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { MockTestsDashboard } from "@/components/tools/mock-tests/mock-tests-dashboard"
 import { getMockTestsOverview } from "@/lib/tools/definitions/mock-tests/repository"
@@ -9,7 +10,7 @@ import {
   requireActiveToolInstallation,
 } from "@/lib/workspaces/workspace-access"
 
-export const metadata: Metadata = { title: "Mock Tests & Assessments — Dashboard" }
+export const metadata: Metadata = { title: "Assessments — Dashboard" }
 export const dynamic = "force-dynamic"
 
 export default async function MockTestsPage({
@@ -37,6 +38,14 @@ export default async function MockTestsPage({
 
   return (
     <main className="mx-auto w-full max-w-6xl px-4 pt-20 pb-12 sm:pb-16 md:px-6 xl:px-10 space-y-6">
+      <SetNavbarBreadcrumbs
+        segments={[
+          { label: "Workspace", href: `/workspace/${encodeURIComponent(workspaceSlug)}` },
+          { label: "Assessments" },
+        ]}
+        backHref={`/workspace/${encodeURIComponent(workspaceSlug)}`}
+        backLabel="Back to Workspace"
+      />
       {overview.issue ? (
         <Alert variant="destructive" className="mt-6">
           <CircleAlertIcon aria-hidden="true" />

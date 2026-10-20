@@ -97,7 +97,28 @@ export interface SubjectWithRelations extends Subject {
   chapters: ChapterWithRelations[]
   tests: BaseTest[]
   mockTests: MockTest[]
+  linkedAssessments?: SubjectLinkedAssessment[]
+  linkedAssessmentsIssue?: string
   testRecords?: import("./assessment").BaseTestRecord[]
+}
+
+/** Read-only mock papers matched through explicit syllabus question targets. */
+export interface SubjectLinkedAssessment {
+  assessmentId: string
+  title: string
+  status: "DRAFT" | "IN_REVIEW" | "PUBLISHED" | "ARCHIVED"
+  durationMinutes: number | null
+  linkage: "exam" | "syllabus"
+  targetChapterIds: string[]
+  targetsWholeSubject: boolean
+  attempts: Array<{
+    id: string
+    status: "IN_PROGRESS" | "SUBMITTED" | "EVALUATED" | "ABANDONED"
+    score: number | null
+    maxScore: number | null
+    startedAt: string
+    submittedAt: string | null
+  }>
 }
 
 export interface TopicResponse {

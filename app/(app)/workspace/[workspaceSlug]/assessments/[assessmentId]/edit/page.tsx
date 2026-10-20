@@ -17,7 +17,7 @@ import {
   requireActiveToolInstallation,
 } from "@/lib/workspaces/workspace-access"
 
-export const metadata: Metadata = { title: "Edit Mock Test Blueprint" }
+export const metadata: Metadata = { title: "Edit Blueprint — Assessments" }
 
 export default async function EditMockTestPage({
   params,
@@ -38,15 +38,15 @@ export default async function EditMockTestPage({
       <SetNavbarBreadcrumbs
         segments={[
           { label: "Workspace", href: `/workspace/${encodeURIComponent(workspaceSlug)}` },
-          { label: "Mock Tests", href: workspaceRoutes.mockTests.home(workspaceSlug) },
+          { label: "Assessments", href: workspaceRoutes.mockTests.home(workspaceSlug) },
           { label: assessment.title || "Edit Blueprint" },
         ]}
         backHref={workspaceRoutes.mockTests.detail(workspaceSlug, assessment.id)}
-        backLabel="Back to test detail"
+        backLabel="Back to Assessment"
       />
 
       <ToolPageHeader
-        eyebrow="Mock Tests"
+        eyebrow="Assessments"
         title="Edit Paper Blueprint"
         description="Configure paper details, organize sections, and assemble questions."
         icon={<ListChecksIcon aria-hidden="true" />}

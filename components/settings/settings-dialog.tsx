@@ -4,11 +4,11 @@ import * as React from "react"
 import Link from "next/link"
 import { useTheme } from "next-themes"
 import {
+  AlertTriangleIcon,
   BotIcon,
   CheckIcon,
   ChevronRightIcon,
   CopyIcon,
-  GlobeIcon,
   KeyRoundIcon,
   LaptopIcon,
   MoonIcon,
@@ -132,7 +132,6 @@ export function SettingsDialog({
   }
   const [isCreateKeyOpen, setIsCreateKeyOpen] = React.useState(false)
   const [keyName, setKeyName] = React.useState("")
-  const [newlyCreatedKey, setNewlyCreatedKey] = React.useState<string | null>(null)
   const [latestKey, setLatestKey] = React.useState<string | null>(null)
   const [copiedField, setCopiedField] = React.useState<string | null>(null)
   const [tokenToRevoke, setTokenToRevoke] = React.useState<TokenItem | null>(
@@ -143,13 +142,9 @@ export function SettingsDialog({
 
   const primaryToken = tokens[0]?.token || tokens[0]?.keyPrefix || latestKey || null
   const baseMcpEndpointUrl = `${origin}/api/mcp`
-  const baseSseEndpointUrl = `${origin}/api/mcp/sse`
   const mcpEndpointUrl = primaryToken
     ? `${baseMcpEndpointUrl}?apiKey=${primaryToken}`
     : baseMcpEndpointUrl
-  const sseEndpointUrl = primaryToken
-    ? `${baseSseEndpointUrl}?apiKey=${primaryToken}`
-    : baseSseEndpointUrl
   const installedTools = catalogItems.filter(
     (item) => item.installationStatus === "active"
   )
@@ -527,8 +522,14 @@ export function SettingsDialog({
                       <span className="font-medium text-foreground">
                         Created On
                       </span>
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(workspace.createdAt).toLocaleDateString()}
+                      <span
+                        className="text-xs text-muted-foreground"
+                        suppressHydrationWarning
+                      >
+                        {new Date(workspace.createdAt).toLocaleDateString(
+                          "en-US",
+                          { month: "short", day: "numeric", year: "numeric" }
+                        )}
                       </span>
                     </div>
                   </div>
@@ -593,9 +594,15 @@ export function SettingsDialog({
                             <p className="truncate text-sm font-medium text-foreground">
                               {member.displayName || "Workspace Member"}
                             </p>
-                            <p className="text-[11px] text-muted-foreground">
+                            <p
+                              className="text-[11px] text-muted-foreground"
+                              suppressHydrationWarning
+                            >
                               Joined{" "}
-                              {new Date(member.joinedAt).toLocaleDateString()}
+                              {new Date(member.joinedAt).toLocaleDateString(
+                                "en-US",
+                                { month: "short", day: "numeric", year: "numeric" }
+                              )}
                             </p>
                           </div>
                         </div>
@@ -627,7 +634,6 @@ export function SettingsDialog({
                       size="sm"
                       className="shrink-0 gap-1.5 rounded-full shadow-2xs"
                       onClick={() => {
-                        setNewlyCreatedKey(null)
                         setIsCreateKeyOpen(true)
                       }}
                     >
@@ -637,10 +643,10 @@ export function SettingsDialog({
                   </div>
 
                   {/* Top Endpoints Card */}
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     <div className="flex items-center justify-between px-1">
                       <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Ready-to-Use Endpoints
+                        Unified MCP Connection Gateway
                       </p>
                       {primaryToken && (
                         <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
@@ -650,19 +656,40 @@ export function SettingsDialog({
                       )}
                     </div>
 
-                    <div className="divide-y divide-border/50 overflow-hidden rounded-2xl border border-border/60 bg-muted/20 text-sm">
-                      {/* HTTP Stateless */}
+                    {!primaryToken && (
+                      <div className="flex items-start gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-xs text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200">
+                        <AlertTriangleIcon className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                        <div className="flex-1 space-y-1">
+                          <p className="font-semibold">Agent Key Required</p>
+                          <p className="text-muted-foreground">
+                            Generate an Agent Key below to obtain your authenticated MCP connection URL for Cursor, Claude Desktop, Windsurf, or Cline.
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 shrink-0 gap-1 rounded-full border-amber-500/30 bg-amber-500/10 px-2.5 text-[11px] font-medium text-amber-900 hover:bg-amber-500/20 dark:text-amber-200"
+                          onClick={() => setIsCreateKeyOpen(true)}
+                        >
+                          <PlusIcon className="size-3" />
+                          <span>Generate Key</span>
+                        </Button>
+                      </div>
+                    )}
+
+                    <div className="overflow-hidden rounded-2xl border border-border/60 bg-muted/20 text-sm">
+                      {/* Unified Dual-Mode MCP Gateway */}
                       <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
                         <div className="min-w-0 flex-1 space-y-1">
                           <div className="flex items-center gap-2">
-                            <span className="flex size-6 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                            <span className="flex size-6 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                               <ZapIcon className="size-3.5" />
                             </span>
                             <span className="font-semibold text-foreground">
-                              HTTP (Stateless / JSON-RPC)
+                              MCP Endpoint (Dual-Mode HTTP & SSE)
                             </span>
                             <Badge variant="secondary" className="rounded-full px-2 py-0 text-[10px] font-medium">
-                              Recommended
+                              Universal
                             </Badge>
                           </div>
                           <p className="truncate font-mono text-xs text-muted-foreground">
@@ -673,43 +700,12 @@ export function SettingsDialog({
                           size="sm"
                           variant="outline"
                           className="h-8 shrink-0 gap-1.5 rounded-full px-3 text-xs"
+                          disabled={!primaryToken}
                           onClick={() =>
-                            copyToClipboard(mcpEndpointUrl, "HTTP Endpoint")
+                            copyToClipboard(mcpEndpointUrl, "MCP Endpoint")
                           }
                         >
-                          {copiedField === "HTTP Endpoint" ? (
-                            <CheckIcon className="size-3.5 text-emerald-500" />
-                          ) : (
-                            <CopyIcon className="size-3.5" />
-                          )}
-                          <span>Copy URL</span>
-                        </Button>
-                      </div>
-
-                      {/* SSE Stream */}
-                      <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="min-w-0 flex-1 space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="flex size-6 shrink-0 items-center justify-center rounded-lg bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
-                              <GlobeIcon className="size-3.5" />
-                            </span>
-                            <span className="font-semibold text-foreground">
-                              SSE Stream (Stateful)
-                            </span>
-                          </div>
-                          <p className="truncate font-mono text-xs text-muted-foreground">
-                            {sseEndpointUrl}
-                          </p>
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-8 shrink-0 gap-1.5 rounded-full px-3 text-xs"
-                          onClick={() =>
-                            copyToClipboard(sseEndpointUrl, "SSE Endpoint")
-                          }
-                        >
-                          {copiedField === "SSE Endpoint" ? (
+                          {copiedField === "MCP Endpoint" ? (
                             <CheckIcon className="size-3.5 text-emerald-500" />
                           ) : (
                             <CopyIcon className="size-3.5" />
@@ -757,8 +753,7 @@ export function SettingsDialog({
                       ) : (
                         tokens.map((token) => {
                           const tokenSecret = token.token || token.keyPrefix
-                          const tokenHttpUrl = `${origin}/api/mcp?apiKey=${tokenSecret}`
-                          const tokenSseUrl = `${origin}/api/mcp/sse?apiKey=${tokenSecret}`
+                          const tokenMcpUrl = `${origin}/api/mcp?apiKey=${tokenSecret}`
 
                           return (
                             <div
@@ -776,8 +771,15 @@ export function SettingsDialog({
                                   </p>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                  <span className="text-[11px] text-muted-foreground">
-                                    Created {new Date(token.createdAt).toLocaleDateString()}
+                                  <span
+                                    className="text-[11px] text-muted-foreground"
+                                    suppressHydrationWarning
+                                  >
+                                    Created{" "}
+                                    {new Date(token.createdAt).toLocaleDateString(
+                                      "en-US",
+                                      { month: "short", day: "numeric", year: "numeric" }
+                                    )}
                                   </span>
                                   <Button
                                     size="icon-sm"
@@ -816,7 +818,7 @@ export function SettingsDialog({
                                 </Button>
                               </div>
 
-                              {/* Direct Endpoint 1-Click Copy Buttons */}
+                              {/* Direct Endpoint 1-Click Copy Button */}
                               <div className="flex flex-wrap items-center gap-2 pt-0.5">
                                 <Button
                                   size="sm"
@@ -824,36 +826,17 @@ export function SettingsDialog({
                                   className="h-7 gap-1.5 rounded-full px-3 text-[11px] font-medium"
                                   onClick={() =>
                                     copyToClipboard(
-                                      tokenHttpUrl,
-                                      `HTTP Endpoint (${token.name})`
+                                      tokenMcpUrl,
+                                      `MCP Endpoint (${token.name})`
                                     )
                                   }
                                 >
-                                  {copiedField === `HTTP Endpoint (${token.name})` ? (
+                                  {copiedField === `MCP Endpoint (${token.name})` ? (
                                     <CheckIcon className="size-3 text-emerald-500" />
                                   ) : (
-                                    <ZapIcon className="size-3 text-amber-500" />
+                                    <ZapIcon className="size-3 text-primary" />
                                   )}
-                                  <span>Copy HTTP URL</span>
-                                </Button>
-
-                                <Button
-                                  size="sm"
-                                  variant="secondary"
-                                  className="h-7 gap-1.5 rounded-full px-3 text-[11px] font-medium"
-                                  onClick={() =>
-                                    copyToClipboard(
-                                      tokenSseUrl,
-                                      `SSE Endpoint (${token.name})`
-                                    )
-                                  }
-                                >
-                                  {copiedField === `SSE Endpoint (${token.name})` ? (
-                                    <CheckIcon className="size-3 text-emerald-500" />
-                                  ) : (
-                                    <GlobeIcon className="size-3 text-cyan-500" />
-                                  )}
-                                  <span>Copy SSE URL</span>
+                                  <span>Copy MCP URL</span>
                                 </Button>
                               </div>
                             </div>

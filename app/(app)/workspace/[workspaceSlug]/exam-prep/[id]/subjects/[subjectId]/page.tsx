@@ -16,6 +16,7 @@ import {
 import type { NavigationTarget } from "@/components/tools/exam-prep/subjects/recommendations"
 import type { SubjectWithRelations } from "@/types/progressapp/domain"
 import { formatDateInTimeZone } from "@/lib/dates/local-date"
+import { getSubjectLinkedAssessments } from "@/lib/tools/exam-prep/linked-assessments"
 
 type SubjectPageParams = Promise<{
   workspaceSlug: string
@@ -136,6 +137,18 @@ export default async function SubjectPage({
 
   if (!subjectWithRelations) {
     notFound()
+  }
+
+  try {
+    subjectWithRelations.linkedAssessments = await getSubjectLinkedAssessments(
+      workspaceSlug,
+      examId,
+      subjectWithRelations
+    )
+  } catch (error) {
+    console.error("Could not load linked subject assessments", error)
+    subjectWithRelations.linkedAssessmentsIssue =
+      "Mock tests could not be loaded. Refresh to try again."
   }
 
   const initialNavigationTarget = getInitialNavigationTarget(

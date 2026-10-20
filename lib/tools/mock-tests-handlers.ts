@@ -31,6 +31,7 @@ import {
 import { markResponse } from "./definitions/mock-tests/calculations/scoring"
 import { writeAttemptEvidence } from "./definitions/mock-tests/calculations/evidence"
 import { getWeakTopics } from "./definitions/mock-tests/repository"
+import { equivalentQuestionRevision } from "./mock-tests/question-revision"
 import { REVISION_CONFLICT_MESSAGE } from "./mock-tests/revision-conflict"
 import {
   completeMockTestsRun,
@@ -242,8 +243,8 @@ function validateQuestionPayload(payload: QuestionPayload): void {
 }
 
 /**
- * Replaces the content rows (options, solution, targets) of a question. Safe
- * to call for a fresh create — the deleteMany calls are no-ops.
+ * Synchronizes question content while retaining option identities by key.
+ * Historical response options reference those identities with restrictive FKs.
  */
 async function replaceQuestionContent(
   tx: Prisma.TransactionClient,
@@ -251,6 +252,7 @@ async function replaceQuestionContent(
     workspaceId: string
     questionId: string
     payload: QuestionPayload
+    preserveAssessmentContent?: boolean
   }
 ): Promise<void> {
   const { workspaceId, questionId, payload } = args
@@ -258,51 +260,110 @@ async function replaceQuestionContent(
   const answerKeys = payload.answerKeys ?? []
   const targets = payload.targets ?? []
 
-  await tx.questionSolutionOption.deleteMany({ where: { questionId } })
-  await tx.questionSolution.deleteMany({ where: { questionId } })
-  await tx.questionOption.deleteMany({ where: { questionId } })
-  await tx.questionTarget.deleteMany({ where: { questionId } })
-
-  const optionIdsByKey = new Map<string, string>()
-  for (const option of options) {
-    const optionId = crypto.randomUUID()
-    await tx.questionOption.create({
-      data: {
-        id: optionId,
-        workspaceId,
-        questionId,
-        key: option.key,
-        content: option.content,
-        position: option.position ?? options.indexOf(option),
-        metadata: {},
+  if (!args.preserveAssessmentContent) {
+    const existingOptions = await tx.questionOption.findMany({
+      where: { questionId, workspaceId },
+      select: {
+        id: true,
+        key: true,
+        position: true,
+        _count: { select: { selectedResponses: true } },
       },
     })
-    optionIdsByKey.set(option.key, optionId)
-  }
-
-  await tx.questionSolution.create({
-    data: {
-      workspaceId,
-      questionId,
-      explanation: payload.explanation ?? null,
-      numericAnswer: payload.numericAnswer ?? null,
-      textAnswer: payload.textAnswer ?? null,
-      gradingConfig: {},
-    },
-  })
-  for (const key of answerKeys) {
-    const optionId = optionIdsByKey.get(key)
-    if (!optionId) {
+    const nextKeys = new Set(options.map((option) => option.key))
+    const removedOptions = existingOptions.filter(
+      (option) => !nextKeys.has(option.key)
+    )
+    if (removedOptions.some((option) => option._count.selectedResponses > 0)) {
       throw new ToolActionExecutionError(
-        `Answer key "${key}" does not match an option.`,
+        "A removed answer choice is used by a saved attempt. Keep its key, or create a new question to preserve previous results.",
         "INVALID_INPUT"
       )
     }
-    await tx.questionSolutionOption.create({
-      data: { workspaceId, questionId, questionOptionId: optionId },
+
+    await tx.questionSolutionOption.deleteMany({ where: { questionId } })
+    await tx.questionSolution.deleteMany({ where: { questionId } })
+    if (removedOptions.length) {
+      await tx.questionOption.deleteMany({
+        where: {
+          questionId,
+          id: { in: removedOptions.map((option) => option.id) },
+        },
+      })
+    }
+
+    // Stage retained positions away from both old and incoming positions so swaps
+    // never violate the unique [questionId, position] constraint.
+    const retained = existingOptions.filter((option) =>
+      nextKeys.has(option.key)
+    )
+    const stagingStart =
+      Math.min(
+        0,
+        ...existingOptions.map((option) => option.position),
+        ...options.map((option, index) => option.position ?? index)
+      ) -
+      retained.length -
+      1
+    for (const [index, option] of retained.entries()) {
+      await tx.questionOption.update({
+        where: { id: option.id },
+        data: { position: stagingStart + index },
+      })
+    }
+    const existingByKey = new Map(
+      retained.map((option) => [option.key, option])
+    )
+    const optionIdsByKey = new Map<string, string>()
+    for (const [index, option] of options.entries()) {
+      const existing = existingByKey.get(option.key)
+      const optionId = existing?.id ?? crypto.randomUUID()
+      if (existing) {
+        await tx.questionOption.update({
+          where: { id: optionId },
+          data: { content: option.content, position: option.position ?? index },
+        })
+      } else {
+        await tx.questionOption.create({
+          data: {
+            id: optionId,
+            workspaceId,
+            questionId,
+            key: option.key,
+            content: option.content,
+            position: option.position ?? index,
+            metadata: {},
+          },
+        })
+      }
+      optionIdsByKey.set(option.key, optionId)
+    }
+
+    await tx.questionSolution.create({
+      data: {
+        workspaceId,
+        questionId,
+        explanation: payload.explanation ?? null,
+        numericAnswer: payload.numericAnswer ?? null,
+        textAnswer: payload.textAnswer ?? null,
+        gradingConfig: {},
+      },
     })
+    for (const key of answerKeys) {
+      const optionId = optionIdsByKey.get(key)
+      if (!optionId) {
+        throw new ToolActionExecutionError(
+          `Answer key "${key}" does not match an option.`,
+          "INVALID_INPUT"
+        )
+      }
+      await tx.questionSolutionOption.create({
+        data: { workspaceId, questionId, questionOptionId: optionId },
+      })
+    }
   }
 
+  await tx.questionTarget.deleteMany({ where: { questionId } })
   if (targets.length > 0) {
     const blockIds = targets.map((target) => target.blockId)
     const blocks = await tx.block.findMany({
@@ -508,7 +569,31 @@ export const executeMockTestsQuestionUpdate = {
             id: actionInput.questionId,
             workspaceId: input.workspaceId,
           },
-          select: { id: true },
+          select: {
+            id: true,
+            kind: true,
+            stem: true,
+            options: {
+              orderBy: { position: "asc" },
+              select: { id: true, key: true, content: true, position: true },
+            },
+            solution: {
+              select: {
+                explanation: true,
+                numericAnswer: true,
+                textAnswer: true,
+                correctOptions: { select: { questionOptionId: true } },
+              },
+            },
+            _count: {
+              select: {
+                responses: true,
+                assessments: {
+                  where: { assessment: { attempts: { some: {} } } },
+                },
+              },
+            },
+          },
         })
         if (!existing) {
           throw new ToolActionExecutionError(
@@ -516,25 +601,61 @@ export const executeMockTestsQuestionUpdate = {
             "NOT_AVAILABLE"
           )
         }
+        const hasAttempts =
+          existing._count.responses > 0 || existing._count.assessments > 0
+        let effectivePayload: QuestionPayload = actionInput
+        if (hasAttempts) {
+          // Reviews and grading read live content, not immutable snapshots. Keep
+          // historical text and answer keys intact until question versioning exists.
+          const keysById = new Map(
+            existing.options.map((option) => [option.id, option.key])
+          )
+          const previousContent = {
+            kind: existing.kind,
+            stem: existing.stem,
+            options: existing.options.map(({ key, content, position }) => ({
+              key,
+              content,
+              position,
+            })),
+            answerKeys: (existing.solution?.correctOptions ?? []).map(
+              (option) =>
+                keysById.get(option.questionOptionId) ?? option.questionOptionId
+            ),
+            explanation: existing.solution?.explanation ?? null,
+            numericAnswer: num(existing.solution?.numericAnswer),
+            textAnswer: existing.solution?.textAnswer ?? null,
+          }
+          if (!equivalentQuestionRevision(previousContent, actionInput)) {
+            throw new ToolActionExecutionError(
+              "This question has saved attempts. Create a new question to change its question text, choices, or answer key and preserve previous results.",
+              "INVALID_INPUT"
+            )
+          }
+          // Editor-only paragraph/math serialization changes can save, but must
+          // not rewrite the actual strings that historical attempts display.
+          effectivePayload = { ...actionInput, ...previousContent }
+        }
         await tx.question.update({
           where: { id: actionInput.questionId },
           data: {
-            kind: actionInput.kind as QuestionKind,
-            stem: actionInput.stem,
+            kind: effectivePayload.kind as QuestionKind,
+            stem: effectivePayload.stem,
             difficulty: actionInput.difficulty ?? null,
           },
         })
         await replaceQuestionContent(tx, {
           workspaceId: input.workspaceId,
           questionId: actionInput.questionId,
-          payload: actionInput,
+          payload: effectivePayload,
+          preserveAssessmentContent: hasAttempts,
         })
 
         const data = {
           question: {
             id: actionInput.questionId,
             kind: actionInput.kind,
-            stem: actionInput.stem,
+            stem: effectivePayload.stem,
           },
         }
         await completeMockTestsRun(tx, reservation.runId, {
@@ -554,6 +675,7 @@ export const executeMockTestsQuestionUpdate = {
       },
     }),
 }
+
 
 export const executeMockTestsQuestionDelete = {
   handlerVersion: "mock-tests.question.delete.v1",
@@ -1779,29 +1901,35 @@ export const executeMockTestsAttemptRecordAnswer = {
           await tx.attemptResponseOption.deleteMany({
             where: { responseId: response.id },
           })
-          for (const key of selectedKeys) {
-            const option = await tx.questionOption.findFirst({
+
+          if (selectedKeys.length > 0) {
+            const options = await tx.questionOption.findMany({
               where: {
                 questionId: actionInput.questionId,
                 workspaceId: input.workspaceId,
-                key,
+                key: { in: selectedKeys },
               },
-              select: { id: true },
+              select: { id: true, key: true },
             })
-            if (!option) {
+
+            if (options.length !== selectedKeys.length) {
+              const foundKeys = new Set(options.map((o) => o.key))
+              const missingKey = selectedKeys.find((k) => !foundKeys.has(k))
               throw new ToolActionExecutionError(
-                `Option "${key}" is not part of this question.`,
+                `Option "${missingKey ?? "unknown"}" is not part of this question.`,
                 "INVALID_INPUT"
               )
             }
-            await tx.attemptResponseOption.create({
-              data: {
+
+            await tx.attemptResponseOption.createMany({
+              data: options.map((option) => ({
                 workspaceId: input.workspaceId,
                 responseId: response.id,
                 questionOptionId: option.id,
-              },
+              })),
             })
           }
+
           await tx.attemptResponse.update({
             where: { id: response.id },
             data: {

@@ -1,6 +1,6 @@
 "use client"
 
-import { useLayoutEffect, useRef } from "react"
+import React, { useLayoutEffect, useRef } from "react"
 
 import { cn } from "@/lib/utils"
 import {
@@ -51,41 +51,56 @@ function enhanceLegacyMath(root: HTMLElement) {
   }
 }
 
-export function RichContent({
-  html,
-  className,
-  style,
-}: {
-  html: string
-  className?: string
-  style?: React.CSSProperties
-}) {
-  const rootRef = useRef<HTMLDivElement | null>(null)
-
-  useLayoutEffect(() => {
-    const root = rootRef.current
-    if (!root) return
-    const mathNodes = root.querySelectorAll<HTMLElement>(
-      "[data-math-inline], [data-math-block]"
-    )
-    for (const element of mathNodes) {
-      const tex = element.getAttribute("data-tex") ?? ""
-      element.innerHTML = renderTex(tex, element.hasAttribute("data-math-block"))
-    }
-    enhanceLegacyMath(root)
-    // The parent can toggle between Form and Preview without changing the
-    // HTML string; re-run after each commit so React cannot leave raw math
-    // atoms visible after that mode switch.
-  })
-
-  return (
-    <div
-      ref={rootRef}
-      style={style}
-      className={cn("rich-text", className)}
-      // Author-authored HTML is trusted: it is produced by the rich editor
-      // and sanitized by Tiptap's schema on the way in.
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
-  )
+function areStylesEqual(a?: React.CSSProperties, b?: React.CSSProperties): boolean {
+  if (a === b) return true
+  if (!a || !b) return false
+  const keysA = Object.keys(a) as (keyof React.CSSProperties)[]
+  const keysB = Object.keys(b) as (keyof React.CSSProperties)[]
+  if (keysA.length !== keysB.length) return false
+  for (const key of keysA) {
+    if (a[key] !== b[key]) return false
+  }
+  return true
 }
+
+export const RichContent = React.memo(
+  function RichContent({
+    html,
+    className,
+    style,
+  }: {
+    html: string
+    className?: string
+    style?: React.CSSProperties
+  }) {
+    const rootRef = useRef<HTMLDivElement | null>(null)
+
+    useLayoutEffect(() => {
+      const root = rootRef.current
+      if (!root) return
+      const mathNodes = root.querySelectorAll<HTMLElement>(
+        "[data-math-inline], [data-math-block]"
+      )
+      for (const element of mathNodes) {
+        const tex = element.getAttribute("data-tex") ?? ""
+        element.innerHTML = renderTex(tex, element.hasAttribute("data-math-block"))
+      }
+      enhanceLegacyMath(root)
+    }, [html])
+
+    return (
+      <div
+        ref={rootRef}
+        style={style}
+        className={cn("rich-text", className)}
+        // Author-authored HTML is trusted: it is produced by the rich editor
+        // and sanitized by Tiptap's schema on the way in.
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
+    )
+  },
+  (prev, next) =>
+    prev.html === next.html &&
+    prev.className === next.className &&
+    areStylesEqual(prev.style, next.style)
+)

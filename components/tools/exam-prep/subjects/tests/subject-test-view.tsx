@@ -1,8 +1,7 @@
 "use client"
 
 import { useSubjectProgress } from "../subject-progress-context"
-import { ScheduledTestsSection } from "./scheduled-tests-section"
-import { TestRecordsSection } from "./test-records-section"
+import { UnifiedTestsSection } from "./unified-tests-section"
 
 type SubjectTestViewProps = {
   workspaceSlug: string
@@ -27,22 +26,14 @@ export function SubjectTestView({
     ) || []
 
   return (
-    <section className="flex flex-col gap-6">
-      <ScheduledTestsSection
-        workspaceSlug={workspaceSlug}
-        examId={examId}
-        subjectId={subjectId}
-        title="Full-subject test plan"
-        localDate={localDate}
-      />
-      <TestRecordsSection
-        workspaceSlug={workspaceSlug}
-        examId={examId}
-        subjectId={subjectId}
-        title="Full-subject results"
-        targetTests={targetTests}
-        records={records}
-      />
-    </section>
+    <UnifiedTestsSection
+      workspaceSlug={workspaceSlug}
+      examId={examId}
+      subjectId={subjectId}
+      title="Full-subject tests"
+      localDate={localDate}
+      records={records}
+      targetTests={targetTests}
+    />
   )
 }

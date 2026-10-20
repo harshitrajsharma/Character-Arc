@@ -178,15 +178,15 @@ export function VerifySignupForm({ maskedEmail, next }: VerifySignupFormProps) {
 
         <form action={restartSignup}>
           <input type="hidden" name="next" value={next} />
-          <Button
-            type="submit"
+          <SubmitButton
             variant="ghost"
             size="sm"
             className="text-muted-foreground hover:bg-muted hover:text-foreground"
+            pendingLabel="Changing email..."
           >
             <PencilIcon data-icon="inline-start" />
             Change email
-          </Button>
+          </SubmitButton>
         </form>
       </div>
     </FieldGroup>

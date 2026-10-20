@@ -14,7 +14,7 @@ import {
 import { SetNavbarBreadcrumbs } from "@/components/navigation/breadcrumb-context"
 import { workspaceRoutes } from "@/lib/routes/workspace-tools"
 
-export const metadata: Metadata = { title: "Mock Test" }
+export const metadata: Metadata = { title: "Assessment Paper" }
 export const dynamic = "force-dynamic"
 
 export default async function MockTestDetailPage({
@@ -23,7 +23,6 @@ export default async function MockTestDetailPage({
   params: Promise<{ workspaceSlug: string; assessmentId: string }>
 }) {
   const { workspaceSlug, assessmentId } = await params
-  console.log("[MockTestDetailPage] called with assessmentId:", assessmentId)
   const workspace = await getWorkspaceIdentity(workspaceSlug)
   await requireActiveToolInstallation(workspaceSlug, "core.mock-tests")
 
@@ -38,11 +37,11 @@ export default async function MockTestDetailPage({
       <SetNavbarBreadcrumbs
         segments={[
           { label: "Workspace", href: `/workspace/${encodeURIComponent(workspaceSlug)}` },
-          { label: "Mock Tests", href: workspaceRoutes.mockTests.home(workspaceSlug) },
+          { label: "Assessments", href: workspaceRoutes.mockTests.home(workspaceSlug) },
           { label: assessment.title },
         ]}
         backHref={workspaceRoutes.mockTests.home(workspaceSlug)}
-        backLabel="Back to Mock Tests"
+        backLabel="Back to Assessments"
       />
 
       <MockTestDetailView

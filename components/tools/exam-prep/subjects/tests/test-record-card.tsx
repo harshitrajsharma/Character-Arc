@@ -19,14 +19,16 @@ type TestRecordCardProps = {
   onDelete?: (record: BaseTestRecord) => void
 }
 
+const recordedDateFormatter = new Intl.DateTimeFormat("en-US", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+})
+
 function formatRecordedDate(value: Date | string) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return "Date unavailable"
-  return new Intl.DateTimeFormat(undefined, {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(date)
+  return recordedDateFormatter.format(date)
 }
 
 export function TestRecordCard({
@@ -56,7 +58,10 @@ export function TestRecordCard({
               <span>
                 {Number(record.marksObtained)}/{Number(record.totalMarks)} marks
               </span>
-              <span className="inline-flex items-center gap-1">
+              <span
+                className="inline-flex items-center gap-1"
+                suppressHydrationWarning
+              >
                 <CalendarDaysIcon aria-hidden="true" className="size-3.5" />
                 {formatRecordedDate(record.attemptedAt ?? record.createdAt)}
               </span>

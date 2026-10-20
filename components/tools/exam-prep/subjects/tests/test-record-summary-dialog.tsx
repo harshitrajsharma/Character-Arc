@@ -27,15 +27,17 @@ type TestRecordSummaryDialogProps = {
   }
 }
 
+const recordedDateFormatter = new Intl.DateTimeFormat("en-US", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+})
+
 function formatRecordedDate(value: Date | string) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return "Date unavailable"
 
-  return new Intl.DateTimeFormat(undefined, {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(date)
+  return recordedDateFormatter.format(date)
 }
 
 export function TestRecordSummaryDialog({
@@ -76,6 +78,7 @@ export function TestRecordSummaryDialog({
             <Badge
               variant="outline"
               className="h-7 gap-1.5 px-2.5 text-muted-foreground"
+              suppressHydrationWarning
             >
               <CalendarDaysIcon aria-hidden="true" />
               {formatRecordedDate(record.attemptedAt ?? record.createdAt)}

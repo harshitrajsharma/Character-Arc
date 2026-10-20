@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
+import { useState, useMemo, useEffect, startTransition } from "react"
 import {
   CheckCircle2Icon,
   ChevronDownIcon,
@@ -33,12 +33,10 @@ export function AnalysisReviewList({
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedSection, setSelectedSection] = useState<string>("ALL")
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>(() => {
-    // Expand incorrect by default for high-yield learning
-    const initial: Record<string, boolean> = {}
-    questions.forEach((q) => {
-      initial[q.questionId] = true
-    })
-    return initial
+    // Lazy expansion: expand only the first high-yield review candidate on initial mount
+    const firstIncorrect = questions.find((q) => q.isCorrect === false)
+    const targetId = firstIncorrect?.questionId ?? questions[0]?.questionId
+    return targetId ? { [targetId]: true } : {}
   })
 
   const sections = useMemo(() => {
@@ -140,11 +138,15 @@ export function AnalysisReviewList({
   }
 
   function toggleAll(expand: boolean) {
-    const updated: Record<string, boolean> = {}
-    questions.forEach((q) => {
-      updated[q.questionId] = expand
+    startTransition(() => {
+      const updated: Record<string, boolean> = {}
+      if (expand) {
+        questions.forEach((q) => {
+          updated[q.questionId] = true
+        })
+      }
+      setExpandedIds(updated)
     })
-    setExpandedIds(updated)
   }
 
   return (
@@ -312,7 +314,7 @@ export function AnalysisReviewList({
             const isCorrect = question.isCorrect === true
             const isIncorrect = question.isCorrect === false
             const isUnanswered = question.isCorrect === null
-            const isExpanded = expandedIds[question.questionId] ?? true
+            const isExpanded = Boolean(expandedIds[question.questionId])
             const actualIndex = questions.findIndex((q) => q.questionId === question.questionId)
 
             return (

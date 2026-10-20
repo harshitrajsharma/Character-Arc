@@ -101,6 +101,7 @@ export type AssessmentQuestionView = PublicQuestion & {
   numericAnswer?: number | null
   textAnswer?: string | null
   explanation?: string | null
+  targets?: Array<{ blockId: string; title: string; blockTypeKey: string; paths?: Array<{ subjectId: string; subjectTitle: string; chapterTitle?: string; examId?: string }> }>
   targetTitles?: string[]
 }
 
@@ -291,8 +292,10 @@ export function parseAssessmentSections(
 export async function getMockTestsOverview(
   workspaceId: string,
   workspaceSlug: string,
-  installationId: string
+  installationId: string,
+  options: { includeCommunity?: boolean } = {}
 ): Promise<MockTestsOverview> {
+  const { includeCommunity = true } = options
   const claims = await requireVerifiedClaims(
     `/workspace/${encodeURIComponent(workspaceSlug)}`
   )
@@ -310,36 +313,54 @@ export async function getMockTestsOverview(
     }
   }
 
-  const blocks = await prisma.block.findMany({
-    where: {
-      workspaceId,
-      blockTypeId: blockType.id,
-      originToolInstallationId: installationId,
-      status: "ACTIVE",
-      archivedAt: null,
-    },
-    select: {
-      id: true,
-      title: true,
-      createdAt: true,
-      updatedAt: true,
-      createdBy: {
-        select: { displayName: true, avatarUrl: true },
+  const [blocks, recentAttemptsData, communityAssessments] = await Promise.all([
+    prisma.block.findMany({
+      where: {
+        workspaceId,
+        blockTypeId: blockType.id,
+        originToolInstallationId: installationId,
+        status: "ACTIVE",
+        archivedAt: null,
       },
-      assessmentDetails: {
-        select: {
-          status: true,
-          durationMinutes: true,
-          totalMarks: true,
-          publishedAt: true,
-          blueprint: true,
-          _count: { select: { questions: true, attempts: true } },
+      select: {
+        id: true,
+        title: true,
+        createdAt: true,
+        updatedAt: true,
+        createdBy: {
+          select: { displayName: true, avatarUrl: true },
+        },
+        assessmentDetails: {
+          select: {
+            status: true,
+            durationMinutes: true,
+            totalMarks: true,
+            publishedAt: true,
+            blueprint: true,
+            _count: { select: { questions: true, attempts: true } },
+          },
         },
       },
-    },
-    orderBy: { updatedAt: "desc" },
-    take: 50,
-  })
+      orderBy: { updatedAt: "desc" },
+      take: 50,
+    }),
+    prisma.attempt.findMany({
+      where: { workspaceId, userId: claims.sub },
+      select: {
+        id: true,
+        assessmentId: true,
+        status: true,
+        score: true,
+        maxScore: true,
+        startedAt: true,
+        submittedAt: true,
+        assessment: { select: { block: { select: { title: true } } } },
+      },
+      orderBy: { startedAt: "desc" },
+      take: 5,
+    }),
+    includeCommunity ? getCommunityMockTests() : Promise.resolve([]),
+  ])
 
   const assessmentIds = blocks.map((block) => block.id)
   const attemptsData = assessmentIds.length
@@ -406,22 +427,6 @@ export async function getMockTestsOverview(
     }
   })
 
-  const recentAttemptsData = await prisma.attempt.findMany({
-    where: { workspaceId, userId: claims.sub },
-    select: {
-      id: true,
-      assessmentId: true,
-      status: true,
-      score: true,
-      maxScore: true,
-      startedAt: true,
-      submittedAt: true,
-      assessment: { select: { block: { select: { title: true } } } },
-    },
-    orderBy: { startedAt: "desc" },
-    take: 5,
-  })
-
   const recentAttempts: RecentAttemptItem[] = recentAttemptsData.map(
     (attempt) => {
       const score = toNumber(attempt.score)
@@ -443,7 +448,6 @@ export async function getMockTestsOverview(
     }
   )
 
-  const communityAssessments = await getCommunityMockTests()
   return { assessments, communityAssessments, recentAttempts, issue: null }
 }
 
@@ -508,8 +512,10 @@ export const getAssessmentDetail = cache(
                   },
                 },
                 targets: {
+                  where: { workspaceId, block: { workspaceId, status: "ACTIVE", archivedAt: null } },
                   select: {
-                    block: { select: { title: true } },
+                    blockId: true,
+                    block: { select: { title: true, blockType: { select: { key: true } } } },
                   },
                 },
               },
@@ -545,6 +551,22 @@ export const getAssessmentDetail = cache(
         ? (assessment.blueprint as Record<string, unknown>)
         : {}
     const calculatorAllowed = Boolean(blueprintObj.calculatorAllowed)
+
+    const coverageEdges: Array<{ fromBlockId: string; toBlockId: string; fromBlock: { title: string; blockType: { key: string } } }> = []
+    let frontier = [...new Set(assessment.questions.flatMap(q => q.question.targets.map(t => t.blockId)))]
+    for (let depth = 0; depth < 3 && frontier.length > 0; depth++) {
+      const edges = await prisma.blockRelation.findMany({
+        where: { workspaceId, toBlockId: { in: frontier }, relationType: { key: { in: ["exam-prep.chapter-has-topic", "exam-prep.subject-has-chapter", "exam-prep.exam-has-subject"] } }, fromBlock: { workspaceId, status: "ACTIVE", archivedAt: null }, toBlock: { workspaceId, status: "ACTIVE", archivedAt: null } },
+        select: { fromBlockId: true, toBlockId: true, fromBlock: { select: { title: true, blockType: { select: { key: true } } } } },
+      })
+      coverageEdges.push(...edges)
+      frontier = [...new Set(edges.map(e => e.fromBlockId))]
+    }
+    function coveragePaths(id: string, title: string, kind: string) {
+      const chapters = kind === "exam-prep.topic" ? coverageEdges.filter(e => e.toBlockId === id && e.fromBlock.blockType.key === "exam-prep.chapter") : []
+      const subjects = kind === "exam-prep.subject" ? [{ subjectId: id, subjectTitle: title, chapterTitle: undefined as string | undefined }] : coverageEdges.filter(e => e.fromBlock.blockType.key === "exam-prep.subject" && (e.toBlockId === id || chapters.some(c => c.fromBlockId === e.toBlockId))).map(e => ({ subjectId: e.fromBlockId, subjectTitle: e.fromBlock.title, chapterTitle: kind === "exam-prep.chapter" ? title : chapters.find(c => c.fromBlockId === e.toBlockId)?.fromBlock.title }))
+      return [...new Map(subjects.map(subject => [subject.subjectId, { ...subject, examId: coverageEdges.find(e => e.toBlockId === subject.subjectId && e.fromBlock.blockType.key === "exam-prep.exam")?.fromBlockId }])).values()]
+    }
 
     return {
       id: assessment.blockId,
@@ -589,6 +611,7 @@ export const getAssessmentDetail = cache(
           : null,
         textAnswer: row.question.solution?.textAnswer ?? null,
         explanation: row.question.solution?.explanation ?? null,
+        targets: row.question.targets.map((t) => ({ blockId: t.blockId, title: t.block.title, blockTypeKey: t.block.blockType.key, paths: coveragePaths(t.blockId, t.block.title, t.block.blockType.key) })),
         targetTitles: row.question.targets
           .map((t) => t.block?.title)
           .filter(
@@ -949,6 +972,14 @@ export const getAttemptAnalysis = cache(
       weakTopics,
       passingBenchmark,
       distinctionBenchmark,
+    })
+  }
+)
+
+export const getQuestionBankCount = cache(
+  async (workspaceId: string): Promise<number> => {
+    return prisma.question.count({
+      where: { workspaceId, status: { in: ["DRAFT", "PUBLISHED"] } },
     })
   }
 )

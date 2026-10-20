@@ -57,4 +57,11 @@ describe("local date helpers", () => {
       )
     ).toBe("2026-08-01")
   })
+
+  test("formats scheduled local dates deterministically in en-US", () => {
+    const date = parseIsoLocalDate("2026-10-15")
+    expect(date).toBeDefined()
+    const formatter = new Intl.DateTimeFormat("en-US", { dateStyle: "medium" })
+    expect(formatter.format(date!)).toBe("Oct 15, 2026")
+  })
 })

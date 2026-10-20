@@ -36,7 +36,6 @@ import {
   CodeIcon,
   EraserIcon,
   HighlighterIcon,
-  ImageIcon,
   ItalicIcon,
   Link2Icon,
   ListChecksIcon,
@@ -74,6 +73,7 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import { MathBlock, MathInline, MathPaste } from "./math-extensions"
+import { ImageInsertPopover } from "./image-insert-popover"
 
 const TEXT_COLORS = [
   { label: "Red", value: "#dc2626" },
@@ -100,7 +100,7 @@ function toolbarButtonClass(active: boolean): string {
   return cn(
     "inline-flex size-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/30 disabled:pointer-events-none disabled:opacity-40 sm:size-8",
     active &&
-      "bg-brand-violet-soft text-brand-violet-ink hover:bg-brand-violet-soft hover:text-brand-violet-ink"
+      "bg-foreground font-semibold text-background shadow-2xs hover:bg-foreground/90"
   )
 }
 
@@ -214,57 +214,6 @@ function LinkPopover({ editor, isLink }: { editor: Editor; isLink: boolean }) {
   )
 }
 
-function ImagePopover({ editor }: { editor: Editor }) {
-  const [open, setOpen] = useState(false)
-  const [src, setSrc] = useState("")
-
-  function insertImage() {
-    const url = src.trim()
-    if (!url) return
-    editor.chain().focus().setImage({ src: url }).run()
-    setSrc("")
-    setOpen(false)
-  }
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger
-        className={toolbarButtonClass(false)}
-        aria-label="Insert image"
-        title="Insert image"
-        onClick={() => setOpen(true)}
-      >
-        <ImageIcon className="size-4" aria-hidden="true" />
-      </PopoverTrigger>
-      <PopoverContent align="start" className="w-72">
-        <div className="grid gap-2">
-          <Label htmlFor="rich-image-url">Image URL</Label>
-          <Input
-            id="rich-image-url"
-            value={src}
-            onChange={(event) => setSrc(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") insertImage()
-            }}
-            placeholder="https://example.com/image.png"
-            autoFocus
-          />
-          <div className="flex justify-end">
-            <Button
-              type="button"
-              size="sm"
-              disabled={!src.trim()}
-              onClick={insertImage}
-            >
-              Insert image
-            </Button>
-          </div>
-        </div>
-      </PopoverContent>
-    </Popover>
-  )
-}
-
 function MathPopover({
   editor,
   mode,
@@ -335,11 +284,12 @@ function MathPopover({
               <code className="rounded bg-muted px-1 py-0.5 font-mono text-[10px]">
                 {mode === "block" ? "$$x^2$$" : "$x^2$"}
               </code>{" "}
-              directly in the editor to auto-convert to {mode === "block" ? "a display equation" : "inline math"}.
+              directly in the editor to auto-convert to{" "}
+              {mode === "block" ? "a display equation" : "inline math"}.
             </p>
           </div>
           <div className="rounded-lg border bg-muted/40 p-3">
-            <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            <p className="mb-1.5 text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
               Preview
             </p>
             <div
@@ -425,7 +375,7 @@ function ColorPopover({
                 className={cn(
                   "size-6 rounded-full border border-black/10 shadow-sm transition-transform hover:scale-110",
                   activeColor === color.value &&
-                    "ring-2 ring-brand-violet-line ring-offset-2 ring-offset-background"
+                    "ring-2 ring-foreground ring-offset-2 ring-offset-background"
                 )}
                 style={{ backgroundColor: color.value }}
                 onClick={() => applyColor(color.value)}
@@ -452,7 +402,13 @@ function ColorPopover({
   )
 }
 
-function TablePopover({ editor, isTable }: { editor: Editor; isTable: boolean }) {
+function TablePopover({
+  editor,
+  isTable,
+}: {
+  editor: Editor
+  isTable: boolean
+}) {
   const [open, setOpen] = useState(false)
 
   return (
@@ -574,7 +530,15 @@ function HeadingSelect({ editor, level }: { editor: Editor; level: number }) {
   )
 }
 
-function Toolbar({ editor }: { editor: Editor }) {
+function Toolbar({
+  editor,
+  workspaceSlug,
+  onImageUploadStateChange,
+}: {
+  editor: Editor
+  workspaceSlug?: string
+  onImageUploadStateChange?: (busy: boolean) => void
+}) {
   const [showAdvanced, setShowAdvanced] = useState(false)
   const state = useEditorState({
     editor,
@@ -601,7 +565,7 @@ function Toolbar({ editor }: { editor: Editor }) {
 
   return (
     <div
-      className="flex max-w-full flex-nowrap items-center gap-0.5 overflow-x-auto border-b border-border bg-muted/30 px-1.5 py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      className="flex h-[41px] min-h-[41px] max-w-full shrink-0 [scrollbar-width:none] flex-nowrap items-center gap-0.5 overflow-x-auto border-b border-border bg-muted/30 px-1.5 py-1 [&::-webkit-scrollbar]:hidden"
       role="toolbar"
       aria-label="Text formatting"
     >
@@ -655,7 +619,14 @@ function Toolbar({ editor }: { editor: Editor }) {
       <ToolbarSeparator />
 
       <LinkPopover editor={editor} isLink={Boolean(state?.isLink)} />
-      <ImagePopover editor={editor} />
+      <ImageInsertPopover
+        workspaceSlug={workspaceSlug}
+        onUploadStateChange={onImageUploadStateChange}
+        triggerClassName={toolbarButtonClass(false)}
+        onInsert={(image) => {
+          if (!editor.isDestroyed) editor.chain().focus().setImage(image).run()
+        }}
+      />
       <MathPopover editor={editor} mode="inline" />
       <MathPopover editor={editor} mode="block" />
       <ToolbarButton
@@ -717,12 +688,56 @@ function Toolbar({ editor }: { editor: Editor }) {
           <ColorPopover editor={editor} type="highlight" />
           <ToolbarButton
             title="Clear formatting"
-            onClick={() => editor.chain().focus().unsetAllMarks().clearNodes().run()}
+            onClick={() =>
+              editor.chain().focus().unsetAllMarks().clearNodes().run()
+            }
           >
             <EraserIcon className="size-4" aria-hidden="true" />
           </ToolbarButton>
         </>
       ) : null}
+    </div>
+  )
+}
+
+export function ToolbarSkeleton() {
+  return (
+    <div
+      className="flex h-[41px] min-h-[41px] max-w-full shrink-0 items-center gap-0.5 border-b border-border bg-muted/30 px-1.5 py-1"
+      aria-hidden="true"
+    >
+      <div className="flex items-center gap-1 opacity-50">
+        <div className="size-8 animate-pulse rounded-lg bg-muted" />
+        <div className="size-8 animate-pulse rounded-lg bg-muted" />
+        <span className="mx-0.5 h-5 w-px bg-border" />
+        <div className="h-8 w-[7.6rem] animate-pulse rounded-lg bg-muted" />
+        <div className="size-8 animate-pulse rounded-lg bg-muted" />
+        <div className="size-8 animate-pulse rounded-lg bg-muted" />
+        <span className="mx-0.5 h-5 w-px bg-border" />
+        <div className="size-8 animate-pulse rounded-lg bg-muted" />
+        <div className="size-8 animate-pulse rounded-lg bg-muted" />
+      </div>
+    </div>
+  )
+}
+
+export function RichTextEditorSkeleton({
+  minHeight = "140px",
+  className,
+}: {
+  minHeight?: string
+  className?: string
+}) {
+  return (
+    <div
+      className={cn(
+        "rich-text-editor relative flex flex-col overflow-hidden rounded-xl border border-input bg-background [&_.katex]:text-[1.5rem]!",
+        className
+      )}
+      style={{ minHeight }}
+    >
+      <ToolbarSkeleton />
+      <div className="min-h-[99px] flex-1 bg-muted/5 p-3" />
     </div>
   )
 }
@@ -801,6 +816,8 @@ export function RichTextEditor({
   ariaLabelledBy,
   invalid,
   showMathHint = false,
+  workspaceSlug,
+  onImageUploadStateChange,
 }: {
   value: string
   onChange: (html: string) => void
@@ -816,6 +833,8 @@ export function RichTextEditor({
   ariaLabelledBy?: string
   invalid?: boolean
   showMathHint?: boolean
+  workspaceSlug?: string
+  onImageUploadStateChange?: (busy: boolean) => void
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [customHeight, setCustomHeight] = useState<number | null>(null)
@@ -851,7 +870,10 @@ export function RichTextEditor({
 
     const onPointerMove = (moveEvent: PointerEvent) => {
       const deltaY = moveEvent.clientY - startY
-      const newHeight = Math.max(minH, Math.min(maxH, Math.round(startHeight + deltaY)))
+      const newHeight = Math.max(
+        minH,
+        Math.min(maxH, Math.round(startHeight + deltaY))
+      )
       setCustomHeight(newHeight)
     }
 
@@ -889,7 +911,7 @@ export function RichTextEditor({
         TextStyle,
         Color,
         Highlight.configure({ multicolor: true }),
-        Image.configure({ allowBase64: true }),
+        Image.configure({ allowBase64: false }),
         Table.configure({ resizable: true, allowTableNodeSelection: true }),
         TableRow,
         TableHeader,
@@ -930,10 +952,10 @@ export function RichTextEditor({
         ref={containerRef}
         id={id}
         className={cn(
-          "rich-text-editor relative flex flex-col overflow-hidden rounded-xl border bg-background transition-[border-color,box-shadow] focus-within:ring-2 focus-within:ring-ring/25",
+          "rich-text-editor relative flex flex-col overflow-hidden rounded-xl border bg-background transition-[border-color,box-shadow] focus-within:ring-2 focus-within:ring-ring/25 [&_.katex]:text-[1.5rem]!",
           invalid
             ? "border-destructive"
-            : "border-input focus-within:border-brand-violet-line"
+            : "border-input focus-within:border-foreground/40"
         )}
         style={
           {
@@ -945,30 +967,43 @@ export function RichTextEditor({
         }
       >
         {editor ? (
-          <>
-            <Toolbar editor={editor} />
-            {showMathHint ? (
-              <div className="flex flex-wrap items-center gap-1 border-b border-border/70 bg-muted/15 px-3 py-1.5 text-[11px] text-muted-foreground shrink-0">
-                <SigmaIcon className="size-3.5 text-brand-violet-ink" aria-hidden="true" />
-                <span>Math shortcuts:</span>
-                <code className="rounded bg-muted px-1 py-0.5 font-mono">$x^2$</code>
-                <span>inline</span>
-                <span className="text-muted-foreground/50">/</span>
-                <code className="rounded bg-muted px-1 py-0.5 font-mono">$$x^2$$</code>
-                <span>display</span>
-              </div>
-            ) : null}
-            <BubbleMenu
-              editor={editor}
-              shouldShow={({ state }) => !state.selection.empty}
-            >
-              <BubbleMenuContent editor={editor} />
-            </BubbleMenu>
-          </>
+          <Toolbar
+            editor={editor}
+            workspaceSlug={workspaceSlug}
+            onImageUploadStateChange={onImageUploadStateChange}
+          />
+        ) : (
+          <ToolbarSkeleton />
+        )}
+        {showMathHint ? (
+          <div className="flex min-h-[29px] shrink-0 flex-wrap items-center gap-1 border-b border-border/70 bg-muted/15 px-3 py-1.5 text-[11px] text-muted-foreground">
+            <SigmaIcon
+              className="size-3.5 text-foreground"
+              aria-hidden="true"
+            />
+            <span>Math shortcuts:</span>
+            <code className="rounded bg-muted px-1 py-0.5 font-mono">
+              $x^2$
+            </code>
+            <span>inline</span>
+            <span className="text-muted-foreground/50">/</span>
+            <code className="rounded bg-muted px-1 py-0.5 font-mono">
+              $$x^2$$
+            </code>
+            <span>display</span>
+          </div>
+        ) : null}
+        {editor ? (
+          <BubbleMenu
+            editor={editor}
+            shouldShow={({ state }) => !state.selection.empty}
+          >
+            <BubbleMenuContent editor={editor} />
+          </BubbleMenu>
         ) : null}
         <EditorContent
           editor={editor}
-          className="flex-1 min-h-0 overflow-y-auto"
+          className="min-h-0 flex-1 overflow-y-auto"
           aria-labelledby={ariaLabelledBy}
           aria-invalid={invalid || undefined}
         />
@@ -980,8 +1015,10 @@ export function RichTextEditor({
             aria-orientation="horizontal"
             title="Drag corner to resize height (double-click to reset)"
             className={cn(
-              "group absolute bottom-0 right-0 z-10 flex size-6 cursor-se-resize items-end justify-end p-1 select-none touch-none",
-              isDragging ? "opacity-100" : "opacity-40 hover:opacity-100 transition-opacity"
+              "group absolute right-0 bottom-0 z-10 flex size-6 cursor-se-resize touch-none items-end justify-end p-1 select-none",
+              isDragging
+                ? "opacity-100"
+                : "opacity-40 transition-opacity hover:opacity-100"
             )}
             aria-hidden="true"
           >

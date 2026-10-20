@@ -86,7 +86,7 @@ export function WeakTopicsRemediation({
       {/* Header with Title and Actions */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-border pb-3">
         <div>
-          <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-brand-violet-ink">
+          <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
             <SparklesIcon className="size-3.5" />
             AI-Driven Weak Topic Remediation Bridge
           </div>
@@ -104,7 +104,7 @@ export function WeakTopicsRemediation({
               onClick={handleAddAllToRevision}
               className="text-xs h-7 gap-1 font-semibold border-border hover:bg-muted text-foreground"
             >
-              <CheckCheckIcon className="size-3.5 text-brand-violet-ink" />
+              <CheckCheckIcon className="size-3.5 text-foreground" />
               Add All to Revision ({weakTopics.length})
             </Button>
           ) : null}
@@ -112,7 +112,7 @@ export function WeakTopicsRemediation({
           <Button
             variant="outline"
             size="xs"
-            className="text-xs h-7 gap-1 font-semibold text-brand-violet-ink border-brand-violet-line hover:bg-brand-violet-soft"
+            className="text-xs h-7 gap-1 font-semibold text-foreground border-border hover:bg-muted"
             render={<Link href={workspaceRoutes.examPrep.home(workspaceSlug)} />}
           >
             Open Exam Prep Study Path
@@ -122,10 +122,10 @@ export function WeakTopicsRemediation({
       </div>
 
       {/* Overview Notice & Priority Filters */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-xl border border-brand-violet-line bg-brand-violet-soft p-3 text-xs text-foreground">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-xl border border-amber-500/25 bg-amber-500/10 p-3 text-xs text-foreground">
         <div className="flex items-center gap-2.5">
-          <FlameIcon className="size-4 shrink-0 text-brand-amber-ink" />
-          <p className="leading-relaxed text-muted-foreground">
+          <FlameIcon className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+          <p className="leading-relaxed text-amber-950 dark:text-amber-200">
             Based on your errors in this mock test, the topics below have reduced proficiency scores. Re-practicing these concepts will recover lost marks in your next test attempt.
           </p>
         </div>

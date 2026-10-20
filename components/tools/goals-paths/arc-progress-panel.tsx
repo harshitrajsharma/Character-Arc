@@ -2,7 +2,7 @@ import { ActivityIcon, CalendarClockIcon, CheckCircle2Icon } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 
-const DATE_TIME_FORMATTER = new Intl.DateTimeFormat("en", {
+const DATE_TIME_FORMATTER = new Intl.DateTimeFormat("en-US", {
   day: "numeric",
   month: "short",
   hour: "numeric",
@@ -64,7 +64,10 @@ export function ArcProgressPanel({
               ? `${completedMilestones} of ${totalMilestones} milestones complete`
               : `${checkInCount} check-in ${checkInCount === 1 ? "signal" : "signals"} recorded`}
           </span>
-          <span className="inline-flex items-center gap-1.5">
+          <span
+            className="inline-flex items-center gap-1.5"
+            suppressHydrationWarning
+          >
             <CalendarClockIcon className="size-3.5" aria-hidden="true" />
             {lastActivityAt
               ? `Last activity ${DATE_TIME_FORMATTER.format(new Date(lastActivityAt))}`

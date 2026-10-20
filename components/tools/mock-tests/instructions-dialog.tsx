@@ -177,7 +177,7 @@ export function InstructionsDialog({
               </div>
 
               <div className="flex items-start gap-2.5 p-2.5 border border-slate-300 bg-white shadow-sm">
-                <span className="size-6 shrink-0 bg-violet-600 text-white font-bold text-xs flex items-center justify-center">
+                <span className="size-6 shrink-0 bg-indigo-600 text-white font-bold text-xs flex items-center justify-center">
                   4
                 </span>
                 <div className="space-y-0.5 min-w-0">
@@ -189,7 +189,7 @@ export function InstructionsDialog({
               </div>
 
               <div className="sm:col-span-2 flex items-start gap-2.5 p-2.5 border border-slate-300 bg-white shadow-sm">
-                <span className="relative size-6 shrink-0 bg-violet-600 text-white font-bold text-xs flex items-center justify-center after:content-[''] after:absolute after:bottom-0.5 after:right-0.5 after:size-2 after:bg-emerald-400">
+                <span className="relative size-6 shrink-0 bg-indigo-600 text-white font-bold text-xs flex items-center justify-center after:content-[''] after:absolute after:bottom-0.5 after:right-0.5 after:size-2 after:bg-emerald-400">
                   5
                 </span>
                 <div className="space-y-0.5 min-w-0">
@@ -241,7 +241,7 @@ export function InstructionsDialog({
                 <span className="text-[11px] text-slate-500 block">Save &amp; Next</span>
               </div>
               <div className="p-2 border border-slate-300 bg-white shadow-sm">
-                <span className="font-mono font-bold text-violet-700 block text-xs">Alt + M</span>
+                <span className="font-mono font-bold text-indigo-700 block text-xs">Alt + M</span>
                 <span className="text-[11px] text-slate-500 block">Mark for Review</span>
               </div>
               <div className="p-2 border border-slate-300 bg-white shadow-sm">

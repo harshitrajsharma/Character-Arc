@@ -70,12 +70,14 @@ const statusPresentation: Record<
   },
 }
 
+const scheduledDateFormatter = new Intl.DateTimeFormat("en-US", {
+  dateStyle: "medium",
+})
+
 function formatDate(value: string | null) {
   const date = parseIsoLocalDate(value)
   if (!date) return "Date not set"
-  return new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(
-    date
-  )
+  return scheduledDateFormatter.format(date)
 }
 
 function coverageLabel(
@@ -135,7 +137,10 @@ export function ScheduledTestCard({
       </div>
 
       <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-muted-foreground">
-        <span className="inline-flex items-center gap-1.5">
+        <span
+          className="inline-flex items-center gap-1.5"
+          suppressHydrationWarning
+        >
           <CalendarDaysIcon aria-hidden="true" className="size-4" />
           {formatDate(scheduledTest.scheduledFor)}
         </span>

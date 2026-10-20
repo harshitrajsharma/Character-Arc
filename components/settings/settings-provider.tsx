@@ -2,11 +2,17 @@
 
 import * as React from "react"
 import { useParams } from "next/navigation"
-import {
-  SettingsDialog,
-  type SettingsSectionKey,
-} from "@/components/settings/settings-dialog"
+import dynamic from "next/dynamic"
+import type { SettingsSectionKey } from "@/components/settings/settings-dialog"
 import { getSettingsModalData } from "@/lib/workspaces/settings-actions"
+
+const SettingsDialog = dynamic(
+  () =>
+    import("@/components/settings/settings-dialog").then(
+      (mod) => mod.SettingsDialog
+    ),
+  { ssr: false }
+)
 import type { ToolManifest } from "@/lib/tools/contracts"
 import type { ToolCatalogItem } from "@/lib/tools/catalog"
 

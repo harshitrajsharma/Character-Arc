@@ -142,9 +142,9 @@ export function ShareAssessmentDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto p-6 sm:p-7">
-        <DialogHeader className="space-y-1.5 pb-2 border-b border-border/40">
-          <div className="flex items-center gap-2">
+      <DialogContent className="w-[740px] max-w-[calc(100%-2rem)] sm:w-[740px] sm:max-w-[740px] h-[640px] max-h-[92vh] flex flex-col justify-between p-6 sm:p-7 gap-0">
+        <DialogHeader className="shrink-0 space-y-1 pb-3 border-b border-border/40">
+          <div className="flex items-center gap-2.5">
             <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-foreground/5 text-foreground border border-border/50">
               <Share2Icon className="size-4" />
             </div>
@@ -159,7 +159,7 @@ export function ShareAssessmentDialog({
           </div>
         </DialogHeader>
 
-        <div className="space-y-5 pt-2">
+        <div className="flex-1 py-4 space-y-4 overflow-y-auto pr-0.5">
           {/* Target Assessment & Classification Summary Banner */}
           <div className="rounded-xl border border-border/70 bg-card p-4 space-y-2.5 shadow-2xs">
             <div className="flex items-start justify-between gap-3">
@@ -211,7 +211,7 @@ export function ShareAssessmentDialog({
                 type="button"
                 onClick={() => setVisibility("private")}
                 className={cn(
-                  "relative flex flex-col items-start p-3.5 rounded-xl border text-left transition-all",
+                  "relative flex flex-col items-start p-3.5 rounded-xl border text-left transition-all cursor-pointer",
                   visibility === "private"
                     ? "border-foreground bg-foreground/[0.03] shadow-sm ring-1 ring-foreground"
                     : "border-border/70 hover:border-border hover:bg-muted/40"
@@ -236,7 +236,7 @@ export function ShareAssessmentDialog({
                 type="button"
                 onClick={() => setVisibility("unlisted")}
                 className={cn(
-                  "relative flex flex-col items-start p-3.5 rounded-xl border text-left transition-all",
+                  "relative flex flex-col items-start p-3.5 rounded-xl border text-left transition-all cursor-pointer",
                   visibility === "unlisted"
                     ? "border-foreground bg-foreground/[0.03] shadow-sm ring-1 ring-foreground"
                     : "border-border/70 hover:border-border hover:bg-muted/40"
@@ -261,7 +261,7 @@ export function ShareAssessmentDialog({
                 type="button"
                 onClick={() => setVisibility("public")}
                 className={cn(
-                  "relative flex flex-col items-start p-3.5 rounded-xl border text-left transition-all",
+                  "relative flex flex-col items-start p-3.5 rounded-xl border text-left transition-all cursor-pointer",
                   visibility === "public"
                     ? "border-foreground bg-foreground/[0.03] shadow-sm ring-1 ring-foreground"
                     : "border-border/70 hover:border-border hover:bg-muted/40"
@@ -300,24 +300,37 @@ export function ShareAssessmentDialog({
             />
           </div>
 
-          {/* Share Link (When unlisted or public) */}
-          {visibility !== "private" && (
-            <div className="space-y-1.5 rounded-xl border border-border/80 bg-background p-3.5 shadow-xs">
-              <Label className="text-xs font-medium text-foreground">
+          {/* Direct Cohort Share Link Slot (Stable height across all visibility modes) */}
+          <div className="rounded-xl border border-border/80 bg-background/50 p-3.5 space-y-1.5 shadow-2xs">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                {visibility === "private" ? (
+                  <LockIcon className="size-3 text-muted-foreground" />
+                ) : (
+                  <LinkIcon className="size-3 text-sky-600 dark:text-sky-400" />
+                )}
                 Direct Cohort Share Link
               </Label>
-              <div className="flex items-center gap-2">
+              {visibility === "private" && (
+                <span className="text-[10px] font-medium text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                  Inactive in Private
+                </span>
+              )}
+            </div>
+
+            {visibility !== "private" ? (
+              <div className="flex items-center gap-2 pt-0.5">
                 <Input
                   readOnly
                   value={shareUrl}
-                  className="text-xs h-9 font-mono bg-muted/30"
+                  className="text-xs h-9 font-mono bg-muted/30 select-all"
                 />
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   onClick={handleCopy}
-                  className="h-9 px-3 gap-1.5 shrink-0"
+                  className="h-9 px-3 gap-1.5 shrink-0 cursor-pointer"
                 >
                   {copied ? (
                     <>
@@ -332,17 +345,23 @@ export function ShareAssessmentDialog({
                   )}
                 </Button>
               </div>
-            </div>
-          )}
+            ) : (
+              <div className="flex items-center justify-between gap-2 pt-0.5 text-xs text-muted-foreground bg-muted/20 rounded-lg px-3 py-2 border border-dashed border-border/60">
+                <span className="text-[11px] leading-snug">
+                  Direct share link is disabled while set to Private workspace. Switch to <strong className="font-semibold text-foreground">Shared via Link</strong> or <strong className="font-semibold text-foreground">Community Hub</strong> to enable cohort access.
+                </span>
+              </div>
+            )}
+          </div>
         </div>
 
-        <DialogFooter className="pt-4 border-t border-border/40 gap-2 sm:gap-0">
+        <DialogFooter className="shrink-0 pt-3 border-t border-border/40 gap-2 sm:gap-0">
           <Button
             type="button"
             variant="outline"
             onClick={() => onOpenChange(false)}
             disabled={isPending}
-            className="text-xs h-9"
+            className="text-xs h-9 cursor-pointer"
           >
             Cancel
           </Button>
@@ -350,7 +369,7 @@ export function ShareAssessmentDialog({
             type="button"
             onClick={handleSave}
             disabled={isPending}
-            className="text-xs h-9 bg-foreground text-background font-semibold hover:opacity-90 transition-opacity"
+            className="text-xs h-9 bg-foreground text-background font-semibold hover:opacity-90 transition-opacity cursor-pointer"
           >
             {isPending ? "Saving..." : "Save Settings"}
           </Button>

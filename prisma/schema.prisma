@@ -617,6 +617,7 @@ model Assessment {
   attempts  Attempt[]
 
   @@index([workspaceId, status, publishedAt])
+  @@index([status, publishedAt])
   @@index([examBlockId])
   @@map("assessments")
 }
@@ -767,6 +768,7 @@ model Attempt {
 
   @@index([workspaceId, userId, status, startedAt])
   @@index([assessmentId, submittedAt])
+  @@index([assessmentId, status])
   @@map("attempts")
 }
 

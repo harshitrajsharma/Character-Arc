@@ -15,7 +15,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 import { questionKindLabel } from "@/lib/tools/mock-tests/kind-labels"
 import { RichContent } from "@/components/tools/mock-tests/editor/rich-content"
-import { stripHtml } from "./editor/html-utils"
+import { stripHtml, hasRichContent } from "./editor/html-utils"
 import type { QuestionFormTarget } from "./question-form"
 import type { TargetableBlock } from "@/lib/tools/definitions/mock-tests/repository"
 
@@ -47,12 +47,12 @@ export function QuestionPreview({
   const [userText, setUserText] = useState("")
   const [showSolution, setShowSolution] = useState(false)
 
-  const hasStem = Boolean(stripHtml(stem).trim() || stem.includes("data-math-"))
+  const hasStem = hasRichContent(stem)
   const canRevealSolution = Boolean(
     answerKeys.length > 0 ||
-      stripHtml(explanation).trim() ||
-      (kind === "NUMERIC" && numericAnswer.trim()) ||
-      (kind === "SHORT_ANSWER" && textAnswer.trim())
+    stripHtml(explanation).trim() ||
+    (kind === "NUMERIC" && numericAnswer.trim()) ||
+    (kind === "SHORT_ANSWER" && textAnswer.trim())
   )
   const hasResponse = Boolean(
     selectedKeys.length > 0 || userNumeric.trim() || userText.trim()
@@ -89,14 +89,17 @@ export function QuestionPreview({
   }
 
   return (
-    <Card className="gap-0 overflow-hidden border-border bg-card py-0 shadow-xs lg:sticky lg:top-20 max-h-[calc(100vh-6rem)] overflow-y-auto">
+    <Card className="gap-0 overflow-hidden rounded-2xl border border-border bg-card py-0 shadow-none">
       <CardHeader className="flex flex-wrap items-center justify-between gap-3 border-b bg-muted/30 px-4 py-3">
         <div className="flex min-w-0 items-center gap-2">
-          <EyeIcon className="size-4 text-brand-violet-ink" aria-hidden="true" />
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <EyeIcon className="size-4 text-foreground" aria-hidden="true" />
+          <h3 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
             Student preview
           </h3>
-          <Badge variant="outline" className="hidden text-[10px] font-normal sm:inline-flex">
+          <Badge
+            variant="outline"
+            className="hidden text-[10px] font-normal sm:inline-flex"
+          >
             Interactive
           </Badge>
         </div>
@@ -106,7 +109,7 @@ export function QuestionPreview({
               type="button"
               variant="ghost"
               size="xs"
-              className="h-7 gap-1.5 text-xs"
+              className="min-h-11 gap-1.5 text-xs"
               onClick={resetResponse}
             >
               <RotateCcwIcon aria-hidden="true" />
@@ -118,8 +121,9 @@ export function QuestionPreview({
             variant="ghost"
             size="xs"
             className={cn(
-              "h-7 text-xs gap-1.5",
-              showSolution && "bg-brand-violet-soft text-brand-violet-ink"
+              "min-h-11 gap-1.5 text-xs",
+              showSolution &&
+                "bg-foreground font-semibold text-background hover:bg-foreground/90"
             )}
             disabled={!canRevealSolution}
             aria-pressed={showSolution}
@@ -144,8 +148,12 @@ export function QuestionPreview({
               </Badge>
             ) : null}
             {linkedBlockTitles.length > 0 ? (
-              <Badge variant="outline" className="text-brand-violet-ink bg-brand-violet-soft/30 border-brand-violet-line/40">
-                {linkedBlockTitles.length} {linkedBlockTitles.length === 1 ? "Topic" : "Topics"}
+              <Badge
+                variant="outline"
+                className="border-border/60 bg-muted text-foreground"
+              >
+                {linkedBlockTitles.length}{" "}
+                {linkedBlockTitles.length === 1 ? "Topic" : "Topics"}
               </Badge>
             ) : null}
           </div>
@@ -156,7 +164,7 @@ export function QuestionPreview({
               variant="outline"
               aria-live="polite"
               className={cn(
-                "text-xs font-semibold px-2 py-0.5 animate-in fade-in-0 duration-200",
+                "animate-in px-2 py-0.5 text-xs font-semibold duration-200 fade-in-0",
                 isSelectedCorrect
                   ? "border-success-line bg-success-soft text-success-ink"
                   : "border-destructive/60 bg-destructive/10 text-destructive"
@@ -164,11 +172,13 @@ export function QuestionPreview({
             >
               {isSelectedCorrect ? (
                 <span className="flex items-center gap-1">
-                  <CheckCircle2Icon className="size-3.5 text-success-ink" /> Correct Choice!
+                  <CheckCircle2Icon className="size-3.5 text-success-ink" />{" "}
+                  Correct Choice!
                 </span>
               ) : (
                 <span className="flex items-center gap-1">
-                  <XCircleIcon className="size-3.5 text-destructive" /> Incorrect Choice
+                  <XCircleIcon className="size-3.5 text-destructive" />{" "}
+                  Incorrect Choice
                 </span>
               )}
             </Badge>
@@ -178,35 +188,50 @@ export function QuestionPreview({
         {/* Question Stem */}
         <div>
           {hasStem ? (
-            <RichContent html={stem} className="text-sm font-medium leading-relaxed text-foreground" />
+            <RichContent
+              html={stem}
+              className="text-sm leading-relaxed font-medium text-foreground"
+            />
           ) : (
             <div className="rounded-lg border border-dashed border-border bg-muted/20 p-4">
-              <p className="text-sm font-medium text-foreground">Add a question stem to see the student view.</p>
-              <p className="mt-1 text-xs text-muted-foreground">The preview updates as you author the question.</p>
+              <p className="text-sm font-medium text-foreground">
+                Add a question stem to see the student view.
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                The preview updates as you author the question.
+              </p>
             </div>
           )}
         </div>
 
         {/* Options / Answer Input Area */}
         <div className="pt-2">
-          {kind === "SINGLE_CHOICE" || kind === "MULTIPLE_CHOICE" || kind === "TRUE_FALSE" ? (
+          {kind === "SINGLE_CHOICE" ||
+          kind === "MULTIPLE_CHOICE" ||
+          kind === "TRUE_FALSE" ? (
             <div className="space-y-2">
               {options.length === 0 ? (
-                <p className="text-xs text-muted-foreground italic">No answer options added yet.</p>
+                <p className="text-xs text-muted-foreground italic">
+                  No answer options added yet.
+                </p>
               ) : (
                 options.map((option) => {
                   const isSelected = selectedKeys.includes(option.key)
                   const isCorrect = answerKeys.includes(option.key)
 
-                  let stateClass = "border-border bg-background hover:bg-muted/40"
+                  let stateClass =
+                    "border-border bg-background hover:bg-muted/40"
                   if (showSolution) {
                     if (isCorrect) {
-                      stateClass = "border-success-line bg-success-soft text-success-ink"
+                      stateClass =
+                        "border-success-line bg-success-soft text-success-ink"
                     } else if (isSelected && !isCorrect) {
-                      stateClass = "border-destructive/60 bg-destructive/10 text-destructive"
+                      stateClass =
+                        "border-destructive/60 bg-destructive/10 text-destructive"
                     }
                   } else if (isSelected) {
-                    stateClass = "border-brand-violet-line/80 bg-brand-violet-soft/30 ring-1 ring-brand-violet-line/40"
+                    stateClass =
+                      "border-foreground/40 bg-muted/30 ring-1 ring-foreground/20"
                   }
 
                   return (
@@ -215,33 +240,44 @@ export function QuestionPreview({
                       type="button"
                       onClick={() => toggleOption(option.key)}
                       className={cn(
-                        "w-full flex items-start gap-3 rounded-lg border p-3 text-left text-sm transition-[background-color,border-color,box-shadow,color]",
+                        "flex w-full items-start gap-3 rounded-lg border p-3 text-left text-sm transition-[background-color,border-color,box-shadow,color]",
                         stateClass
                       )}
                     >
                       <span
                         className={cn(
-                          "flex size-6 shrink-0 items-center justify-center rounded-md font-mono text-xs font-semibold border transition-colors",
+                          "flex size-6 shrink-0 items-center justify-center rounded-md border font-mono text-xs font-semibold transition-colors",
                           showSolution && isCorrect
-                            ? "bg-success text-success-foreground border-success"
+                            ? "border-success bg-success text-success-foreground"
                             : isSelected
-                            ? "bg-brand-violet-ink border-brand-violet-ink text-brand-violet-foreground"
-                            : "bg-muted text-muted-foreground border-border"
+                              ? "border-foreground bg-foreground font-bold text-background"
+                              : "border-border bg-muted text-muted-foreground"
                         )}
                       >
                         {option.key}
                       </span>
                       <div className="min-w-0 flex-1 pt-0.5">
-                        {stripHtml(option.content).trim() ? (
-                          <RichContent html={option.content} className="text-sm leading-snug" />
+                        {hasRichContent(option.content) ? (
+                          <RichContent
+                            html={option.content}
+                            className="text-sm leading-snug"
+                          />
                         ) : (
-                          <span className="text-muted-foreground italic">Option {option.key}...</span>
+                          <span className="text-muted-foreground italic">
+                            Option {option.key}...
+                          </span>
                         )}
                       </div>
                       {showSolution && isCorrect ? (
-                        <CheckCircle2Icon className="size-4 text-success-ink shrink-0 mt-0.5" aria-hidden="true" />
+                        <CheckCircle2Icon
+                          className="mt-0.5 size-4 shrink-0 text-success-ink"
+                          aria-hidden="true"
+                        />
                       ) : showSolution && isSelected && !isCorrect ? (
-                        <XCircleIcon className="size-4 text-destructive shrink-0 mt-0.5" aria-hidden="true" />
+                        <XCircleIcon
+                          className="mt-0.5 size-4 shrink-0 text-destructive"
+                          aria-hidden="true"
+                        />
                       ) : null}
                     </button>
                   )
@@ -249,8 +285,11 @@ export function QuestionPreview({
               )}
             </div>
           ) : kind === "NUMERIC" ? (
-            <div className="rounded-lg border bg-muted/20 p-4 space-y-2">
-              <label htmlFor="preview-numeric-input" className="text-xs font-medium text-muted-foreground block">
+            <div className="space-y-2 rounded-lg border bg-muted/20 p-4">
+              <label
+                htmlFor="preview-numeric-input"
+                className="block text-xs font-medium text-muted-foreground"
+              >
                 Student Input Preview
               </label>
               <input
@@ -259,18 +298,24 @@ export function QuestionPreview({
                 value={userNumeric}
                 onChange={(e) => setUserNumeric(e.target.value)}
                 placeholder="Enter numerical answer..."
-                className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:ring-2 focus:ring-ring focus:outline-none"
               />
               {showSolution ? (
-                <div className="mt-2 text-xs font-medium text-success-ink flex items-center gap-1.5">
+                <div className="mt-2 flex items-center gap-1.5 text-xs font-medium text-success-ink">
                   <CheckCircle2Icon className="size-4" aria-hidden="true" />
-                  Correct answer: <span className="font-mono font-bold">{numericAnswer || "Not set"}</span>
+                  Correct answer:{" "}
+                  <span className="font-mono font-bold">
+                    {numericAnswer || "Not set"}
+                  </span>
                 </div>
               ) : null}
             </div>
           ) : (
-            <div className="rounded-lg border bg-muted/20 p-4 space-y-2">
-              <label htmlFor="preview-text-input" className="text-xs font-medium text-muted-foreground block">
+            <div className="space-y-2 rounded-lg border bg-muted/20 p-4">
+              <label
+                htmlFor="preview-text-input"
+                className="block text-xs font-medium text-muted-foreground"
+              >
                 Student Answer Textarea Preview
               </label>
               <textarea
@@ -279,15 +324,15 @@ export function QuestionPreview({
                 value={userText}
                 onChange={(e) => setUserText(e.target.value)}
                 placeholder="Student writes answer here..."
-                className="w-full rounded-md border border-input bg-background p-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                className="w-full rounded-md border border-input bg-background p-3 text-sm focus:ring-2 focus:ring-ring focus:outline-none"
               />
               {showSolution ? (
-                <div className="mt-2 text-xs text-muted-foreground space-y-1">
-                  <div className="font-medium text-success-ink flex items-center gap-1.5">
+                <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-1.5 font-medium text-success-ink">
                     <CheckCircle2Icon className="size-4" aria-hidden="true" />
                     Model Solution Answer:
                   </div>
-                  <p className="p-2 rounded bg-background border text-foreground text-xs leading-relaxed">
+                  <p className="rounded border bg-background p-2 text-xs leading-relaxed text-foreground">
                     {textAnswer || "No model answer provided."}
                   </p>
                 </div>
@@ -298,15 +343,23 @@ export function QuestionPreview({
 
         {/* Explanation Section Preview */}
         {showSolution || stripHtml(explanation).trim() ? (
-          <div className="rounded-lg border border-border/80 bg-muted/30 p-4 flex flex-col gap-2">
+          <div className="flex flex-col gap-2 rounded-lg border border-border/80 bg-muted/30 p-4">
             <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-              <HelpCircleIcon className="size-4 text-brand-violet-ink" aria-hidden="true" />
+              <HelpCircleIcon
+                className="size-4 text-sky-500"
+                aria-hidden="true"
+              />
               Explanation & Solution Review
             </div>
             {stripHtml(explanation).trim() ? (
-              <RichContent html={explanation} className="text-xs leading-relaxed text-muted-foreground" />
+              <RichContent
+                html={explanation}
+                className="text-xs leading-relaxed text-muted-foreground"
+              />
             ) : (
-              <p className="text-xs text-muted-foreground italic">No explanation provided for this question.</p>
+              <p className="text-xs text-muted-foreground italic">
+                No explanation provided for this question.
+              </p>
             )}
           </div>
         ) : null}

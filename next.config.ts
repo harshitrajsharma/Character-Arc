@@ -3,6 +3,17 @@ import { dirname } from "node:path"
 import { fileURLToPath } from "node:url"
 
 const nextConfig: NextConfig = {
+  experimental: {
+    turbopackFileSystemCacheForDev: false,
+    serverActions: { bodySizeLimit: "6mb" },
+    optimizePackageImports: [
+      "lucide-react",
+      "date-fns",
+      "recharts",
+      "katex",
+      "@tanstack/react-table",
+    ],
+  },
   turbopack: {
     root: dirname(fileURLToPath(import.meta.url)),
   },

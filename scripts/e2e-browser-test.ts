@@ -5,7 +5,7 @@ const BASE_URL = "http://127.0.0.1:3000"
 const USER_EMAIL = "sharmaharshitraj02@gmail.com"
 const USER_PASSWORD = "TestPassword123!"
 const WORKSPACE_SLUG = "personal-14e77ece-6df3-4d5f-bbc9-e90015c4250d"
-const SCREENSHOT_DIR = path.resolve(process.cwd(), "scratch/screenshots")
+const SCREENSHOT_DIR = path.resolve(process.cwd(), process.env.E2E_SCREENSHOT_DIR ?? "scratch/screenshots")
 
 async function capture(page: Page, name: string) {
   const filepath = path.join(SCREENSHOT_DIR, `${name}.png`)
@@ -26,6 +26,7 @@ async function main() {
 
   const page = await context.newPage()
   page.setDefaultTimeout(40000)
+  page.setDefaultNavigationTimeout(90000)
 
   page.on("console", (msg) => console.log(`[Browser ${msg.type()}] ${msg.text()}`))
   page.on("pageerror", (err) => console.error(`[Browser PageError]`, err))
@@ -239,7 +240,7 @@ async function main() {
     if (await publishBtn.isVisible()) {
       console.log("[Step 5] Clicking Publish...")
       await publishBtn.click()
-      await page.waitForSelector('button:has-text("Start Mock Test"), button:has-text("Start Test")', { timeout: 25000 })
+      await page.waitForSelector('button:has-text("Start Mock Test"), button:has-text("Start Test")', { timeout: 60000 })
       console.log("[Step 5] Test is published!")
     }
     await page.waitForTimeout(1000)
@@ -329,7 +330,7 @@ async function main() {
     const shareBtn = page.locator(`button:has-text("Share")`).first()
     if (await shareBtn.isVisible()) {
       await shareBtn.click()
-      const shareDialog = page.locator('div[role="dialog"]')
+      const shareDialog = page.getByRole('dialog', { name: 'Publish & Share Mock Test', exact: true })
       await shareDialog.waitFor({ state: "visible", timeout: 5000 })
       await page.waitForTimeout(800)
       console.log("[Step 7] Share Assessment Dialog is open!")
@@ -378,4 +379,7 @@ async function main() {
   }
 }
 
-main().catch(console.error).finally(() => process.exit(0))
+main().catch((error) => {
+  console.error(error)
+  process.exitCode = 1
+})

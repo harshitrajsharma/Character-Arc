@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, type ReactNode } from "react"
 import Link from "next/link"
 import {
   CalculatorIcon,
@@ -40,6 +40,7 @@ export type TestProfileHeroCardProps =
       attempts: AssessmentAttemptHistory[]
       canWrite: boolean
       onOpenShare?: () => void
+      children?: ReactNode
     }
   | {
       mode: "public"
@@ -176,7 +177,7 @@ export function TestProfileHeroCard(props: TestProfileHeroCardProps) {
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-xs divide-y divide-border antialiased">
       {/* ── Segment 1: Identity & Taxonomy ── */}
-      <div className="p-6 sm:p-8 space-y-5">
+      <div className="flex flex-col gap-4 p-5 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
             {paperTypeCfg ? (
@@ -199,18 +200,6 @@ export function TestProfileHeroCard(props: TestProfileHeroCardProps) {
               <span className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-foreground bg-muted border border-border rounded-full px-3 py-0.5">
                 <TagIcon className="size-3 text-muted-foreground" />
                 {taxonomy.examTag}
-              </span>
-            )}
-
-            {calculatorAllowed ? (
-              <span className="inline-flex items-center gap-1 text-xs font-mono font-semibold text-cyan-700 dark:text-cyan-400 border border-cyan-500/30 rounded-full px-2.5 py-0.5 bg-cyan-500/10">
-                <CalculatorIcon className="size-3" />
-                Calculator Allowed
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 text-xs font-mono text-muted-foreground border border-border/80 rounded-full px-2.5 py-0.5 bg-muted/30">
-                <CalculatorIcon className="size-3 opacity-60" />
-                No Calculator
               </span>
             )}
 
@@ -248,7 +237,7 @@ export function TestProfileHeroCard(props: TestProfileHeroCardProps) {
 
         {/* Paper Title & Description */}
         <div className="space-y-2">
-          <h1 className="font-heading font-bold text-2xl sm:text-3xl text-foreground tracking-tight">
+          <h1 className="font-heading font-bold text-2xl sm:text-3xl text-foreground leading-tight break-words">
             {title}
           </h1>
 
@@ -262,6 +251,21 @@ export function TestProfileHeroCard(props: TestProfileHeroCardProps) {
               {rawDescription}
             </p>
           )}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+            {calculatorAllowed ? (
+              <span className="inline-flex items-center gap-1 text-xs font-mono font-semibold text-cyan-700 dark:text-cyan-400 border border-cyan-500/30 rounded-full px-2.5 py-0.5 bg-cyan-500/10">
+                <CalculatorIcon className="size-3" />
+                Calculator Allowed
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-xs font-mono text-muted-foreground border border-border/80 rounded-full px-2.5 py-0.5 bg-muted/30">
+                <CalculatorIcon className="size-3 opacity-60" />
+                No Calculator
+              </span>
+            )}
+
         </div>
 
         {/* Subject Chips */}
@@ -309,7 +313,7 @@ export function TestProfileHeroCard(props: TestProfileHeroCardProps) {
       </div>
 
       {/* ── Segment 2: 4-Column Key Metrics Grid ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-border bg-muted/15">
+      <div className="grid grid-cols-2 lg:grid-cols-4 bg-muted/15 [&>div]:border-border [&>div:nth-child(even)]:border-l [&>div:nth-child(n+3)]:border-t lg:[&>div:nth-child(n+3)]:border-t-0 lg:[&>div+div]:border-l">
         {/* Col 1: Questions & Structure */}
         <div className="p-4 sm:p-5 space-y-1">
           <span className="text-[11px] font-semibold text-muted-foreground block">
@@ -394,7 +398,7 @@ export function TestProfileHeroCard(props: TestProfileHeroCardProps) {
       </div>
 
       {/* ── Segment 3: Integrated Action & State Ribbon ── */}
-      <div className="p-4 sm:p-5 bg-card/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="p-4 sm:p-5 bg-card/60 flex flex-col xl:flex-row xl:items-center justify-between gap-4">
         {/* Left: Ongoing attempt alert or contextual status */}
         <div className="min-w-0">
           {ongoingAttempt ? (
@@ -486,7 +490,7 @@ export function TestProfileHeroCard(props: TestProfileHeroCardProps) {
                     )}
                   </>
                 )}
-                <StartAttemptButton
+                {!ongoingAttempt && <StartAttemptButton
                   workspaceSlug={props.workspaceSlug}
                   assessmentId={props.assessment.id}
                   size="default"
@@ -496,7 +500,7 @@ export function TestProfileHeroCard(props: TestProfileHeroCardProps) {
                       : "Start Mock Test"
                   }
                   className="h-10 px-5 rounded-xl text-xs font-bold bg-foreground text-background hover:bg-foreground/90 shadow-xs"
-                />
+                />}
               </>
             ) : props.canWrite ? (
               <>
@@ -567,6 +571,7 @@ export function TestProfileHeroCard(props: TestProfileHeroCardProps) {
           )}
         </div>
       </div>
+      {isWorkspace && props.children ? <div>{props.children}</div> : null}
     </div>
   )
 }

@@ -165,7 +165,7 @@ export function SectionDialog({
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
           <DialogHeader>
             <div className="flex items-center gap-2">
-              <div className="flex size-7 items-center justify-center rounded-lg border border-brand-violet-line/40 bg-brand-violet-soft text-brand-violet-ink">
+              <div className="flex size-7 items-center justify-center rounded-lg border border-cyan-500/25 bg-cyan-500/10 text-cyan-700 dark:text-cyan-400">
                 <LayersIcon className="size-4" aria-hidden="true" />
               </div>
               <DialogTitle>

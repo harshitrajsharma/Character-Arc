@@ -7,7 +7,7 @@ import { NewAssessmentForm } from "@/components/tools/mock-tests/new-assessment-
 import { requireActiveToolInstallation } from "@/lib/workspaces/workspace-access"
 import { workspaceRoutes } from "@/lib/routes/workspace-tools"
 
-export const metadata: Metadata = { title: "New Test Blueprint — Mock Tests" }
+export const metadata: Metadata = { title: "New Test Blueprint — Assessments" }
 
 export default async function NewMockTestPage({
   params,
@@ -15,7 +15,6 @@ export default async function NewMockTestPage({
   params: Promise<{ workspaceSlug: string }>
 }) {
   const { workspaceSlug } = await params
-  console.log("[NewMockTestPage] called for workspaceSlug:", workspaceSlug)
   await requireActiveToolInstallation(workspaceSlug, "core.mock-tests")
 
   return (
@@ -23,15 +22,15 @@ export default async function NewMockTestPage({
       <SetNavbarBreadcrumbs
         segments={[
           { label: "Workspace", href: `/workspace/${encodeURIComponent(workspaceSlug)}` },
-          { label: "Mock Tests", href: workspaceRoutes.mockTests.home(workspaceSlug) },
+          { label: "Assessments", href: workspaceRoutes.mockTests.home(workspaceSlug) },
           { label: "New Blueprint" },
         ]}
         backHref={workspaceRoutes.mockTests.home(workspaceSlug)}
-        backLabel="Back to Mock Tests"
+        backLabel="Back to Assessments"
       />
 
       <ToolPageHeader
-        eyebrow="Mock Tests"
+        eyebrow="Assessments"
         title="Create Test Blueprint"
         description="Set up paper timing, score marks, and passing cut-offs. Add questions next."
         icon={<ListChecksIcon aria-hidden="true" />}

@@ -69,126 +69,128 @@ export async function getDashboardData({
   let totalAssessmentsCount = 0
   let bestAccuracyPercent: number | null = null
 
-  // 1. Exam Prep Data
+  // 1. Concurrent Overview Data Fetching
   const examPrep = installations.find(
     (installation) => installation.toolDefinition.key === "core.exam-prep"
   )
-  if (examPrep) {
-    try {
-      const overview = await getExamsOverview(
-        workspaceId,
-        workspaceSlug,
-        examPrep.id
-      )
-      const now = new Date()
+  const goalsPaths = installations.find(
+    (installation) => installation.toolDefinition.key === "core.goals-paths"
+  )
+  const mockTests = installations.find(
+    (installation) => installation.toolDefinition.key === "core.mock-tests"
+  )
 
-      for (const exam of overview.exams) {
-        items.push({
-          id: exam.id,
-          title: exam.title,
-          summary: exam.summary,
-          toolKey: "core.exam-prep",
-          toolName: examPrep.toolDefinition.name,
-          lifecycleStatus: exam.lifecycleStatus,
-          progressPercent: exam.progressPercent,
-          targetDate: exam.expectedStartDate,
-          metaLabel: exam.scheduleStatus === "confirmed" ? "Confirmed date" : "Target estimate",
-          lastActivityAt: exam.lastActivityAt,
-          updatedAt: exam.updatedAt,
-          href: workspaceRoutes.examPrep.exam(workspaceSlug, exam.id),
+  const [examOverview, goalsOverview, mockTestsOverview] = await Promise.all([
+    examPrep
+      ? getExamsOverview(workspaceId, workspaceSlug, examPrep.id).catch((e) => {
+          console.error("Failed to load exam prep overview for dashboard:", e)
+          return null
         })
+      : null,
+    goalsPaths
+      ? getGoalsPathsOverview(workspaceSlug).catch((e) => {
+          console.error("Failed to load goals overview for dashboard:", e)
+          return null
+        })
+      : null,
+    mockTests
+      ? getMockTestsOverview(workspaceId, workspaceSlug, mockTests.id, {
+          includeCommunity: false,
+        }).catch((e) => {
+          console.error("Failed to load mock tests overview for dashboard:", e)
+          return null
+        })
+      : null,
+  ])
 
-        // Check for nearest upcoming exam
-        if (exam.expectedStartDate) {
-          const examDate = new Date(exam.expectedStartDate)
-          if (!isNaN(examDate.getTime())) {
-            const diffTime = examDate.getTime() - now.getTime()
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-            if (diffDays >= 0 && (!nearestExam || diffDays < nearestExam.daysLeft)) {
-              nearestExam = {
-                id: exam.id,
-                title: exam.title,
-                targetDate: exam.expectedStartDate,
-                daysLeft: diffDays,
-              }
+  // 2. Exam Prep Processing
+  if (examOverview && examPrep) {
+    const now = new Date()
+
+    for (const exam of examOverview.exams) {
+      items.push({
+        id: exam.id,
+        title: exam.title,
+        summary: exam.summary,
+        toolKey: "core.exam-prep",
+        toolName: examPrep.toolDefinition.name,
+        lifecycleStatus: exam.lifecycleStatus,
+        progressPercent: exam.progressPercent,
+        targetDate: exam.expectedStartDate,
+        metaLabel: exam.scheduleStatus === "confirmed" ? "Confirmed date" : "Target estimate",
+        lastActivityAt: exam.lastActivityAt,
+        updatedAt: exam.updatedAt,
+        href: workspaceRoutes.examPrep.exam(workspaceSlug, exam.id),
+      })
+
+      // Check for nearest upcoming exam
+      if (exam.expectedStartDate) {
+        const examDate = new Date(exam.expectedStartDate)
+        if (!isNaN(examDate.getTime())) {
+          const diffTime = examDate.getTime() - now.getTime()
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+          if (diffDays >= 0 && (!nearestExam || diffDays < nearestExam.daysLeft)) {
+            nearestExam = {
+              id: exam.id,
+              title: exam.title,
+              targetDate: exam.expectedStartDate,
+              daysLeft: diffDays,
             }
           }
         }
       }
-    } catch (e) {
-      console.error("Failed to load exam prep overview for dashboard:", e)
     }
   }
 
-  // 2. Goals & Paths Data
-  const goalsPaths = installations.find(
-    (installation) => installation.toolDefinition.key === "core.goals-paths"
-  )
-  if (goalsPaths) {
-    try {
-      const overview = await getGoalsPathsOverview(workspaceSlug)
-      for (const arc of overview.arcs) {
-        items.push({
-          id: arc.id,
-          title: arc.title,
-          summary: arc.summary ?? arc.objective,
-          toolKey: "core.goals-paths",
-          toolName: goalsPaths.toolDefinition.name,
-          lifecycleStatus: arc.lifecycleStatus,
-          progressPercent: arc.progressPercent,
-          targetDate: arc.targetDate,
-          metaLabel: formatLifecycle(arc.lifecycleStatus),
-          lastActivityAt: arc.lastActivityAt,
-          updatedAt: arc.updatedAt,
-          href: workspaceRoutes.goalsPaths.arc(workspaceSlug, arc.id),
-        })
+  // 3. Goals & Paths Processing
+  if (goalsOverview && goalsPaths) {
+    for (const arc of goalsOverview.arcs) {
+      items.push({
+        id: arc.id,
+        title: arc.title,
+        summary: arc.summary ?? arc.objective,
+        toolKey: "core.goals-paths",
+        toolName: goalsPaths.toolDefinition.name,
+        lifecycleStatus: arc.lifecycleStatus,
+        progressPercent: arc.progressPercent,
+        targetDate: arc.targetDate,
+        metaLabel: formatLifecycle(arc.lifecycleStatus),
+        lastActivityAt: arc.lastActivityAt,
+        updatedAt: arc.updatedAt,
+        href: workspaceRoutes.goalsPaths.arc(workspaceSlug, arc.id),
+      })
 
-        if (arc.lifecycleStatus === "active") {
-          activeGoalsCount++
-          totalGoalsProgress += arc.progressPercent
-        }
+      if (arc.lifecycleStatus === "active") {
+        activeGoalsCount++
+        totalGoalsProgress += arc.progressPercent
       }
-    } catch (e) {
-      console.error("Failed to load goals overview for dashboard:", e)
     }
   }
 
-  // 3. Mock Tests Data
-  const mockTests = installations.find(
-    (installation) => installation.toolDefinition.key === "core.mock-tests"
-  )
-  if (mockTests) {
-    try {
-      const overview = await getMockTestsOverview(
-        workspaceId,
-        workspaceSlug,
-        mockTests.id
-      )
-      totalAssessmentsCount = overview.assessments.length
+  // 4. Mock Tests Processing
+  if (mockTestsOverview && mockTests) {
+    totalAssessmentsCount = mockTestsOverview.assessments.length
 
-      for (const assessment of overview.assessments.slice(0, 3)) {
-        if (assessment.myBestPercentage !== null) {
-          if (bestAccuracyPercent === null || assessment.myBestPercentage > bestAccuracyPercent) {
-            bestAccuracyPercent = assessment.myBestPercentage
-          }
+    for (const assessment of mockTestsOverview.assessments.slice(0, 3)) {
+      if (assessment.myBestPercentage !== null) {
+        if (bestAccuracyPercent === null || assessment.myBestPercentage > bestAccuracyPercent) {
+          bestAccuracyPercent = assessment.myBestPercentage
         }
-
-        items.push({
-          id: assessment.id,
-          title: assessment.title,
-          summary: `${assessment.questionCount} questions • ${assessment.durationMinutes ? `${assessment.durationMinutes} mins` : "Untimed"}`,
-          toolKey: "core.mock-tests",
-          toolName: mockTests.toolDefinition.name,
-          lifecycleStatus: assessment.attemptsCount > 0 ? "in_progress" : "not_started",
-          progressPercent: assessment.myBestPercentage || 0,
-          metaLabel: assessment.attemptsCount > 0 ? `${assessment.attemptsCount} attempts` : "Not attempted",
-          lastActivityAt: assessment.updatedAt,
-          updatedAt: assessment.updatedAt,
-          href: workspaceRoutes.mockTests.assessment(workspaceSlug, assessment.id),
-        })
       }
-    } catch (e) {
-      console.error("Failed to load mock tests overview for dashboard:", e)
+
+      items.push({
+        id: assessment.id,
+        title: assessment.title,
+        summary: `${assessment.questionCount} questions • ${assessment.durationMinutes ? `${assessment.durationMinutes} mins` : "Untimed"}`,
+        toolKey: "core.mock-tests",
+        toolName: mockTests.toolDefinition.name,
+        lifecycleStatus: assessment.attemptsCount > 0 ? "in_progress" : "not_started",
+        progressPercent: assessment.myBestPercentage || 0,
+        metaLabel: assessment.attemptsCount > 0 ? `${assessment.attemptsCount} attempts` : "Not attempted",
+        lastActivityAt: assessment.updatedAt,
+        updatedAt: assessment.updatedAt,
+        href: workspaceRoutes.mockTests.assessment(workspaceSlug, assessment.id),
+      })
     }
   }
 

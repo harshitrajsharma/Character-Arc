@@ -1,12 +1,11 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useId, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import {
   BookOpenIcon,
   ChevronDownIcon,
   ExternalLinkIcon,
-  HelpCircleIcon,
   InfoIcon,
   SearchIcon,
   StarIcon,
@@ -26,15 +25,16 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
 import type { TargetableBlock } from "@/lib/tools/definitions/mock-tests/repository"
 import type { QuestionFormTarget } from "./question-form"
+
+function targetTypeLabel(blockTypeKey: string | null) {
+  if (blockTypeKey === "exam-prep.subject") return "Subject"
+  if (blockTypeKey === "exam-prep.chapter") return "Chapter"
+  if (blockTypeKey === "exam-prep.topic") return "Topic"
+  return "Syllabus item"
+}
 
 export function TopicSelectorDialog({
   workspaceSlug,
@@ -55,257 +55,264 @@ export function TopicSelectorDialog({
 }) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState("")
-
+  const id = useId()
+  const searchRef = useRef<HTMLInputElement>(null)
   const selectedCount = targets.length
-
+  const selectedById = useMemo(
+    () => new Map(targets.map((target) => [target.blockId, target])),
+    [targets]
+  )
   const filteredBlocks = useMemo(() => {
-    if (!search.trim()) return targetableBlocks
     const query = search.toLowerCase().trim()
+    if (!query) return targetableBlocks
     return targetableBlocks.filter(
       (block) =>
         block.title.toLowerCase().includes(query) ||
-        (block.blockTypeKey && block.blockTypeKey.toLowerCase().includes(query))
+        targetTypeLabel(block.blockTypeKey).toLowerCase().includes(query)
     )
   }, [targetableBlocks, search])
 
+  function changeOpen(nextOpen: boolean) {
+    if (nextOpen) setSearch("")
+    setOpen(nextOpen)
+  }
+
+  function clearSearch() {
+    setSearch("")
+    searchRef.current?.focus()
+  }
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={changeOpen}>
       <DialogTrigger
         render={
           <Button
             type="button"
             variant="outline"
             size="sm"
-            className={cn(
-              "h-8 gap-2 text-xs font-medium transition-all rounded-lg",
-              selectedCount > 0
-                ? "border-brand-violet-line/60 bg-brand-violet-soft/40 text-brand-violet-ink hover:bg-brand-violet-soft/60"
-                : "border-border bg-background text-muted-foreground hover:text-foreground",
-              triggerClassName
-            )}
+            className={cn("min-h-11 gap-2 sm:min-h-9", triggerClassName)}
           >
-            <TargetIcon className="size-3.5 shrink-0 text-brand-violet-ink" aria-hidden="true" />
+            <TargetIcon aria-hidden="true" />
             {selectedCount > 0 ? (
-              <span className="flex min-w-0 items-center gap-1.5">
-                <span className="font-semibold">Linked Topics</span>
-                <Badge
-                  variant="secondary"
-                  className="bg-brand-violet-ink text-brand-violet-foreground px-1.5 py-0 text-[10px] rounded-full font-bold"
-                >
-                  {selectedCount}
-                </Badge>
-              </span>
+              <>
+                <span>Linked syllabus</span>
+                <Badge variant="secondary">{selectedCount}</Badge>
+              </>
             ) : (
-               <span className="truncate">+ Add topics</span>
+              <span>Add topics</span>
             )}
-            <ChevronDownIcon className="ml-auto size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+            <ChevronDownIcon aria-hidden="true" className="ml-auto" />
           </Button>
         }
       />
 
-      <DialogContent className="max-w-lg overflow-hidden border-border bg-card shadow-lg flex flex-col p-0 gap-0 sm:max-h-[85vh] sm:rounded-2xl !p-0">
-        {/* Header */}
-        <DialogHeader className="p-4 sm:p-5 border-b bg-muted/20 shrink-0 m-0 w-full pr-14">
-          <div className="flex items-center gap-2.5">
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-brand-violet-soft text-brand-violet-ink shadow-xs">
-              <TargetIcon className="size-4 text-brand-violet-ink" aria-hidden="true" />
-            </div>
-            <div>
-              <DialogTitle className="text-base font-bold text-foreground">
-                Exam Prep Topic Alignment
-              </DialogTitle>
-              <DialogDescription className="text-xs text-muted-foreground mt-0.5 leading-normal">
-                Link this question to exam topics. Answering correctly updates your topic proficiency in Exam Prep analytics.
+      <DialogContent className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden rounded-xl p-0 sm:max-w-xl [&_[data-slot=dialog-close]]:size-11">
+        <DialogHeader className="m-0 shrink-0 bg-muted/20 p-4 pr-16 sm:p-5 sm:pr-16">
+          <div className="flex items-start gap-3">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-cyan-soft text-brand-cyan-ink">
+              <TargetIcon className="size-4" aria-hidden="true" />
+            </span>
+            <div className="flex min-w-0 flex-col gap-1">
+              <DialogTitle>Link syllabus coverage</DialogTitle>
+              <DialogDescription>
+                Select the subjects, chapters, or topics this question covers.
               </DialogDescription>
             </div>
           </div>
         </DialogHeader>
 
-        {/* Search Bar */}
-        <div className="p-3 sm:p-4 border-b bg-background shrink-0">
+        <div className="flex shrink-0 flex-col gap-2 border-b border-border p-4">
+          <label htmlFor={`${id}-search`} className="text-sm font-medium">
+            Find syllabus items
+          </label>
           <div className="relative">
-            <SearchIcon className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            <SearchIcon
+              className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden="true"
+            />
             <Input
+              id={`${id}-search`}
+              ref={searchRef}
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search chapters or topics..."
-              className="pl-9 h-9 text-xs bg-muted/20"
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search by name or type"
+              className="h-11 pr-12 pl-9"
             />
             {search ? (
-              <button
+              <Button
                 type="button"
-                onClick={() => setSearch("")}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                variant="ghost"
+                size="icon"
+                className="absolute top-0 right-0 size-11"
+                onClick={clearSearch}
+                aria-label="Clear syllabus search"
               >
-                <XIcon className="size-3.5" aria-hidden="true" />
-              </button>
+                <XIcon aria-hidden="true" />
+              </Button>
             ) : null}
           </div>
+          <p role="status" className="text-xs text-muted-foreground">
+            {filteredBlocks.length} available{" "}
+            {filteredBlocks.length === 1 ? "item" : "items"}
+            {search ? " matching your search" : ""}
+          </p>
         </div>
 
-        {/* Scrollable Topics Area */}
-        <div className="flex-1 overflow-y-auto max-h-[380px] p-3 sm:p-4">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4 sm:max-h-[420px]">
           {targetableBlocks.length === 0 ? (
-            <div className="py-8 text-center space-y-3">
-              <BookOpenIcon className="size-8 mx-auto text-muted-foreground/40" />
-              <div>
-                <p className="text-sm font-semibold text-foreground">No Exam Prep Topics Available</p>
-                <p className="text-xs text-muted-foreground max-w-xs mx-auto mt-1">
-                  Add chapters or topics in Exam Prep first to map question attempts to curriculum mastery.
+            <div className="flex flex-col items-center gap-3 py-6 text-center">
+              <BookOpenIcon
+                className="size-7 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <div className="flex flex-col gap-1">
+                <p className="text-sm font-medium">No syllabus items yet</p>
+                <p className="max-w-sm text-sm text-muted-foreground">
+                  Add a syllabus in Exam Prep to link this question to its
+                  coverage.
                 </p>
               </div>
               {workspaceSlug ? (
                 <Button
                   type="button"
                   variant="outline"
-                  size="sm"
-                  className="h-8 text-xs gap-1.5"
-                  render={<Link href={`/workspace/${encodeURIComponent(workspaceSlug)}/exam-prep`} />}
+                  className="min-h-11"
+                  render={
+                    <Link
+                      href={`/workspace/${encodeURIComponent(workspaceSlug)}/exam-prep`}
+                    />
+                  }
                 >
                   Go to Exam Prep
-                  <ExternalLinkIcon className="size-3" aria-hidden="true" />
+                  <ExternalLinkIcon aria-hidden="true" />
                 </Button>
               ) : null}
             </div>
           ) : filteredBlocks.length === 0 ? (
-            <div className="py-8 text-center text-xs text-muted-foreground">
-              No topics match &quot;{search}&quot;.
+            <div className="flex flex-col items-center gap-3 py-6 text-center">
+              <p className="text-sm break-words text-muted-foreground">
+                No syllabus items match &quot;{search}&quot;.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                className="min-h-11"
+                onClick={clearSearch}
+              >
+                Clear search
+              </Button>
             </div>
           ) : (
-            <TooltipProvider>
-              <div className="space-y-2.5">
-                {filteredBlocks.map((block) => {
-                  const target = targets.find((t) => t.blockId === block.blockId)
-                  const isSelected = Boolean(target)
-                  const isChapter = block.blockTypeKey === "exam-prep.chapter"
-
-                  return (
-                    <div
-                      key={block.blockId}
-                      onClick={() => onToggleTarget(block.blockId)}
+            <div className="flex flex-col gap-2">
+              {filteredBlocks.map((block) => {
+                const target = selectedById.get(block.blockId)
+                const selected = Boolean(target)
+                const checkboxId = `${id}-target-${block.blockId}`
+                const weightId = `${id}-weight-${block.blockId}`
+                return (
+                  <div
+                    key={block.blockId}
+                    className={cn(
+                      "rounded-lg border bg-card",
+                      selected ? "border-brand-cyan-line" : "border-border"
+                    )}
+                  >
+                    {/* Selection has one event source; settings are outside its label. */}
+                    <label
+                      htmlFor={checkboxId}
                       className={cn(
-                        "rounded-xl border p-3 transition-all cursor-pointer select-none",
-                        isSelected
-                          ? "border-brand-violet-line/70 bg-brand-violet-soft/30 shadow-xs"
-                          : "border-border bg-background hover:bg-muted/30"
+                        "flex min-h-14 cursor-pointer items-center gap-3 rounded-lg px-3 py-3",
+                        selected ? "bg-brand-cyan-soft" : "hover:bg-muted/30"
                       )}
                     >
-                      <div className="flex items-start gap-3">
-                        <Checkbox
-                          id={`target-chk-${block.blockId}`}
-                          checked={isSelected}
-                          onCheckedChange={() => onToggleTarget(block.blockId)}
-                          onClick={(e) => e.stopPropagation()}
-                          className="mt-0.5"
-                        />
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center justify-between gap-2">
-                            <label
-                              htmlFor={`target-chk-${block.blockId}`}
-                              className="cursor-pointer text-xs font-semibold leading-tight text-foreground hover:text-primary"
-                            >
-                              {block.title}
+                      <Checkbox
+                        id={checkboxId}
+                        checked={selected}
+                        onCheckedChange={() => onToggleTarget(block.blockId)}
+                      />
+                      <span className="min-w-0 flex-1 text-sm font-medium break-words">
+                        {block.title}
+                      </span>
+                      <Badge variant="outline" className="shrink-0">
+                        {targetTypeLabel(block.blockTypeKey)}
+                      </Badge>
+                    </label>
+                    {target ? (
+                      <div className="flex flex-col gap-3 border-t border-border p-3">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div className="flex items-center gap-2">
+                            <label htmlFor={weightId} className="text-sm">
+                              Weight
                             </label>
-                            <Badge
-                              variant="outline"
-                              className={cn(
-                                "text-[10px] font-medium tracking-wide uppercase shrink-0",
-                                isChapter
-                                  ? "border-brand-cyan-line/40 bg-brand-cyan-soft/30 text-brand-cyan-ink"
-                                  : "border-border text-muted-foreground"
-                              )}
-                            >
-                              {isChapter ? "Chapter" : "Topic"}
-                            </Badge>
+                            <Input
+                              id={weightId}
+                              aria-label={`Coverage weight for ${block.title}`}
+                              type="number"
+                              min={0}
+                              max={100}
+                              value={String(target.weight)}
+                              onChange={(event) =>
+                                onUpdateTargetWeight(
+                                  block.blockId,
+                                  Number(event.target.value)
+                                )
+                              }
+                              className="h-11 w-20 text-center"
+                            />
+                            <span className="text-sm text-muted-foreground">
+                              %
+                            </span>
                           </div>
-
-                          {/* Selected Topic Controls: Weight & Primary */}
-                          {isSelected && target ? (
-                            <div
-                              onClick={(e) => e.stopPropagation()}
-                              className="mt-3 pt-2 border-t border-brand-violet-line/20 flex flex-wrap items-center justify-between gap-2 text-xs cursor-default"
-                            >
-                              {/* Weight Input */}
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[11px] text-muted-foreground">Proficiency Weight:</span>
-                                <Input
-                                  type="number"
-                                  min={0}
-                                  max={100}
-                                  value={String(target.weight)}
-                                  onChange={(e) =>
-                                    onUpdateTargetWeight(block.blockId, Number(e.target.value))
-                                  }
-                                  className="h-6 w-14 text-xs text-center px-1 font-mono"
-                                />
-                                <span className="text-[11px] text-muted-foreground">%</span>
-                                <Tooltip>
-                                  <TooltipTrigger
-                                    render={
-                                      <button type="button" className="text-muted-foreground hover:text-foreground">
-                                        <InfoIcon className="size-3" aria-hidden="true" />
-                                      </button>
-                                    }
-                                  />
-                                  <TooltipContent side="top" className="text-xs max-w-xs">
-                                    Determines how much answering this question affects topic proficiency (0-100%).
-                                  </TooltipContent>
-                                </Tooltip>
-                              </div>
-
-                              {/* Primary Toggle */}
-                              <div className="flex items-center gap-1">
-                                <Button
-                                  type="button"
-                                  variant={target.isPrimary ? "default" : "outline"}
-                                  size="xs"
-                                  className={cn(
-                                    "h-6 text-[11px] gap-1 px-2",
-                                    target.isPrimary
-                                      ? "font-semibold"
-                                      : "text-muted-foreground hover:text-foreground"
-                                  )}
-                                  onClick={() => onSetTargetPrimary(block.blockId)}
-                                >
-                                  <StarIcon
-                                    className={cn("size-3", target.isPrimary && "fill-current")}
-                                    aria-hidden="true"
-                                  />
-                                  {target.isPrimary ? "Primary Topic" : "Set Primary"}
-                                </Button>
-                                <Tooltip>
-                                  <TooltipTrigger
-                                    render={
-                                      <button type="button" className="text-muted-foreground hover:text-foreground">
-                                        <HelpCircleIcon className="size-3" aria-hidden="true" />
-                                      </button>
-                                    }
-                                  />
-                                  <TooltipContent side="top" className="text-xs max-w-xs">
-                                    The primary topic is highlighted in test reports as the main subject of this question.
-                                  </TooltipContent>
-                                </Tooltip>
-                              </div>
-                            </div>
-                          ) : null}
+                          <Button
+                            type="button"
+                            variant={target.isPrimary ? "secondary" : "outline"}
+                            size="sm"
+                            className="min-h-11"
+                            aria-pressed={target.isPrimary}
+                            onClick={() => onSetTargetPrimary(block.blockId)}
+                          >
+                            <StarIcon
+                              className={cn(target.isPrimary && "fill-current")}
+                              aria-hidden="true"
+                            />
+                            {target.isPrimary
+                              ? "Primary link"
+                              : "Set as primary"}
+                          </Button>
                         </div>
+                        <p className="flex items-start gap-2 text-xs text-muted-foreground">
+                          <InfoIcon
+                            className="mt-0.5 size-3.5 shrink-0"
+                            aria-hidden="true"
+                          />
+                          <span>
+                            Weight describes this item&apos;s share of the
+                            question. Primary marks its main syllabus link.
+                          </span>
+                        </p>
                       </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </TooltipProvider>
+                    ) : null}
+                  </div>
+                )
+              })}
+            </div>
           )}
         </div>
 
-        {/* Footer */}
-        <div className="p-4 border-t bg-muted/20 flex items-center justify-between shrink-0">
-          <span className="text-xs text-muted-foreground">
-            {selectedCount > 0
-              ? `${selectedCount} topic(s) selected`
-              : "Select topics to link this question to your syllabus"}
-          </span>
-          <Button type="button" size="sm" className="h-8 text-xs px-4" onClick={() => setOpen(false)}>
+        <div className="flex shrink-0 items-center justify-between gap-3 border-t border-border bg-muted/20 p-4">
+          <div className="flex min-w-0 flex-col gap-1">
+            <p className="text-sm font-medium">
+              {selectedCount} {selectedCount === 1 ? "item" : "items"} linked
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Saved with your question.
+            </p>
+          </div>
+          <Button
+            type="button"
+            className="min-h-11 shrink-0"
+            onClick={() => changeOpen(false)}
+          >
             Done
           </Button>
         </div>

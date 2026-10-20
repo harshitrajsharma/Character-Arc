@@ -283,7 +283,7 @@ export function AnalysisScorecard({ analysis }: AnalysisScorecardProps) {
         <div className="p-5 space-y-1">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span className="font-semibold">Questions Attempted</span>
-            <TargetIcon className="size-3.5 text-brand-violet-ink" />
+            <TargetIcon className="size-3.5 text-sky-500" />
           </div>
           <div className="text-2xl font-mono font-bold text-foreground">
             {attemptedCount}

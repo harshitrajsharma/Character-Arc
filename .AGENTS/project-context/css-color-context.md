@@ -319,3 +319,9 @@ Rules:
 - Use domain accents (`brand-violet`, `brand-cyan`, `brand-amber`, `brand-neon`) strictly for small icon tiles (`size-8 rounded-xl bg-brand-*-soft text-brand-*-ink`) and progress indicators.
 - Settings dialogs follow the two-column split layout: sidebar navigation on the left, grouped form sections on the right, and a unified action footer at the bottom.
 
+
+## Recessed content surfaces (2026-10-19)
+
+- `bg-surface-inset` is the neutral surface for revealed content inside a containing card, such as question previews. It aliases muted in light mode and background in dark mode, keeping it visually below bg-card in both themes. Plain bg-muted cannot provide this role because it becomes lighter than the card in dark mode.
+- Pair it with `inset-shadow-recessed` for a subtle inward top edge. This shared shadow derives its color from brand-contrast; components do not hardcode shadow colors.
+- Keep the summary on bg-card. Nested answer choices may use bg-card to sit above the recessed well; correct answers retain the existing success tokens.

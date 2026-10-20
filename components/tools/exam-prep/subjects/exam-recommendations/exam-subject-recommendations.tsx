@@ -26,7 +26,7 @@ export interface ExamSubjectRecommendationsProps {
   }
 }
 
-const asOfFormatter = new Intl.DateTimeFormat("en", {
+const asOfFormatter = new Intl.DateTimeFormat("en-US", {
   day: "numeric",
   month: "short",
   year: "numeric",
@@ -114,7 +114,11 @@ export function ExamSubjectRecommendations({
           Recommended next
         </h2>
         {output.asOf ? (
-          <Badge variant="outline" className="shrink-0">
+          <Badge
+            variant="outline"
+            className="shrink-0"
+            suppressHydrationWarning
+          >
             <Clock3Icon data-icon="inline-start" aria-hidden="true" />
             {formatAsOf(output.asOf)}
           </Badge>

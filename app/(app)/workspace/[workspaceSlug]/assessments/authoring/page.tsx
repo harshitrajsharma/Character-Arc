@@ -1,4 +1,4 @@
-﻿import type { Metadata } from "next"
+import type { Metadata } from "next"
 import Link from "next/link"
 import {
   BookOpenTextIcon,
@@ -8,13 +8,14 @@ import {
   SlidersHorizontalIcon,
 } from "lucide-react"
 
+import { SetNavbarBreadcrumbs } from "@/components/navigation/breadcrumb-context"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { ToolPageHeader } from "@/components/tools/tool-page-header"
 import {
   getMockTestsOverview,
-  getQuestionBank,
+  getQuestionBankCount,
 } from "@/lib/tools/definitions/mock-tests/repository"
 import { workspaceRoutes } from "@/lib/routes/workspace-tools"
 import {
@@ -24,21 +25,21 @@ import {
 import { formatNumber } from "@/lib/tools/mock-tests/kind-labels"
 import { cn } from "@/lib/utils"
 
-export const metadata: Metadata = { title: "Authoring Suite — Mock Tests" }
+export const metadata: Metadata = { title: "Authoring Suite — Assessments" }
 
 const STATUS_BADGE: Record<string, { label: string; className: string }> = {
   draft: {
     label: "Draft",
-    className: "border-muted-foreground/30 bg-muted/40 text-muted-foreground",
+    className: "border-border/70 bg-muted/60 text-muted-foreground",
   },
   published: {
     label: "Published",
     className:
-      "border-brand-neon-line/40 bg-brand-neon-soft text-brand-neon-ink font-semibold",
+      "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-semibold",
   },
   archived: {
     label: "Archived",
-    className: "border-brand-amber-line bg-brand-amber-soft text-brand-amber-ink",
+    className: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
   },
 }
 
@@ -54,9 +55,11 @@ export default async function AuthoringSuitePage({
     "core.mock-tests"
   )
 
-  const [overview, bank] = await Promise.all([
-    getMockTestsOverview(workspace.id, workspaceSlug, installation.id),
-    getQuestionBank(workspace.id),
+  const [overview, questionCount] = await Promise.all([
+    getMockTestsOverview(workspace.id, workspaceSlug, installation.id, {
+      includeCommunity: false,
+    }),
+    getQuestionBankCount(workspace.id),
   ])
 
   const canWrite = workspace.role !== "VIEWER"
@@ -65,13 +68,23 @@ export default async function AuthoringSuitePage({
   const draftsCount = overview.assessments.filter((a) => a.status === "draft").length
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 pt-24 pb-8 sm:pb-10 md:px-6 xl:px-10 space-y-6">
+    <main className="mx-auto w-full max-w-6xl px-4 pt-20 pb-8 sm:pb-10 md:px-6 xl:px-10 space-y-6">
+      <SetNavbarBreadcrumbs
+        segments={[
+          { label: "Workspace", href: `/workspace/${encodeURIComponent(workspaceSlug)}` },
+          { label: "Assessments", href: workspaceRoutes.mockTests.home(workspaceSlug) },
+          { label: "Authoring Suite" },
+        ]}
+        backHref={workspaceRoutes.mockTests.home(workspaceSlug)}
+        backLabel="Back to Assessments"
+      />
+
       <ToolPageHeader
         eyebrow="Authoring Suite"
         title="Test Management Hub"
         description="Design test blueprints, author rich Tiptap + KaTeX questions, configure sections, and publish mock papers for your students."
         icon={<FilePenLineIcon aria-hidden="true" />}
-        iconClassName="bg-brand-violet-soft text-brand-violet-ink"
+        iconClassName="bg-muted text-foreground border border-border/60"
         backHref={workspaceRoutes.mockTests.home(workspaceSlug)}
         primaryAction={
           canWrite ? (
@@ -79,15 +92,15 @@ export default async function AuthoringSuitePage({
               <Button
                 variant="outline"
                 size="sm"
-                className="h-9 gap-1.5 text-xs font-medium"
+                className="h-9 gap-1.5 text-xs font-medium border-border hover:bg-muted"
                 render={<Link href={workspaceRoutes.mockTests.questions(workspaceSlug)} />}
               >
-                <BookOpenTextIcon className="size-3.5 text-brand-cyan-ink" aria-hidden="true" />
-                Question Bank ({bank.length})
+                <BookOpenTextIcon className="size-3.5 text-cyan-600 dark:text-cyan-400" aria-hidden="true" />
+                Question Bank ({questionCount})
               </Button>
               <Button
                 size="sm"
-                className="h-9 gap-1.5 text-xs font-semibold"
+                className="h-9 gap-1.5 text-xs font-semibold bg-foreground text-background hover:bg-foreground/90 shadow-2xs"
                 render={<Link href={workspaceRoutes.mockTests.new(workspaceSlug)} />}
               >
                 <PlusIcon className="size-3.5" aria-hidden="true" />
@@ -99,16 +112,16 @@ export default async function AuthoringSuitePage({
       />
 
       {/* Authoring Stat Strip */}
-      <Card className="overflow-hidden p-0 border-border/80 bg-card shadow-xs">
-        <div className="grid grid-cols-1 divide-y divide-border/80 sm:grid-cols-2 sm:divide-y-0 sm:divide-x sm:[&>*:nth-child(n+3)]:border-t sm:[&>*:nth-child(n+3)]:border-border/80 lg:grid-cols-4 lg:[&>*:nth-child(n+3)]:border-t-0 lg:divide-x">
+      <Card className="overflow-hidden p-0 border-border/70 bg-card shadow-2xs rounded-2xl">
+        <div className="grid grid-cols-1 divide-y divide-border/60 sm:grid-cols-2 sm:divide-y-0 sm:divide-x sm:[&>*:nth-child(n+3)]:border-t sm:[&>*:nth-child(n+3)]:border-border/60 lg:grid-cols-4 lg:[&>*:nth-child(n+3)]:border-t-0 lg:divide-x">
           <div className="flex flex-col justify-between p-4 sm:p-5">
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium text-muted-foreground">Draft Papers</span>
-              <span className="flex size-7 items-center justify-center rounded-lg bg-brand-amber-soft text-brand-amber-ink">
+              <span className="flex size-7 items-center justify-center rounded-lg bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20">
                 <FilePenLineIcon className="size-3.5" aria-hidden="true" />
               </span>
             </div>
-            <div className="mt-2 font-heading text-2xl font-bold tracking-tight text-foreground">
+            <div className="mt-2 font-heading text-2xl font-bold tracking-tight text-foreground font-mono">
               {draftsCount}
             </div>
             <p className="mt-0.5 text-[11px] text-muted-foreground">In progress or editing</p>
@@ -117,11 +130,11 @@ export default async function AuthoringSuitePage({
           <div className="flex flex-col justify-between p-4 sm:p-5">
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium text-muted-foreground">Published Papers</span>
-              <span className="flex size-7 items-center justify-center rounded-lg bg-success-soft text-success-ink">
+              <span className="flex size-7 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
                 <ListChecksIcon className="size-3.5" aria-hidden="true" />
               </span>
             </div>
-            <div className="mt-2 font-heading text-2xl font-bold tracking-tight text-foreground">
+            <div className="mt-2 font-heading text-2xl font-bold tracking-tight text-foreground font-mono">
               {publishedCount}
             </div>
             <p className="mt-0.5 text-[11px] text-muted-foreground">Live for student attempts</p>
@@ -130,12 +143,12 @@ export default async function AuthoringSuitePage({
           <div className="flex flex-col justify-between p-4 sm:p-5">
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium text-muted-foreground">Question Repository</span>
-              <span className="flex size-7 items-center justify-center rounded-lg bg-brand-cyan-soft text-brand-cyan-ink">
+              <span className="flex size-7 items-center justify-center rounded-lg bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border border-cyan-500/20">
                 <BookOpenTextIcon className="size-3.5" aria-hidden="true" />
               </span>
             </div>
-            <div className="mt-2 font-heading text-2xl font-bold tracking-tight text-foreground">
-              {bank.length} <span className="text-xs font-normal text-muted-foreground font-sans">questions</span>
+            <div className="mt-2 font-heading text-2xl font-bold tracking-tight text-foreground font-mono">
+              {questionCount} <span className="text-xs font-normal text-muted-foreground font-sans">questions</span>
             </div>
             <p className="mt-0.5 text-[11px] text-muted-foreground">Reusable across blueprints</p>
           </div>
@@ -143,11 +156,11 @@ export default async function AuthoringSuitePage({
           <div className="flex flex-col justify-between p-4 sm:p-5">
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium text-muted-foreground">Total Blueprints</span>
-              <span className="flex size-7 items-center justify-center rounded-lg bg-brand-violet-soft text-brand-violet-ink">
+              <span className="flex size-7 items-center justify-center rounded-lg bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-500/20">
                 <SlidersHorizontalIcon className="size-3.5" aria-hidden="true" />
               </span>
             </div>
-            <div className="mt-2 font-heading text-2xl font-bold tracking-tight text-foreground">
+            <div className="mt-2 font-heading text-2xl font-bold tracking-tight text-foreground font-mono">
               {overview.assessments.length}
             </div>
             <p className="mt-0.5 text-[11px] text-muted-foreground">Managed test configurations</p>

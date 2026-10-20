@@ -146,3 +146,70 @@ Both the **Workspace Test Profile** (`/workspace/[slug]/assessments/[assessmentI
    - Left Column (65%): Question Paper Roster (`QuestionPaperRoster`) with search, filter chips, and question preview.
    - Right Column (35%): Segmented Sidebar Card combining Score Trajectory Graph (Sky/Emerald palette), Blueprint Distribution, and Candidate Attempt History.
 
+
+### Assessment detail segmented layout (2026-10-18)
+- The workspace assessment hero owns the full-width score trajectory as its final segment, after identity, metrics, and actions. Its optional children slot is workspace-only; public papers do not display private attempt history.
+- Keep section blueprint and Attempt History in the sidebar beside the question paper. Render the score graph only once.
+- The question-paper toolbar groups its heading/counts above responsive search and expansion controls. Search has an accessible label and a named clear action.
+- Header identity separates publication/type from calculator metadata; metric borders adapt to two-column mobile and four-column desktop layouts.
+
+### Assessment overview (2026-10-18)
+- The workspace detail page contains the segmented assessment overview and percentage trajectory, topic coverage, and compact attempt history. Question stems/options are no longer rendered here; authoring and post-attempt review retain their own views.
+- Coverage uses active workspace-scoped QuestionTarget blocks, deduplicates questions within each target, and explains overlapping counts. Missing mappings are explicit. A bounded three-level traversal of explicit syllabus relations provides subject/chapter context and links to a subject in Exam Prep when an exam relation exists; titles never imply coverage.
+- Current question-mark sums are shown separately from a mismatched configured paper total. No stored marks are rewritten.
+- Trajectory includes only evaluated attempts with known positive maximum marks. Values are score/maxScore percentages, not accuracy. Different totals carry a comparability notice; raw score deltas and personal-best claims were removed. History retains original score denominators and actual accuracy, including unknown values.
+- History is newest first, with Review for submitted/evaluated attempts and Resume only for in-progress attempts. The header suppresses Start when an ongoing attempt exists.
+
+### Question bank responsive UX (2026-10-19)
+- `/workspace/[workspaceSlug]/assessments/questions` uses one segmented summary (2 columns on mobile, 4 on desktop) and one divided question list. Search and filters remain unframed; do not add cards around every section. Use existing neutral/cyan semantic tokens and success tokens only for correct answers.
+- Below the large breakpoint, filters and sorting are behind a labeled disclosure with active-setting count. Desktop controls remain visible. Fields have labels, Select receives item labels, and mobile controls/options have 44px targets. Leave clearance for the fixed bottom navigation.
+- The single creation action belongs in the header for populated banks and in the empty state for empty banks. Navigation uses Link semantics with buttonVariants. Viewer permissions suppress editing/creation.
+- Scan rows prioritize question text, type, difficulty, paper usage, and update date. Preview buttons expose aria-expanded/aria-controls, complete prompts, all topics, explicit correct-answer text, and solutions. Wide math/tables scroll within previews. Avoid nested decorative cards.
+- Search trims whitespace and matches visible question/option/solution text and topics. Sorting supports newest/oldest creation, recent updates, difficulty (unset last), and usage. Question-bank pagination now uses bounded server queries; see the pagination update below for URL filters, page sizes, and count semantics.
+
+
+### Question bank card interactions and server pagination (2026-10-19)
+- Each question summary is one full-area native disclosure button with aria-expanded/aria-controls and a visible keyboard focus outline. Edit is a separate link above the disclosure hit area; expanded answer/solution content is outside that area. Do not add nested buttons or a click handler to the entire article.
+- Difficulty badges include Easy (levels 1–2), Medium (3), Hard (4), and Advanced (5), plus the original level. Cyan, amber, and neon semantic tokens distinguish difficulty; unset stays neutral. Meaning is always written in text.
+- Topics occupy the left side of a full-width footer; paper usage and update date align right. Small screens stack these groups. Existing topic truncation/all-topics-on-preview behavior remains.
+- The questions route verifies workspace membership and active installation before getQuestionBankPage. This new bounded Prisma query leaves the builder’s getQuestionBank function unchanged. Eligible questions remain DRAFT/PUBLISHED in the verified workspace.
+- URL parameters: q, type, difficulty, usage, sort, page, size. Supported sizes are 10, 20 (default), and 50. Inputs are validated, pages clamp to valid bounds, all sorts include an ID tie-breaker, unset difficulty sorts last, and numerical answer zero is preserved.
+- Search is submitted with Enter or the inline Search control, rather than sending requests on every keystroke. Database search uses case-insensitive contains on stored question/options/solution text and target titles; it does not strip HTML before matching. A future searchable plain-text field may improve rich-content phrase matching.
+- Filters/search/size changes reset to page 1. Previous/Next controls show page count and result range; pending requests disable paging. Summary metrics describe the entire bank, independent of active filters. Do not restore client-only slicing or Show more as the bank’s pagination.
+
+### Question bank pagination and preview depth follow-up (2026-10-19)
+- The pager reuses the existing shadcn Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationPrevious, PaginationNext and PaginationEllipsis primitives. No duplicate pagination component was added. Number links preserve URL filters, expose aria-current, and retain native modifier-click behavior; bounds and pending state use aria-disabled. Mobile hides neighboring numbers/ellipsis while retaining first/current/last and 44px targets.
+- Question previews use bg-surface-inset plus inset-shadow-recessed to reveal a recessed well below the bg-card summary. Answer choices use a card surface inside that well, with existing success styling for correct choices.
+- Expanded question-bank rich content uses horizontal-only overflow with additional vertical padding when inline KaTeX is present. This accommodates fractions that extend beyond the line box, preventing vertical scroll controls and clipped answers. Keep the collapsed prompt’s line clamp separate from expanded content.
+
+### Question bank type and equation readability (2026-10-19)
+- Type badges pair labels/icons with cyan for MCQ, neon for MSQ, amber for NAT; legacy kinds retain a neutral fallback. Difficulty keeps its own explicit label and level.
+- Expanded preview math is 24px, scoped to KaTeX roots; a targeted important utility is needed because the vendor KaTeX stylesheet is unlayered. Inline-math content receives 12px vertical padding so fractions remain unclipped inside horizontal scrollers. Collapsed summaries and the exam player are unaffected.
+- The Per page menu now composes existing shadcn Select/Trigger/Value/Content/Group/Item primitives, with named item values, collision-aware placement and 44px trigger/options. Page-size changes retain filters and reset to page1.
+
+
+### Question authoring segmented workflow (2026-10-19)
+- New/edit question forms use one divided card: Question setup, Question, Answer and key, Explanation. Setup uses labeled shadcn type/difficulty Selects plus optional syllabus coverage. Explanation starts collapsed for new questions; hiding it preserves its content.
+- Edit/Preview work at every width; Split is desktop-only at 1280px and above. Preview avoids nested vertical scrolling. One sticky save footer clears mobile navigation. Save & return navigates to the bank/builder; Save & add another resets fields, targets and idempotency key on success.
+- Formatting belongs in each rich editor toolbar, without duplicate outer snippet/preset toolbars. Labeled bulk entry sits beside rendered, keyboard-operable answer-key controls. MCQ/true-false retain one key; MSQ allows multiple. Removing options removes stale keys. Every displayed choice must be completed or removed before saving.
+- The option parser preserves empty A-D markers, CRLF/tab-delimited markers, multiline math and a final bare marker without consuming the following option. Formatting preserves blank default templates.
+- Topic selection uses one labeled checkbox event source. Weight and primary controls sit outside its label and must not toggle selection. Search resets on reopen; selections persist. Item types are explicit; coverage copy describes actual assessment/topic links without promising automatic proficiency updates.
+- Numeric guidance reflects existing scoring tolerance (1% relative or 0.01 absolute, whichever is larger). Zero remains valid. Inline validation returns focus to missing prompt/answer content. Server Actions, persistence contracts, scoring and workspace authorization are unchanged.
+
+
+### Editable math and image authoring (2026-10-19)
+- Balanced dollar-delimited values, including numeric $100$, render as math. Unclosed currency and escaped dollars remain literal; code blocks/marks stay untouched. The shared tokenizer supplies source ranges to ProseMirror normalization.
+- The lightweight editor normalizes loaded, externally synced, typed and mixed pasted formulas into editable inline/display atoms. Transactions preserve marks, valid block/list structure and mapped selections. Math editing opens the existing LaTeX dialog. Editor equations use 24px KaTeX roots; bulk options remain source text with rendered answer previews.
+- Empty-content checks recognize equation-only/image-only HTML; validation and payload building must not strip these nodes as empty.
+- Image toolbar supports validated file uploads and HTTPS URLs with required descriptions. Uploads use the new private Supabase Storage integration expressly authorized by the user. Setup, read access and lifecycle limits are documented in [question-image-storage.md](./question-image-storage.md). Do not expose service credentials or switch to a public bucket.
+
+
+### Existing question saves and historical attempts (2026-10-19)
+- Question-content synchronization retains option IDs by key and stages positions before reordering; referenced choices are not deleted. This fixes option-FK errors on ordinary edits.
+- Since historical attempts currently read live question content rather than immutable question snapshots, substantive stem/type/option/key/solution changes are rejected once any attached paper has a started attempt (including unanswered questions). Create a new question for changed assessment content. Difficulty and syllabus targets may still update.
+- Equivalent legacy-to-rich-editor paragraph/math serialization is allowed through a narrow canonical comparison. Such saves preserve original stored strings, option IDs and the entire existing solution/grading configuration; they do not rewrite historical content.
+
+
+### Public paper landing boundary (2026-10-19)
+- The `/assessments/share/[assessmentId]` landing page now lives under `app/(public)`, outside the unconditional authenticated `(app)` layout. Its URL is unchanged. Anonymous readers skip workspace-shell loading; signed-in users may load their workspace context after optional verified claims.
+- Workspace pages, CBT attempts and mutation actions retain their existing authentication requirements. Public-page access still depends on paper visibility/status. Browser verification confirms public heading access without login, private workspace/attempt redirects, and unknown-paper 404.

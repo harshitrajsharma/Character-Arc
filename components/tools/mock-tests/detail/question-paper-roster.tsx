@@ -134,18 +134,19 @@ export function QuestionPaperRoster({
   }
 
   return (
-    <div className="space-y-4 self-start">
+    <div className="flex min-w-0 flex-col gap-4 self-start">
       {/* ── Open Section Header on Canvas ── */}
-      <div className="flex flex-wrap items-center justify-between gap-3 pb-1">
-        <div className="space-y-0.5">
+      <div className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 sm:p-5">
+        <div className="flex flex-col gap-1.5">
           <div className="flex items-center gap-2">
             <BookOpenIcon className="size-4 text-foreground" />
             <h2 className="font-heading text-base font-bold text-foreground">
-              Question Paper Structure
+              Question paper
             </h2>
           </div>
           <p className="text-xs text-muted-foreground">
-            {assessment.questions.length} questions •{" "}
+            {assessment.questions.length} questions · {effectiveSections.length || 1}{" "}
+            {effectiveSections.length > 1 ? "sections" : "section"} ·{" "}
             {formatNumber(assessment.totalMarks ?? 0)} total marks
           </p>
         </div>
@@ -153,20 +154,22 @@ export function QuestionPaperRoster({
         <div className="flex flex-wrap items-center gap-2">
           {/* Instant Question Search */}
           {assessment.questions.length > 0 ? (
-            <div className="relative flex-1 sm:max-w-xs min-w-[180px]">
+            <div className="relative min-w-0 basis-full sm:basis-auto sm:flex-1">
               <SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
               <input
-                type="text"
+                type="search"
+                aria-label="Search questions and options"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search questions & options..."
-                className="w-full h-8 pl-8 pr-7 rounded-lg border border-border bg-background text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                className="w-full h-11 sm:h-9 pl-8 pr-10 rounded-lg border border-border bg-background text-xs placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
               />
               {searchQuery ? (
                 <button
                   type="button"
                   onClick={() => setSearchQuery("")}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+                  aria-label="Clear question search"
+                  className="absolute right-0 top-1/2 flex size-10 -translate-y-1/2 items-center justify-center text-muted-foreground hover:text-foreground cursor-pointer"
                 >
                   <XIcon className="size-3.5" />
                 </button>
@@ -176,7 +179,7 @@ export function QuestionPaperRoster({
 
           {/* Section Filter Pills */}
           {effectiveSections.length > 1 ? (
-            <div className="flex items-center rounded-lg border border-border bg-muted/40 p-0.5">
+            <div className="flex max-w-full flex-wrap items-center gap-1 rounded-lg border border-border bg-muted/40 p-0.5">
               <button
                 type="button"
                 onClick={() => setSelectedSectionFilter("ALL")}
@@ -215,7 +218,7 @@ export function QuestionPaperRoster({
                 variant="ghost"
                 size="xs"
                 onClick={() => toggleAllQuestions(true)}
-                className="text-[11px] text-muted-foreground hover:text-foreground h-7 px-2"
+                className="text-xs text-muted-foreground hover:text-foreground h-11 sm:h-9 px-3"
               >
                 Expand all
               </Button>
@@ -224,7 +227,7 @@ export function QuestionPaperRoster({
                 variant="ghost"
                 size="xs"
                 onClick={() => toggleAllQuestions(false)}
-                className="text-[11px] text-muted-foreground hover:text-foreground h-7 px-2"
+                className="text-xs text-muted-foreground hover:text-foreground h-11 sm:h-9 px-3"
               >
                 Collapse all
               </Button>

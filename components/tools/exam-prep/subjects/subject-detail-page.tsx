@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react"
 import type { SubjectWithRelations } from "@/types/progressapp/domain"
 import { cn } from "@/lib/utils"
+import { Card, CardContent } from "@/components/ui/card"
 
 import { SubjectHeader } from "./subject-header"
 import { ProgressOverview } from "./stats/progress-overview"
@@ -137,22 +138,25 @@ function SubjectDetailContent({
         localDate={localDate}
       />
 
-      <div
+      <Card
         ref={subjectTestRef}
+        size="sm"
         className={cn(
-          "scroll-mt-24 rounded-xl transition-all duration-300",
+          "scroll-mt-24 transition-all duration-300",
           highlightSubjectTest &&
             "shadow-md ring-2 ring-brand-violet-line ring-offset-2"
         )}
       >
-        <SubjectTestView
-          workspaceSlug={workspaceSlug}
-          examId={examId}
-          subjectId={subject.id}
-          targetTests={subject.progressPolicy?.subjectTestTarget}
-          localDate={localDate}
-        />
-      </div>
+        <CardContent>
+          <SubjectTestView
+            workspaceSlug={workspaceSlug}
+            examId={examId}
+            subjectId={subject.id}
+            targetTests={subject.progressPolicy?.subjectTestTarget}
+            localDate={localDate}
+          />
+        </CardContent>
+      </Card>
     </div>
   )
 }

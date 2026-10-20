@@ -24,3 +24,13 @@ export function stripHtml(html: string): string {
 export function htmlTextLength(html: string): number {
   return stripHtml(html).length
 }
+
+/** Math/image nodes carry meaningful content even when they have no text children. */
+export function hasRichContent(html: string): boolean {
+  return Boolean(
+    stripHtml(html) ||
+    /<(?:span|div)\b[^>]*data-(?:math-inline|math-block)[^>]*data-tex=["'][^"']+|<(?:span|div)\b[^>]*data-tex=["'][^"']+["'][^>]*data-(?:math-inline|math-block)|<img\b[^>]*src=["'][^"']+/i.test(
+      html
+    )
+  )
+}

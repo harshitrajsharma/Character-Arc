@@ -31,12 +31,16 @@ export function formatOptionsToUnifiedText(
 /**
  * Extract trailing answer key declarations like "Answer: A", "Correct: A, C", "Key: B".
  */
-function extractAnswerKey(text: string): { body: string; detectedKeys: string[] } {
+function extractAnswerKey(text: string): {
+  body: string
+  detectedKeys: string[]
+} {
   const detectedKeys: string[] = []
   const lines = text.split(/\r?\n/)
   const remainingLines: string[] = []
 
-  const keyPattern = /^\s*(?:correct(?:\s+answer)?|answer(?:\s+key)?|ans|key)\s*[:=\-]\s*([a-z0-9,\s]+)/i
+  const keyPattern =
+    /^\s*(?:correct(?:\s+answer)?|answer(?:\s+key)?|ans|key)\s*[:=\-]\s*([a-z0-9,\s]+)/i
 
   for (const line of lines) {
     const match = line.match(keyPattern)
@@ -74,9 +78,11 @@ function extractAnswerKey(text: string): { body: string; detectedKeys: string[] 
  * Regex identifying the beginning of an option entry:
  * - "A)", "(A)", "[A]", "A.", "Option A:"
  * - "1.", "1)", "(1)", "[1]"
+ * Only horizontal whitespace belongs to a marker: consuming a newline here
+ * hides the next empty option. A bare marker at the end of a line is valid.
  */
 const OPTION_START_PATTERN =
-  /(?:^|\n)\s*(?:(?:(?:Option\s+)?([A-Za-z])[\.\)\:\-]|[\(\[]([A-Za-z])[\)\]])|(?:(\d+)[\.\)\:\-]|[\(\[](\d+)[\)\]]))\s+/g
+  /(?:^|\n)[ \t]*(?:(?:(?:Option[ \t]+)?([A-Za-z])[\.\)\:\-]|[\(\[]([A-Za-z])[\)\]])|(?:(\d+)[\.\)\:\-]|[\(\[](\d+)[\)\]]))(?:[ \t]+|(?=\r?(?:\n|$)))/g
 
 /**
  * Parses unified text into individual option cards and detected answer keys.

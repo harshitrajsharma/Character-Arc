@@ -3,19 +3,11 @@
 import { useEffect, useRef, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import {
-  AlertCircleIcon,
-  BookOpenIcon,
-  CalculatorIcon,
   CheckCircle2Icon,
-  ClockIcon,
   FilePenLineIcon,
-  LayersIcon,
   ListChecksIcon,
   Loader2Icon,
-  SlidersHorizontalIcon,
-  SparklesIcon,
   TargetIcon,
-  TrophyIcon,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -31,7 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
-import { RichTextEditor } from "@/components/tools/mock-tests/editor/rich-text-editor"
+import { flushSync } from "react-dom"
 import { stripHtml, htmlTextLength } from "@/components/tools/mock-tests/editor/html-utils"
 import { createIdempotencyKey } from "@/lib/forms/idempotency-key"
 import { createAssessmentAction } from "@/lib/tools/mock-tests/actions/assessment-actions"
@@ -51,6 +43,8 @@ export function NewAssessmentForm({
   const router = useRouter()
   const formRef = useRef<HTMLFormElement>(null)
   const [pending, startTransition] = useTransition()
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const isActionPending = pending || isSubmitting
 
   // Form Field State for live Blueprint Preview
   const [title, setTitle] = useState("")
@@ -92,7 +86,7 @@ export function NewAssessmentForm({
     distinctionNum <= passingNum
 
   function handleSubmit() {
-    if (pending) return
+    if (isActionPending) return
 
     const trimmedTitle = title.trim()
 
@@ -103,106 +97,119 @@ export function NewAssessmentForm({
       return
     }
 
-    const subjectScope =
-      paperType === "multi_subject" || parsedSubjects.length > 1
-        ? "multi_subject"
-        : "single_subject"
-
-    const dur = durationMinutes.trim() === "" ? null : Number(durationMinutes)
-    const marks = totalMarks.trim() === "" ? null : Number(totalMarks)
-
-    if (dur !== null && (!Number.isInteger(dur) || dur < 1 || dur > 1440)) {
-      toast.warning("Invalid duration", {
-        description: "Duration must be a whole number between 1 and 1440 minutes.",
-      })
-      return
-    }
-
-    if (marks !== null && (!Number.isFinite(marks) || marks <= 0)) {
-      toast.warning("Invalid total marks", {
-        description: "Total marks must be greater than zero.",
-      })
-      return
-    }
-
-    if (
-      passingBenchmark === "" ||
-      !Number.isInteger(passingNum) ||
-      passingNum < 1 ||
-      passingNum > 100
-    ) {
-      toast.warning("Invalid passing cut-off", {
-        description: "Passing benchmark must be a whole percentage between 1 and 100.",
-      })
-      return
-    }
-
-    if (
-      distinctionBenchmark === "" ||
-      !Number.isInteger(distinctionNum) ||
-      distinctionNum < 1 ||
-      distinctionNum > 100
-    ) {
-      toast.warning("Invalid distinction cut-off", {
-        description: "Distinction benchmark must be a whole percentage between 1 and 100.",
-      })
-      return
-    }
-
-    if (distinctionNum <= passingNum) {
-      toast.warning("Benchmark conflict", {
-        description:
-          "Distinction cut-off must be higher than the passing cut-off percentage.",
-      })
-      return
-    }
-
-    if (htmlTextLength(instructions) > 20000) {
-      toast.warning("Instructions too long", {
-        description: "Candidate instructions must be under 20,000 characters.",
-      })
-      return
-    }
-
-    const hasInstructions = stripHtml(instructions).length > 0
-    const cleanInstructions = hasInstructions ? instructions.trim() : null
-
-    startTransition(async () => {
-      try {
-        const result = await createAssessmentAction({
-          workspaceSlug,
-          title: trimmedTitle,
-          durationMinutes: dur,
-          totalMarks: marks,
-          instructions: cleanInstructions,
-          blueprint: {
-            sections: [],
-            calculatorAllowed,
-            taxonomy: {
-              paperType,
-              subjectScope,
-              subjects: parsedSubjects,
-              examTag: examTag.trim() || null,
-            },
-          },
-          passingBenchmark: passingNum,
-          distinctionBenchmark: distinctionNum,
-          idempotencyKey,
-        })
-
-        toast.success("Mock test blueprint created", {
-          description: "Proceeding to the question assembly builder.",
-        })
-        router.push(
-          workspaceRoutes.mockTests.edit(workspaceSlug, result.assessmentId)
-        )
-      } catch (error) {
-        setIdempotencyKey(createIdempotencyKey())
-        const message =
-          error instanceof Error ? error.message : "Failed to create the test blueprint."
-        toast.error("Error creating blueprint", { description: message })
-      }
+    flushSync(() => {
+      setIsSubmitting(true)
     })
+
+    setTimeout(() => {
+      const subjectScope =
+        paperType === "multi_subject" || parsedSubjects.length > 1
+          ? "multi_subject"
+          : "single_subject"
+
+      const dur = durationMinutes.trim() === "" ? null : Number(durationMinutes)
+      const marks = totalMarks.trim() === "" ? null : Number(totalMarks)
+
+      if (dur !== null && (!Number.isInteger(dur) || dur < 1 || dur > 1440)) {
+        setIsSubmitting(false)
+        toast.warning("Invalid duration", {
+          description: "Duration must be a whole number between 1 and 1440 minutes.",
+        })
+        return
+      }
+
+      if (marks !== null && (!Number.isFinite(marks) || marks <= 0)) {
+        setIsSubmitting(false)
+        toast.warning("Invalid total marks", {
+          description: "Total marks must be greater than zero.",
+        })
+        return
+      }
+
+      if (
+        passingBenchmark === "" ||
+        !Number.isInteger(passingNum) ||
+        passingNum < 1 ||
+        passingNum > 100
+      ) {
+        setIsSubmitting(false)
+        toast.warning("Invalid passing cut-off", {
+          description: "Passing benchmark must be a whole percentage between 1 and 100.",
+        })
+        return
+      }
+
+      if (
+        distinctionBenchmark === "" ||
+        !Number.isInteger(distinctionNum) ||
+        distinctionNum < 1 ||
+        distinctionNum > 100
+      ) {
+        setIsSubmitting(false)
+        toast.warning("Invalid distinction cut-off", {
+          description: "Distinction benchmark must be a whole percentage between 1 and 100.",
+        })
+        return
+      }
+
+      if (distinctionNum <= passingNum) {
+        setIsSubmitting(false)
+        toast.warning("Benchmark conflict", {
+          description:
+            "Distinction cut-off must be higher than the passing cut-off percentage.",
+        })
+        return
+      }
+
+      if (htmlTextLength(instructions) > 20000) {
+        setIsSubmitting(false)
+        toast.warning("Instructions too long", {
+          description: "Candidate instructions must be under 20,000 characters.",
+        })
+        return
+      }
+
+      const hasInstructions = stripHtml(instructions).length > 0
+      const cleanInstructions = hasInstructions ? instructions.trim() : null
+
+      startTransition(async () => {
+        try {
+          const result = await createAssessmentAction({
+            workspaceSlug,
+            title: trimmedTitle,
+            durationMinutes: dur,
+            totalMarks: marks,
+            instructions: cleanInstructions,
+            blueprint: {
+              sections: [],
+              calculatorAllowed,
+              taxonomy: {
+                paperType,
+                subjectScope,
+                subjects: parsedSubjects,
+                examTag: examTag.trim() || null,
+              },
+            },
+            passingBenchmark: passingNum,
+            distinctionBenchmark: distinctionNum,
+            idempotencyKey,
+          })
+
+          toast.success("Mock test blueprint created", {
+            description: "Proceeding to the question assembly builder.",
+          })
+          router.push(
+            workspaceRoutes.mockTests.edit(workspaceSlug, result.assessmentId)
+          )
+        } catch (error) {
+          setIsSubmitting(false)
+          setIdempotencyKey(createIdempotencyKey())
+          const message =
+            error instanceof Error ? error.message : "Failed to create the test blueprint."
+          toast.error("Error creating blueprint", { description: message })
+        }
+      })
+    }, 0)
   }
 
   // Keyboard shortcut: Cmd/Ctrl + Enter submits the form
@@ -381,10 +388,10 @@ export function NewAssessmentForm({
           <div className="p-5 space-y-2.5">
             <Button
               type="submit"
-              disabled={pending}
+              disabled={isActionPending}
               className="w-full h-10 gap-2 font-bold shadow-xs bg-foreground text-background hover:bg-foreground/90 cursor-pointer"
             >
-              {pending ? (
+              {isActionPending ? (
                 <>
                   <Loader2Icon className="size-4 animate-spin" aria-hidden="true" />
                   Creating Blueprint...

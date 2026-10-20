@@ -5,8 +5,8 @@ import katex from "katex"
  *
  * Questions authored before the rich editor stored math as raw TeX delimited
  * by dollar signs (`$...$` inline, `$$...$$` display). This module tokenizes
- * that text and renders the math with KaTeX, while leaving currency-style
- * amounts (e.g. `$5` or `$10.50`) alone.
+ * that text and renders the math with KaTeX, while leaving unclosed currency
+ * amounts (e.g. `$5` or `$10.50`) alone. Balanced delimiters request math.
  */
 
 export interface LegacyMathToken {
@@ -16,58 +16,74 @@ export interface LegacyMathToken {
 
 export type LegacyMathSegment = string | LegacyMathToken
 
+const texCache = new Map<string, string>()
+const MAX_CACHE_SIZE = 1000
+
 export function renderTex(tex: string, displayMode: boolean): string {
   const source = tex.trim()
   if (!source) {
     return `<span class="math-empty">${displayMode ? "$$" : "$"}$</span>`
   }
-  return katex.renderToString(source, {
+  const key = `${displayMode ? "D" : "I"}:${source}`
+  const cached = texCache.get(key)
+  if (cached !== undefined) return cached
+
+  const result = katex.renderToString(source, {
     throwOnError: false,
     displayMode,
     output: "html",
   })
+  if (texCache.size >= MAX_CACHE_SIZE) {
+    const firstKey = texCache.keys().next().value
+    if (firstKey) texCache.delete(firstKey)
+  }
+  texCache.set(key, result)
+  return result
 }
 
-/** Amount-shaped `$...$` (currency, counts) — almost never intended as math. */
-const AMOUNT_PATTERN = /^[\d\s.,₹$€£%]+$/
+/** Full delimiter range for editor normalization; offsets refer to the source text. */
+export interface LegacyMathRange extends LegacyMathToken {
+  from: number
+  to: number
+}
 
-/**
- * Display math first (`$$...$$`), then inline `$...$`. Display content may
- * span lines; inline content must not contain `$` or a newline.
- */
-const MATH_PATTERN = /\$\$([\s\S]+?)\$\$|\$([^$\n]+)\$/g
+/** Balanced dollar delimiters explicitly request math, including numbers such as $100$. */
+const MATH_PATTERN =
+  /(?<![\\$])\$\$([\s\S]+?)(?<!\\)\$\$|(?<![\\$])\$([^$\n]+)(?<!\\)\$(?!\$)/g
 
-/**
- * Splits legacy markdown text into plain-text and math segments.
- *
- * A candidate is accepted as math only when its delimiters sit flush against
- * the content and the content is not amount-shaped (e.g. `$5` or `$10.50`),
- * which keeps currency and prices as literal text.
- */
-export function tokenizeLegacyMath(text: string): LegacyMathSegment[] {
-  const segments: LegacyMathSegment[] = []
-  let cursor = 0
+export function tokenizeLegacyMathWithRanges(text: string): LegacyMathRange[] {
+  const tokens: LegacyMathRange[] = []
   const re = new RegExp(MATH_PATTERN.source, "g")
   let match: RegExpExecArray | null
   while ((match = re.exec(text)) !== null) {
     const display = match[1] !== undefined
     const raw = (display ? match[1] : match[2]) ?? ""
     const tex = raw.trim()
-    let accepted = false
-    if (display) {
-      accepted = tex.length > 0
-    } else {
-      const edgeClean = raw.length > 0 && !/^\s/.test(raw) && !/\s$/.test(raw)
-      accepted = edgeClean && tex.length > 0 && !AMOUNT_PATTERN.test(tex)
-    }
+    // Whitespace-padded inline captures can pair unrelated currency amounts
+    // ("$5 and $10"); leave those literal rather than swallowing prose.
+    const accepted = display
+      ? tex.length > 0
+      : tex.length > 0 && !/^\s/.test(raw) && !/\s$/.test(raw)
     if (accepted) {
-      segments.push(text.slice(cursor, match.index), { tex, display })
-      cursor = match.index + match[0].length
+      tokens.push({
+        tex,
+        display,
+        from: match.index,
+        to: match.index + match[0].length,
+      })
     } else {
-      // Not math (e.g. `$5` or `$ x $`): keep the opener as literal text and
-      // continue scanning right after it.
       re.lastIndex = match.index + (display ? 2 : 1)
     }
+  }
+  return tokens
+}
+
+export function tokenizeLegacyMath(text: string): LegacyMathSegment[] {
+  const segments: LegacyMathSegment[] = []
+  let cursor = 0
+  for (const { tex, display, from, to } of tokenizeLegacyMathWithRanges(text)) {
+    segments.push(text.slice(cursor, from), { tex, display })
+    cursor = to
   }
   segments.push(text.slice(cursor))
   return segments

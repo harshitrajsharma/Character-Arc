@@ -106,7 +106,8 @@ export async function recordAnswerAction(
       }),
     })
     .parse(result.data)
-  revalidateMockTests(parsed.workspaceSlug)
+  // Intentionally omitted revalidateMockTests: autosaving in-flight question choices
+  // is client-managed in AttemptPlayer and must not purge /dashboard or layout caches.
   return { attemptId: response.attemptId, questionId: response.questionId, runId: result.runId }
 }
 

@@ -748,3 +748,7 @@ Lead with:
 Student demo version:
 
 "Your AI can create a study plan or mock test. Character Arc remembers the syllabus, measures the attempt, finds your weak areas, and knows what you should do next."
+
+Question-editor image storage setup and access rules: [question-image-storage.md](./question-image-storage.md).
+
+App-wide Supabase image roadmap: [app-image-handling-plan.md](./app-image-handling-plan.md).

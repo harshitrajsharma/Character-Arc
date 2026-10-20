@@ -6,6 +6,7 @@ import {
   getCommunityPaperLeaderboard,
 } from "@/lib/tools/definitions/mock-tests/repository"
 import { getAppShellData } from "@/lib/workspaces/workspace-access"
+import { getVerifiedClaims } from "@/lib/auth/session"
 import { CommunityPaperLanding } from "@/components/tools/mock-tests/community-paper-landing"
 
 export const dynamic = "force-dynamic"
@@ -37,7 +38,7 @@ export default async function CommunityPaperSharePage({
   const [paper, leaderboard, memberships] = await Promise.all([
     getCommunityPaperDetail(assessmentId),
     getCommunityPaperLeaderboard(assessmentId),
-    getAppShellData().catch(() => []),
+    getVerifiedClaims().then((claims) => (claims ? getAppShellData() : [])),
   ])
 
   if (!paper) {

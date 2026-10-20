@@ -28,7 +28,7 @@ import { AnalysisScorecard } from "@/components/tools/mock-tests/analysis-scorec
 import { WeakTopicsRemediation } from "@/components/tools/mock-tests/weak-topics-remediation"
 import { StartAttemptButton } from "@/components/tools/mock-tests/start-attempt-button"
 
-export const metadata: Metadata = { title: "Attempt Analysis — Mock Test" }
+export const metadata: Metadata = { title: "Attempt Analysis — Assessments" }
 
 function formatDateTime(dateStr: string | null): string {
   if (!dateStr) return ""
@@ -68,7 +68,7 @@ export default async function AttemptAnalysisPage({
       <SetNavbarBreadcrumbs
         segments={[
           { label: "Workspace", href: `/workspace/${encodeURIComponent(workspaceSlug)}` },
-          { label: "Mock Tests", href: workspaceRoutes.mockTests.home(workspaceSlug) },
+          { label: "Assessments", href: workspaceRoutes.mockTests.home(workspaceSlug) },
           { label: analysis.assessmentTitle, href: workspaceRoutes.mockTests.detail(workspaceSlug, analysis.assessmentId) },
           { label: "Analysis" },
         ]}
@@ -82,7 +82,7 @@ export default async function AttemptAnalysisPage({
           {/* Kicker & Evaluation Status Row */}
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-              Mock Test Attempt
+              Assessment Attempt
             </span>
             <span className="text-muted-foreground/40">•</span>
             <Badge
