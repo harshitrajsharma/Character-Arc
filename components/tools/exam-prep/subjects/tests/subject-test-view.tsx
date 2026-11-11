@@ -30,7 +30,7 @@ export function SubjectTestView({
       workspaceSlug={workspaceSlug}
       examId={examId}
       subjectId={subjectId}
-      title="Full-subject tests"
+      title="Subject tests"
       localDate={localDate}
       records={records}
       targetTests={targetTests}

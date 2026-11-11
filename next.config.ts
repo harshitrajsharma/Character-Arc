@@ -17,7 +17,29 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: dirname(fileURLToPath(import.meta.url)),
   },
-  allowedDevOrigins: ["10.41.226.162", "127.0.0.1", "localhost"],
+  allowedDevOrigins: [
+    "10.143.81.162",
+    "192.168.0.172",
+    "127.0.0.1",
+    "localhost",
+  ],
+  async headers() {
+    return [
+      {
+        source: "/sw.js",
+        headers: [
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+        ],
+      },
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+        ],
+      },
+    ]
+  },
   async redirects() {
     return [
       {

@@ -33,8 +33,39 @@ export function assessmentsForScope(
   chapterId?: string
 ) {
   return assessments.filter((assessment) =>
-    chapterId
-      ? assessment.targetChapterIds.includes(chapterId)
-      : assessment.targetsWholeSubject
+    chapterId ? assessment.targetChapterIds.includes(chapterId) : true
   )
+}
+
+export type AssessmentListFilter = "all" | "linked" | "matched"
+export type AssessmentStatusFilter = "all" | "published" | "draft" | "active"
+
+/** Local projection is bounded upstream; prioritize an unfinished test, then direct links. */
+export function filterSubjectAssessments(
+  assessments: SubjectLinkedAssessment[],
+  filter: AssessmentListFilter,
+  search: string,
+  status: AssessmentStatusFilter = "all"
+) {
+  const query = search.trim().toLocaleLowerCase()
+  const active = (assessment: SubjectLinkedAssessment) =>
+    assessment.attempts.some((attempt) => attempt.status === "IN_PROGRESS")
+  return assessments
+    .filter(
+      (assessment) =>
+        (filter === "all" ||
+          (filter === "linked" && assessment.linkage === "context") ||
+          (filter === "matched" && assessment.linkage !== "context")) &&
+        (status === "all" ||
+          (status === "active" && active(assessment)) ||
+          (status === "published" && assessment.status === "PUBLISHED") ||
+          (status === "draft" &&
+            ["DRAFT", "IN_REVIEW"].includes(assessment.status))) &&
+        (!query || assessment.title.toLocaleLowerCase().includes(query))
+    )
+    .sort(
+      (left, right) =>
+        Number(active(right)) - Number(active(left)) ||
+        Number(right.linkage === "context") - Number(left.linkage === "context")
+    )
 }

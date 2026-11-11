@@ -5,15 +5,28 @@ import {
 } from "../../generated/prisma/enums"
 import { config } from "dotenv"
 import { listFirstPartyToolManifests } from "./registry"
+import { pathToFileURL } from "node:url"
 
 config({ path: ".env.local", quiet: true })
 config({ quiet: true })
 
-export async function syncTools() {
+export async function syncTools(toolKeys: readonly string[] = []) {
+  const available = listFirstPartyToolManifests()
+  const requested = new Set(toolKeys)
+  if (
+    [...requested].some(
+      (key) => !available.some((manifest) => manifest.tool.key === key)
+    )
+  ) {
+    throw new Error(
+      "Registry sync received an unknown tool key; no changes were made."
+    )
+  }
+  const manifests = requested.size
+    ? available.filter((manifest) => requested.has(manifest.tool.key))
+    : available
   const { prisma } = await import("../prisma")
   console.log("Synchronizing Tools from Registry...")
-
-  const manifests = listFirstPartyToolManifests()
 
   for (const manifest of manifests) {
     console.log(`Syncing tool: ${manifest.tool.name} (${manifest.tool.key})`)
@@ -151,9 +164,21 @@ export async function syncTools() {
   console.log("Synchronization complete!")
 }
 
-syncTools()
-  .then(() => undefined)
-  .catch(async (e) => {
-    console.error(e)
-    process.exit(1)
-  })
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
+  const selected = process.argv
+    .slice(2)
+    .filter((value) => value.startsWith("--tool="))
+    .map((value) => value.slice(7))
+  syncTools(selected)
+    .catch((error) => {
+      console.error(error)
+      process.exitCode = 1
+    })
+    .finally(async () => {
+      const { prisma } = await import("../prisma")
+      await prisma.$disconnect()
+    })
+}

@@ -9,7 +9,7 @@ import {
   ReactNodeViewRenderer,
   type ReactNodeViewProps,
 } from "@tiptap/react"
-import katex from "katex"
+import { renderTex } from "./render-tex"
 import { CheckIcon, PencilIcon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -38,18 +38,6 @@ import {
  * `RichContent` renderer enhances with rendered KaTeX (and which the editor
  * can parse back on re-open).
  */
-
-function renderTex(tex: string, displayMode: boolean): string {
-  const source = tex.trim()
-  if (!source) {
-    return `<span class="math-empty">${displayMode ? "$$" : "$"}$</span>`
-  }
-  return katex.renderToString(source, {
-    throwOnError: false,
-    displayMode,
-    output: "html",
-  })
-}
 
 function MathEditDialog({
   open,

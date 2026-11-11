@@ -2,7 +2,7 @@ import "server-only"
 
 import {
   getWorkspaceIdentity,
-  requireActiveToolInstallation,
+  getActiveToolInstallation,
 } from "@/lib/workspaces/workspace-access"
 
 export class ExamPrepActionContextError extends Error {
@@ -14,7 +14,7 @@ export class ExamPrepActionContextError extends Error {
 
 export async function getExamPrepActionContext(workspaceSlug: string) {
   const workspace = await getWorkspaceIdentity(workspaceSlug)
-  const installation = await requireActiveToolInstallation(
+  const installation = await getActiveToolInstallation(
     workspaceSlug,
     "core.exam-prep"
   )

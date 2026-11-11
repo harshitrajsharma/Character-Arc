@@ -1,452 +1,349 @@
 "use client"
 
-import { useEffect, useRef, useState, useTransition } from "react"
+import { useEffect, useRef, useState } from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
-import {
-  CheckCircle2Icon,
-  FilePenLineIcon,
-  ListChecksIcon,
-  Loader2Icon,
-  TargetIcon,
-} from "lucide-react"
+import { ChevronDownIcon, ArrowRightIcon, Loader2Icon } from "lucide-react"
 import { toast } from "sonner"
-
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Button, buttonVariants } from "@/components/ui/button"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Switch } from "@/components/ui/switch"
-import { flushSync } from "react-dom"
-import { stripHtml, htmlTextLength } from "@/components/tools/mock-tests/editor/html-utils"
-import { createIdempotencyKey } from "@/lib/forms/idempotency-key"
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
+} from "@/components/ui/collapsible"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { hasRichContent } from "./editor/html-utils"
+import {
+  AssessmentTitleField,
+  AssessmentLabelFields,
+  AssessmentTimingFields,
+  AssessmentInstructionsField,
+  AssessmentBenchmarkFields,
+} from "./assessment-metadata-fields"
+import {
+  normalizeAssessmentMetadata,
+  validateAssessmentMetadata,
+  type AssessmentMetadataValues as Values,
+  type AssessmentMetadataKey as Key,
+  type AssessmentMetadataErrors as Errors,
+} from "./assessment-metadata-model"
 import { createAssessmentAction } from "@/lib/tools/mock-tests/actions/assessment-actions"
+import { createIdempotencyKey } from "@/lib/forms/idempotency-key"
 import { workspaceRoutes } from "@/lib/routes/workspace-tools"
 import { cn } from "@/lib/utils"
 import {
-  BlueprintFormFields,
-  PAPER_TYPES,
-  type PaperType,
-} from "@/components/tools/mock-tests/blueprint-form-fields"
+  withSubjectReturn,
+  type SubjectAssessmentContext,
+} from "@/lib/tools/exam-prep/assessment-study-context"
+
+const id = (key: Key) => `assessment-${key}`
 
 export function NewAssessmentForm({
   workspaceSlug,
+  studyContext,
 }: {
   workspaceSlug: string
+  studyContext?: SubjectAssessmentContext | null
 }) {
   const router = useRouter()
   const formRef = useRef<HTMLFormElement>(null)
-  const [pending, startTransition] = useTransition()
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const isActionPending = pending || isSubmitting
-
-  // Form Field State for live Blueprint Preview
-  const [title, setTitle] = useState("")
-  const [paperType, setPaperType] = useState<PaperType>("full_length")
-  const [examTag, setExamTag] = useState("")
-  const [subjects, setSubjects] = useState("")
-  const [durationMinutes, setDurationMinutes] = useState("")
-  const [totalMarks, setTotalMarks] = useState("")
-  const [instructions, setInstructions] = useState("")
-  const [passingBenchmark, setPassingBenchmark] = useState<number | "">(33)
-  const [distinctionBenchmark, setDistinctionBenchmark] = useState<number | "">(70)
-  const [calculatorAllowed, setCalculatorAllowed] = useState(false)
-  const [isMac, setIsMac] = useState(false)
-  const [idempotencyKey, setIdempotencyKey] = useState(() =>
-    createIdempotencyKey()
-  )
-
+  const submitting = useRef(false)
+  const requestKey = useRef<string | null>(null)
+  const [pending, setPending] = useState(false)
+  const [values, setValues] = useState<Values>({
+    title: "",
+    paperType: studyContext?.chapterId
+      ? "topic_wise"
+      : studyContext
+        ? "subject_wise"
+        : "full_length",
+    examTag: studyContext?.examTitle.slice(0, 60) ?? "",
+    subjects: studyContext?.subjectTitle.slice(0, 60) ?? "",
+    durationMinutes: "",
+    totalMarks: "",
+    calculatorAllowed: false,
+    instructions: "",
+    passingBenchmark: "33",
+    distinctionBenchmark: "70",
+  })
+  const [errors, setErrors] = useState<Errors>({})
+  const [serverError, setServerError] = useState("")
+  const [instructionsOpen, setInstructionsOpen] = useState(false)
+  const [advancedOpen, setAdvancedOpen] = useState(false)
+  const [focusRequest, setFocusRequest] = useState<{ key: Key } | null>(null)
   useEffect(() => {
-    if (typeof navigator !== "undefined") {
-      setIsMac(/(Mac|iPhone|iPod|iPad)/i.test(navigator.platform || navigator.userAgent))
+    if (!focusRequest || !formRef.current) return
+    const form = formRef.current
+    function focusInvalidField() {
+      const key = focusRequest!.key
+      const target =
+        key === "instructions"
+          ? form.querySelector<HTMLElement>(
+              `#${id(key)} [contenteditable=true]`
+            )
+          : document.getElementById(id(key))
+      if (!target) return false
+      target.focus({ preventScroll: true })
+      target.scrollIntoView({ block: "center", behavior: "instant" })
+      return true
     }
-  }, [])
+    if (focusInvalidField()) return
+    const observer = new MutationObserver(() => {
+      if (focusInvalidField()) observer.disconnect()
+    })
+    observer.observe(form, { childList: true, subtree: true })
+    return () => observer.disconnect()
+  }, [focusRequest])
 
-  const activePaperConfig =
-    PAPER_TYPES.find((pt) => pt.id === paperType) ?? PAPER_TYPES[0]
-
-  const parsedSubjects = subjects
-    ? subjects
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean)
-    : []
-
-  const passingNum = passingBenchmark === "" ? 0 : Number(passingBenchmark)
-  const distinctionNum = distinctionBenchmark === "" ? 0 : Number(distinctionBenchmark)
-  const isBenchmarkConflict =
-    passingBenchmark !== "" &&
-    distinctionBenchmark !== "" &&
-    distinctionNum <= passingNum
-
-  function handleSubmit() {
-    if (isActionPending) return
-
-    const trimmedTitle = title.trim()
-
-    if (!trimmedTitle) {
-      toast.warning("Incomplete form", {
-        description: "Please give your mock test paper a title.",
-      })
+  function change<K extends Key>(key: K, value: Values[K]) {
+    setValues((previous) => ({ ...previous, [key]: value }))
+    setErrors((previous) => ({
+      ...previous,
+      [key]: undefined,
+      ...(key === "passingBenchmark"
+        ? { distinctionBenchmark: undefined }
+        : {}),
+    }))
+    setServerError("")
+  }
+  const fields = { values, errors, id, onChange: change }
+  async function submit() {
+    if (submitting.current) return
+    const next = validateAssessmentMetadata(values)
+    const {
+      durationMinutes: duration,
+      totalMarks: marks,
+      passingBenchmark: passing,
+      distinctionBenchmark: distinction,
+      subjects,
+    } = normalizeAssessmentMetadata(values)
+    setErrors(next)
+    const first = Object.keys(next)[0] as Key | undefined
+    if (first) {
+      if (next.instructions) setInstructionsOpen(true)
+      if (next.passingBenchmark || next.distinctionBenchmark)
+        setAdvancedOpen(true)
+      setFocusRequest({ key: first })
       return
     }
-
-    flushSync(() => {
-      setIsSubmitting(true)
-    })
-
-    setTimeout(() => {
-      const subjectScope =
-        paperType === "multi_subject" || parsedSubjects.length > 1
-          ? "multi_subject"
-          : "single_subject"
-
-      const dur = durationMinutes.trim() === "" ? null : Number(durationMinutes)
-      const marks = totalMarks.trim() === "" ? null : Number(totalMarks)
-
-      if (dur !== null && (!Number.isInteger(dur) || dur < 1 || dur > 1440)) {
-        setIsSubmitting(false)
-        toast.warning("Invalid duration", {
-          description: "Duration must be a whole number between 1 and 1440 minutes.",
-        })
-        return
-      }
-
-      if (marks !== null && (!Number.isFinite(marks) || marks <= 0)) {
-        setIsSubmitting(false)
-        toast.warning("Invalid total marks", {
-          description: "Total marks must be greater than zero.",
-        })
-        return
-      }
-
-      if (
-        passingBenchmark === "" ||
-        !Number.isInteger(passingNum) ||
-        passingNum < 1 ||
-        passingNum > 100
-      ) {
-        setIsSubmitting(false)
-        toast.warning("Invalid passing cut-off", {
-          description: "Passing benchmark must be a whole percentage between 1 and 100.",
-        })
-        return
-      }
-
-      if (
-        distinctionBenchmark === "" ||
-        !Number.isInteger(distinctionNum) ||
-        distinctionNum < 1 ||
-        distinctionNum > 100
-      ) {
-        setIsSubmitting(false)
-        toast.warning("Invalid distinction cut-off", {
-          description: "Distinction benchmark must be a whole percentage between 1 and 100.",
-        })
-        return
-      }
-
-      if (distinctionNum <= passingNum) {
-        setIsSubmitting(false)
-        toast.warning("Benchmark conflict", {
-          description:
-            "Distinction cut-off must be higher than the passing cut-off percentage.",
-        })
-        return
-      }
-
-      if (htmlTextLength(instructions) > 20000) {
-        setIsSubmitting(false)
-        toast.warning("Instructions too long", {
-          description: "Candidate instructions must be under 20,000 characters.",
-        })
-        return
-      }
-
-      const hasInstructions = stripHtml(instructions).length > 0
-      const cleanInstructions = hasInstructions ? instructions.trim() : null
-
-      startTransition(async () => {
-        try {
-          const result = await createAssessmentAction({
-            workspaceSlug,
-            title: trimmedTitle,
-            durationMinutes: dur,
-            totalMarks: marks,
-            instructions: cleanInstructions,
-            blueprint: {
-              sections: [],
-              calculatorAllowed,
-              taxonomy: {
-                paperType,
-                subjectScope,
-                subjects: parsedSubjects,
-                examTag: examTag.trim() || null,
-              },
-            },
-            passingBenchmark: passingNum,
-            distinctionBenchmark: distinctionNum,
-            idempotencyKey,
-          })
-
-          toast.success("Mock test blueprint created", {
-            description: "Proceeding to the question assembly builder.",
-          })
-          router.push(
-            workspaceRoutes.mockTests.edit(workspaceSlug, result.assessmentId)
-          )
-        } catch (error) {
-          setIsSubmitting(false)
-          setIdempotencyKey(createIdempotencyKey())
-          const message =
-            error instanceof Error ? error.message : "Failed to create the test blueprint."
-          toast.error("Error creating blueprint", { description: message })
-        }
+    submitting.current = true
+    setPending(true)
+    setServerError("")
+    requestKey.current ??= createIdempotencyKey()
+    try {
+      const result = await createAssessmentAction({
+        workspaceSlug,
+        title: values.title.trim(),
+        ...(studyContext ? { examBlockId: studyContext.targetBlockId } : {}),
+        durationMinutes: duration,
+        totalMarks: marks,
+        instructions: hasRichContent(values.instructions)
+          ? values.instructions.trim()
+          : null,
+        blueprint: {
+          sections: [],
+          calculatorAllowed: values.calculatorAllowed,
+          taxonomy: {
+            paperType: values.paperType,
+            subjectScope:
+              values.paperType === "multi_subject" || subjects.length > 1
+                ? "multi_subject"
+                : "single_subject",
+            subjects,
+            examTag: values.examTag.trim() || null,
+          },
+        },
+        passingBenchmark: passing,
+        distinctionBenchmark: distinction,
+        idempotencyKey: requestKey.current,
       })
-    }, 0)
-  }
-
-  // Keyboard shortcut: Cmd/Ctrl + Enter submits the form
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-        e.preventDefault()
-        handleSubmit()
-      }
+      toast.success("Draft created", {
+        description: "Add questions, then publish when you're ready.",
+      })
+      router.push(
+        withSubjectReturn(
+          workspaceRoutes.mockTests.edit(workspaceSlug, result.assessmentId),
+          studyContext?.returnHref
+        )
+      )
+    } catch (error) {
+      submitting.current = false
+      setPending(false)
+      requestKey.current = null
+      setServerError(
+        error instanceof Error
+          ? error.message
+          : "Could not create the draft. Try again."
+      )
+      requestAnimationFrame(() =>
+        document.getElementById("assessment-create-error")?.focus()
+      )
     }
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [handleSubmit])
+  }
 
   return (
     <form
       ref={formRef}
-      onSubmit={(e) => {
-        e.preventDefault()
-        handleSubmit()
+      noValidate
+      onSubmit={(event) => {
+        event.preventDefault()
+        void submit()
       }}
-      className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start"
+      onKeyDown={(event) => {
+        if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+          event.preventDefault()
+          formRef.current?.requestSubmit()
+        }
+      }}
+      className="flex min-w-0 flex-col gap-5 pb-6"
+      aria-busy={pending}
     >
-      <input type="hidden" name="paperType" value={paperType} />
-
-      {/* ── Left Column: Monolithic Segmented Card (8 Cols on Desktop) ── */}
-      <div className="lg:col-span-8">
-        <BlueprintFormFields
-          title={title}
-          setTitle={setTitle}
-          instructions={instructions}
-          setInstructions={setInstructions}
-          paperType={paperType}
-          setPaperType={setPaperType}
-          examTag={examTag}
-          setExamTag={setExamTag}
-          subjects={subjects}
-          setSubjects={setSubjects}
-          durationMinutes={durationMinutes}
-          setDurationMinutes={setDurationMinutes}
-          totalMarks={totalMarks}
-          setTotalMarks={setTotalMarks}
-          passingBenchmark={passingBenchmark}
-          setPassingBenchmark={setPassingBenchmark}
-          distinctionBenchmark={distinctionBenchmark}
-          setDistinctionBenchmark={setDistinctionBenchmark}
-          calculatorAllowed={calculatorAllowed}
-          setCalculatorAllowed={setCalculatorAllowed}
-          autoFocusTitle
-        />
-      </div>
-
-      {/* ── Right Column: Sticky Monolithic Segmented Summary Card (4 Cols on Desktop) ── */}
-      <div className="lg:col-span-4 lg:sticky lg:top-24">
-        <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-xs divide-y divide-border">
-          {/* Segment 1: Live Identity & Readiness */}
-          <div className="p-5 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="flex size-6 items-center justify-center rounded-md bg-muted text-foreground">
-                  <TargetIcon className="size-3.5" aria-hidden="true" />
-                </span>
-                <span className="font-heading text-xs font-bold tracking-tight uppercase text-foreground">
-                  Blueprint Preview
-                </span>
-              </div>
-              {title.trim() ? (
-                <Badge
-                  variant="outline"
-                  className="inline-flex items-center gap-1 text-[10px] font-semibold border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-                >
-                  <CheckCircle2Icon className="size-3" aria-hidden="true" />
-                  Ready to Create
-                </Badge>
-              ) : (
-                <Badge
-                  variant="outline"
-                  className="text-[10px] font-semibold border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400"
-                >
-                  Needs Title
-                </Badge>
-              )}
-            </div>
-
-            <div className="space-y-1.5 pt-1">
-              <Badge
-                variant="outline"
-                className={cn("text-[10px] font-semibold", activePaperConfig.badgeVariantClass)}
-              >
-                {activePaperConfig.label}
-              </Badge>
-
-              <h3 className="font-heading text-base font-bold leading-snug text-foreground break-words">
-                {title.trim() || (
-                  <span className="text-muted-foreground/60 italic font-normal">
-                    Untitled Mock Test
-                  </span>
-                )}
-              </h3>
-
-              {examTag.trim() || parsedSubjects.length > 0 ? (
-                <div className="flex flex-wrap gap-1.5 pt-1">
-                  {examTag.trim() ? (
-                    <Badge variant="secondary" className="text-[10px] font-medium">
-                      {examTag.trim()}
-                    </Badge>
-                  ) : null}
-                  {parsedSubjects.map((sub, idx) => (
-                    <Badge
-                      key={`${sub}-${idx}`}
-                      variant="outline"
-                      className="text-[10px] font-mono text-muted-foreground"
-                    >
-                      {sub}
-                    </Badge>
-                  ))}
-                </div>
-              ) : null}
-
-              {stripHtml(instructions).length > 0 ? (
-                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground/80 pt-0.5">
-                  <FilePenLineIcon className="size-3 text-muted-foreground/60" aria-hidden="true" />
-                  <span>Includes candidate guidelines</span>
-                </div>
-              ) : null}
-
-              {isBenchmarkConflict ? (
-                <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-2.5 py-1.5 text-[11px] font-medium text-destructive mt-2">
-                  Distinction cut-off must be higher than passing.
-                </div>
-              ) : null}
-            </div>
-          </div>
-
-          {/* Segment 2: Fixed 2×2 Specs Grid */}
-          <div className="divide-y divide-border bg-muted/15 text-xs">
-            <div className="grid grid-cols-2 divide-x divide-border">
-              <div className="p-3.5 space-y-1">
-                <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground block">
-                  Duration
-                </span>
-                <p className="font-mono font-semibold text-foreground">
-                  {durationMinutes ? `${durationMinutes}m` : "Untimed"}
-                </p>
-              </div>
-              <div className="p-3.5 space-y-1">
-                <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground block">
-                  Total Marks
-                </span>
-                <p className="font-mono font-semibold text-foreground">
-                  {totalMarks ? `${totalMarks} pts` : "Dynamic"}
-                </p>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 divide-x divide-border">
-              <div className="p-3.5 space-y-1">
-                <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground block">
-                  Benchmarks
-                </span>
-                <p className="font-mono font-semibold text-foreground">
-                  {passingNum}% / {distinctionNum}%
-                </p>
-              </div>
-              <div className="p-3.5 space-y-1">
-                <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground block">
-                  Calculator
-                </span>
-                <p className="font-mono font-semibold text-foreground">
-                  {calculatorAllowed ? "Enabled" : "Disabled"}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Segment 3: Elevated Primary Command (Placed immediately under Specs Grid) */}
-          <div className="p-5 space-y-2.5">
-            <Button
-              type="submit"
-              disabled={isActionPending}
-              className="w-full h-10 gap-2 font-bold shadow-xs bg-foreground text-background hover:bg-foreground/90 cursor-pointer"
+      {serverError ? (
+        <Alert
+          id="assessment-create-error"
+          tabIndex={-1}
+          role="alert"
+          variant="destructive"
+          className="scroll-mt-24"
+        >
+          <AlertTitle>Draft could not be created</AlertTitle>
+          <AlertDescription>{serverError}</AlertDescription>
+        </Alert>
+      ) : null}
+      <fieldset
+        disabled={pending}
+        inert={pending}
+        className="min-w-0 overflow-hidden rounded-lg border border-border bg-card"
+      >
+        <legend className="sr-only">Assessment settings</legend>
+        <section
+          aria-labelledby="assessment-basic-heading"
+          className="flex flex-col gap-5 p-4 sm:p-6"
+        >
+          <div className="flex flex-col gap-1">
+            <h2
+              id="assessment-basic-heading"
+              className="font-heading text-base font-semibold"
             >
-              {isActionPending ? (
-                <>
-                  <Loader2Icon className="size-4 animate-spin" aria-hidden="true" />
-                  Creating Blueprint...
-                </>
-              ) : (
-                <>
-                  <ListChecksIcon className="size-4" aria-hidden="true" />
-                  Create Blueprint
-                </>
-              )}
-            </Button>
-
-            <p className="text-center text-[10px] text-muted-foreground pt-0.5">
-              Press <kbd className="rounded border bg-muted px-1 py-0.5 text-[9px] font-mono">{isMac ? "⌘" : "Ctrl"}</kbd> + <kbd className="rounded border bg-muted px-1 py-0.5 text-[9px] font-mono">Enter</kbd> to create
+              Basic details
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Name your assessment and add labels to organize it.
             </p>
           </div>
-
-          {/* Segment 4: Creation Workflow Stepper (Positioned below button as contextual footer) */}
-          <div className="p-5 space-y-3">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
-              Workflow
-            </span>
-            <div className="relative space-y-3.5 text-xs before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-px before:bg-border/80">
-              <div className="relative flex items-center gap-2.5 text-foreground font-medium">
-                <span className="relative z-10 flex size-5 items-center justify-center rounded-full bg-foreground text-background text-[10px] font-bold shadow-2xs">
-                  1
-                </span>
-                <span>Blueprint</span>
-                <span className="ml-auto text-[10px] font-semibold text-foreground">
-                  Current
-                </span>
-              </div>
-              <div className="relative flex items-center gap-2.5 text-muted-foreground">
-                <span className="relative z-10 flex size-5 items-center justify-center rounded-full border border-border bg-card text-[10px]">
-                  2
-                </span>
-                <span>Questions</span>
-                <span className="ml-auto text-[10px] text-muted-foreground/60 font-medium">
-                  Next step
-                </span>
-              </div>
-              <div className="relative flex items-center gap-2.5 text-muted-foreground">
-                <span className="relative z-10 flex size-5 items-center justify-center rounded-full border border-border bg-card text-[10px]">
-                  3
-                </span>
-                <span>Sections</span>
-              </div>
-              <div className="relative flex items-center gap-2.5 text-muted-foreground">
-                <span className="relative z-10 flex size-5 items-center justify-center rounded-full border border-border bg-card text-[10px]">
-                  4
-                </span>
-                <span>Publish</span>
-              </div>
-            </div>
+          <AssessmentTitleField {...fields} />
+          <AssessmentLabelFields {...fields} />
+        </section>
+        <section
+          aria-labelledby="assessment-settings-heading"
+          className="flex flex-col gap-5 border-t border-border p-4 sm:p-6"
+        >
+          <div className="flex flex-col gap-1">
+            <h2
+              id="assessment-settings-heading"
+              className="font-heading text-base font-semibold"
+            >
+              Test settings
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Set timing and marks now, or adjust them when adding questions.
+            </p>
           </div>
+          <AssessmentTimingFields {...fields} />
+        </section>
+        <Collapsible
+          open={instructionsOpen}
+          onOpenChange={setInstructionsOpen}
+          className="border-t border-border"
+        >
+          <CollapsibleTrigger className="group flex min-h-16 w-full items-center justify-between gap-3 px-4 py-4 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset sm:px-6">
+            <span className="flex min-w-0 flex-col gap-1">
+              <span className="text-sm font-semibold">
+                Instructions (optional)
+              </span>
+              <span className="text-xs text-muted-foreground">
+                Guidelines candidates see before starting.
+              </span>
+            </span>
+            <ChevronDownIcon
+              className="size-4 shrink-0 transition-transform group-aria-expanded:rotate-180 motion-reduce:transition-none"
+              aria-hidden="true"
+            />
+          </CollapsibleTrigger>
+          <CollapsibleContent
+            keepMounted
+            className="h-(--collapsible-panel-height) overflow-hidden data-ending-style:h-0 data-starting-style:h-0 data-closed:hidden"
+          >
+            <div className="px-4 pb-5 sm:px-6">
+              {instructionsOpen ? (
+                <AssessmentInstructionsField {...fields} />
+              ) : null}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+        <Collapsible
+          open={advancedOpen}
+          onOpenChange={setAdvancedOpen}
+          className="border-t border-border"
+        >
+          <CollapsibleTrigger className="group flex min-h-16 w-full items-center justify-between gap-3 px-4 py-4 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset sm:px-6">
+            <span className="flex flex-col gap-1">
+              <span className="text-sm font-semibold">Score benchmarks</span>
+              <span className="text-xs text-muted-foreground">
+                Advanced settings. Defaults: 33% passing, 70% distinction.
+              </span>
+            </span>
+            <ChevronDownIcon
+              className="size-4 shrink-0 transition-transform group-aria-expanded:rotate-180 motion-reduce:transition-none"
+              aria-hidden="true"
+            />
+          </CollapsibleTrigger>
+          <CollapsibleContent
+            keepMounted
+            className="h-(--collapsible-panel-height) overflow-hidden data-ending-style:h-0 data-starting-style:h-0 data-closed:hidden"
+          >
+            <div className="flex flex-col gap-4 px-4 pb-5 sm:px-6">
+              <AssessmentBenchmarkFields {...fields} />
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      </fieldset>
+      <div
+        data-assessment-create-actions
+        className="sticky bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-background p-3 shadow-sm sm:p-4 md:bottom-3"
+      >
+        <div className="hidden min-w-0 flex-col gap-0.5 sm:flex">
+          <p className="text-sm font-medium">Next: add questions</p>
+          <p className="text-xs text-muted-foreground">
+            Your assessment stays unpublished.
+          </p>
+        </div>
+        <div className="flex w-full items-center justify-between gap-3 sm:w-auto">
+          <Link
+            href={
+              studyContext?.returnHref ??
+              workspaceRoutes.mockTests.home(workspaceSlug)
+            }
+            aria-disabled={pending}
+            tabIndex={pending ? -1 : undefined}
+            onClick={(event) => {
+              if (pending) event.preventDefault()
+            }}
+            className={cn(
+              buttonVariants({ variant: "ghost" }),
+              "h-11",
+              pending && "pointer-events-none opacity-50"
+            )}
+          >
+            Cancel
+          </Link>
+          <Button type="submit" disabled={pending} className="h-11">
+            {pending ? (
+              <Loader2Icon className="animate-spin" aria-hidden="true" />
+            ) : null}
+            {pending ? "Creating draft\u2026" : "Create draft"}
+            {!pending ? <ArrowRightIcon aria-hidden="true" /> : null}
+          </Button>
         </div>
       </div>
     </form>

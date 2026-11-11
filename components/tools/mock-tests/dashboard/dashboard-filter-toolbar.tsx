@@ -1,65 +1,65 @@
 "use client"
 
-import { useEffect, useId, useRef } from "react"
+import { useId, useState } from "react"
 import {
-  BookOpenIcon,
-  GlobeIcon,
   LayoutGridIcon,
   ListIcon,
   RotateCcwIcon,
   SearchIcon,
+  SlidersHorizontalIcon,
   XIcon,
 } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { cn } from "@/lib/utils"
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetFooter,
+} from "@/components/ui/sheet"
+import { Button } from "@/components/ui/button"
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "@/components/ui/input-group"
+import { FilterSelectField } from "@/components/shared/filter-select-field"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import type { DashboardFilterToolbarProps } from "./types"
 
 const PAPER_TYPES = [
-  {
-    id: "ALL",
-    label: "All Types",
-    activeClass: "bg-foreground text-background border-foreground shadow-2xs font-semibold",
-  },
-  {
-    id: "full_length",
-    label: "Full-Length Mock",
-    activeClass: "border-sky-500 bg-sky-500 text-white shadow-2xs font-semibold",
-  },
-  {
-    id: "multi_subject",
-    label: "Multi-Subject",
-    activeClass: "border-teal-500 bg-teal-500 text-white shadow-2xs font-semibold",
-  },
-  {
-    id: "subject_wise",
-    label: "Subject Test",
-    activeClass: "border-emerald-500 bg-emerald-500 text-white shadow-2xs font-semibold",
-  },
-  {
-    id: "topic_wise",
-    label: "Topic Drill",
-    activeClass: "border-amber-500 bg-amber-500 text-white shadow-2xs font-semibold",
-  },
-  {
-    id: "pyq",
-    label: "PYQ",
-    activeClass: "border-cyan-500 bg-cyan-500 text-white shadow-2xs font-semibold",
-  },
+  { value: "ALL", label: "All types" },
+  { value: "full_length", label: "Full-length mock" },
+  { value: "multi_subject", label: "Multi-subject" },
+  { value: "subject_wise", label: "Subject test" },
+  { value: "topic_wise", label: "Topic drill" },
+  { value: "pyq", label: "Previous year" },
+]
+const WORKSPACE_STATUS = [
+  { value: "ALL", label: "All statuses" },
+  { value: "published", label: "Published" },
+  { value: "draft", label: "Drafts" },
+]
+const WORKSPACE_SORT = [
+  { value: "newest", label: "Recently updated" },
+  { value: "oldest", label: "Oldest updated" },
+  { value: "questions", label: "Most questions" },
+  { value: "best_score", label: "Highest score" },
+]
+const COMMUNITY_SCOPE = [
+  { value: "ALL", label: "All subjects" },
+  { value: "single_subject", label: "Single subject" },
+  { value: "multi_subject", label: "Multi-subject" },
+]
+const COMMUNITY_SORT = [
+  { value: "popular", label: "Most attempted" },
+  { value: "newest", label: "Newest first" },
+  { value: "score", label: "Highest average score" },
 ]
 
 export function DashboardFilterToolbar({
   activeTab,
-  onTabChange,
-  workspaceCount,
-  communityCount,
   viewMode,
   onViewModeChange,
   searchQuery,
@@ -78,234 +78,187 @@ export function DashboardFilterToolbar({
   onResetFilters,
 }: DashboardFilterToolbarProps) {
   const searchId = useId()
-  const searchInputRef = useRef<HTMLInputElement>(null)
-
-  // Keyboard shortcut listener (Cmd+K / Ctrl+K)
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-        e.preventDefault()
-        searchInputRef.current?.focus()
-      }
-    }
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [])
-
+  const [open, setOpen] = useState(false)
+  const workspace = activeTab === "workspace"
+  const filterCount =
+    Number(selectedPaperType !== "ALL") +
+    Number(workspace ? workspaceStatus !== "ALL" : communityScope !== "ALL") +
+    Number(
+      workspace ? workspaceSortBy !== "newest" : communitySortBy !== "popular"
+    )
+  const selectedType = PAPER_TYPES.find(
+    (item) => item.value === selectedPaperType
+  )?.label
+  const scopeLabel = workspace
+    ? WORKSPACE_STATUS.find((item) => item.value === workspaceStatus)?.label
+    : COMMUNITY_SCOPE.find((item) => item.value === communityScope)?.label
+  const filterFields = (
+    <>
+      <FilterSelectField
+        label="Paper type"
+        value={selectedPaperType}
+        items={PAPER_TYPES}
+        onChange={onSelectPaperType}
+      />
+      {workspace ? (
+        <>
+          <FilterSelectField
+            label="Status"
+            value={workspaceStatus}
+            items={WORKSPACE_STATUS}
+            onChange={onWorkspaceStatusChange}
+          />
+          <FilterSelectField
+            label="Sort by"
+            value={workspaceSortBy}
+            items={WORKSPACE_SORT}
+            onChange={(value) =>
+              onWorkspaceSortByChange(value as typeof workspaceSortBy)
+            }
+          />
+        </>
+      ) : (
+        <>
+          <FilterSelectField
+            label="Subject scope"
+            value={communityScope}
+            items={COMMUNITY_SCOPE}
+            onChange={onCommunityScopeChange}
+          />
+          <FilterSelectField
+            label="Sort by"
+            value={communitySortBy}
+            items={COMMUNITY_SORT}
+            onChange={(value) =>
+              onCommunitySortByChange(value as typeof communitySortBy)
+            }
+          />
+        </>
+      )}
+    </>
+  )
   return (
-    <div className="space-y-3 pt-1">
-      {/* ── Upper Deck: Segmented Tab Switcher + View Toggle + Select Dropdowns ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        {/* Segmented Pill Tabs */}
-        <div className="inline-flex items-center p-1 rounded-full bg-muted/60 border border-border/80 text-xs w-full sm:w-auto shadow-2xs">
-          <button
-            type="button"
-            onClick={() => onTabChange("workspace")}
-            className={cn(
-              "flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-1.5 rounded-full font-medium transition-all text-xs cursor-pointer",
-              activeTab === "workspace"
-                ? "bg-background text-foreground shadow-2xs font-bold"
-                : "text-muted-foreground hover:text-foreground"
-            )}
+    <div className="flex min-w-0 flex-col gap-3">
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-end gap-2 md:grid-cols-[minmax(0,1fr)_auto_auto] lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,0.85fr)_minmax(0,1.15fr)_auto] lg:gap-3">
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <label
+            htmlFor={searchId}
+            className="sr-only text-xs text-muted-foreground lg:not-sr-only"
           >
-            <BookOpenIcon className="size-3.5" />
-            <span>My Workspace Tests</span>
-            <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-mono font-medium">
-              {workspaceCount}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => onTabChange("community")}
-            className={cn(
-              "flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 py-1.5 rounded-full font-medium transition-all text-xs cursor-pointer",
-              activeTab === "community"
-                ? "bg-background text-foreground shadow-2xs font-bold"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <GlobeIcon className="size-3.5 text-emerald-600 dark:text-emerald-400" />
-            <span>Community Hub</span>
-            <span className="rounded-full bg-emerald-500/15 border border-emerald-500/25 px-2 py-0.5 text-[10px] font-mono font-bold text-emerald-700 dark:text-emerald-400">
-              {communityCount} Public
-            </span>
-          </button>
+            Search papers
+          </label>
+          <InputGroup className="h-11 min-w-0 rounded-lg">
+            <InputGroupAddon>
+              <SearchIcon aria-hidden="true" />
+            </InputGroupAddon>
+            <InputGroupInput
+              id={searchId}
+              name="paper-search"
+              type="search"
+              autoComplete="off"
+              value={searchQuery}
+              onChange={(event) => onSearchQueryChange(event.target.value)}
+              placeholder="Search papers"
+            />
+            {searchQuery ? (
+              <InputGroupAddon align="inline-end">
+                <InputGroupButton
+                  size="icon-sm"
+                  className="size-11"
+                  aria-label="Clear search"
+                  onClick={() => onSearchQueryChange("")}
+                >
+                  <XIcon aria-hidden="true" />
+                </InputGroupButton>
+              </InputGroupAddon>
+            ) : null}
+          </InputGroup>
         </div>
-
-        {/* Action Controls: View Mode Toggle & Dropdowns */}
-        <div className="flex items-center gap-2 shrink-0 flex-wrap">
-          {/* Grid vs List View Mode Toggle */}
-          <div className="inline-flex items-center p-0.5 rounded-full bg-muted/60 border border-border/80 shadow-2xs">
-            <button
-              type="button"
-              onClick={() => onViewModeChange("grid")}
-              className={cn(
-                "p-1.5 rounded-full transition-all text-muted-foreground hover:text-foreground cursor-pointer",
-                viewMode === "grid" && "bg-background text-foreground shadow-2xs"
-              )}
-              title="Grid View"
-              aria-label="Grid View"
-            >
-              <LayoutGridIcon className="size-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => onViewModeChange("list")}
-              className={cn(
-                "p-1.5 rounded-full transition-all text-muted-foreground hover:text-foreground cursor-pointer",
-                viewMode === "list" && "bg-background text-foreground shadow-2xs"
-              )}
-              title="List View"
-              aria-label="List View"
-            >
-              <ListIcon className="size-3.5" />
-            </button>
+        <Button
+          variant="outline"
+          className="h-11 shrink-0 lg:hidden"
+          onClick={() => setOpen(true)}
+        >
+          <SlidersHorizontalIcon data-icon="inline-start" aria-hidden="true" />
+          Filters
+          {filterCount > 0 ? (
+            <span className="tabular-nums">{filterCount}</span>
+          ) : null}
+        </Button>
+        <div aria-label="Paper filters" className="hidden lg:contents">
+          {filterFields}
+        </div>
+        <ToggleGroup
+          aria-label="Paper view"
+          value={[viewMode]}
+          onValueChange={(values) => {
+            const next = values[0]
+            if (next === "grid" || next === "list") onViewModeChange(next)
+          }}
+          className="ml-auto hidden md:flex"
+          spacing={1}
+        >
+          <ToggleGroupItem
+            value="grid"
+            aria-label="Grid View"
+            title="Grid View"
+            className="size-11 p-0"
+          >
+            <LayoutGridIcon aria-hidden="true" />
+          </ToggleGroupItem>
+          <ToggleGroupItem
+            value="list"
+            aria-label="List View"
+            title="List View"
+            className="size-11 p-0"
+          >
+            <ListIcon aria-hidden="true" />
+          </ToggleGroupItem>
+        </ToggleGroup>
+      </div>
+      {hasActiveFilters ? (
+        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          {selectedPaperType !== "ALL" ? <span>{selectedType}</span> : null}
+          {(
+            workspace ? workspaceStatus !== "ALL" : communityScope !== "ALL"
+          ) ? (
+            <span>{scopeLabel}</span>
+          ) : null}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-11"
+            onClick={onResetFilters}
+          >
+            <RotateCcwIcon data-icon="inline-start" aria-hidden="true" />
+            Reset filters
+          </Button>
+        </div>
+      ) : null}
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetContent
+          side="bottom"
+          className="max-h-[90dvh] overflow-y-auto rounded-t-2xl bg-popover [&_[data-slot=sheet-close]]:size-11"
+        >
+          <SheetHeader>
+            <SheetTitle>Filter papers</SheetTitle>
+            <SheetDescription>
+              Filter and sort your assessment library.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="mx-auto flex w-full max-w-lg flex-col gap-5 px-6 pb-6">
+            {filterFields}
           </div>
-
-          {activeTab === "workspace" ? (
-            <>
-              {/* Workspace Status */}
-              <Select
-                value={workspaceStatus}
-                onValueChange={(val) => {
-                  if (val) onWorkspaceStatusChange(val)
-                }}
-              >
-                <SelectTrigger className="h-9 w-34 text-xs rounded-full bg-card border-border/80 shadow-2xs font-medium">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">All Statuses</SelectItem>
-                  <SelectItem value="published">Published</SelectItem>
-                  <SelectItem value="draft">Drafts Only</SelectItem>
-                </SelectContent>
-              </Select>
-
-              {/* Workspace Sort */}
-              <Select
-                value={workspaceSortBy}
-                onValueChange={(val) => {
-                  if (val) onWorkspaceSortByChange(val as typeof workspaceSortBy)
-                }}
-              >
-                <SelectTrigger className="h-9 w-38 text-xs rounded-full bg-card border-border/80 shadow-2xs font-medium">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="newest">Newest First</SelectItem>
-                  <SelectItem value="oldest">Oldest First</SelectItem>
-                  <SelectItem value="questions">Most Questions</SelectItem>
-                  <SelectItem value="best_score">Highest Score</SelectItem>
-                </SelectContent>
-              </Select>
-            </>
-          ) : (
-            <>
-              {/* Community Scope */}
-              <Select
-                value={communityScope}
-                onValueChange={(val) => {
-                  if (val) onCommunityScopeChange(val)
-                }}
-              >
-                <SelectTrigger className="h-9 w-34 text-xs rounded-full bg-card border-border/80 shadow-2xs font-medium">
-                  <SelectValue placeholder="Scope" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">All Scopes</SelectItem>
-                  <SelectItem value="single_subject">Single Subject</SelectItem>
-                  <SelectItem value="multi_subject">Multi-Subject</SelectItem>
-                </SelectContent>
-              </Select>
-
-              {/* Community Sort */}
-              <Select
-                value={communitySortBy}
-                onValueChange={(val) => {
-                  if (val) onCommunitySortByChange(val as typeof communitySortBy)
-                }}
-              >
-                <SelectTrigger className="h-9 w-38 text-xs rounded-full bg-card border-border/80 shadow-2xs font-medium">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="popular">Most Attempted</SelectItem>
-                  <SelectItem value="newest">Newest First</SelectItem>
-                  <SelectItem value="score">Highest Rated</SelectItem>
-                </SelectContent>
-              </Select>
-            </>
-          )}
-
-          {hasActiveFilters && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onResetFilters}
-              className="h-9 rounded-full text-xs text-muted-foreground hover:text-foreground gap-1.5 px-3 border border-dashed border-border/80 hover:border-border cursor-pointer shrink-0"
-            >
-              <RotateCcwIcon className="size-3" />
+          <SheetFooter className="flex-row justify-end border-t border-border pb-[max(24px,env(safe-area-inset-bottom))]">
+            <Button variant="outline" className="h-11" onClick={onResetFilters}>
               Reset
             </Button>
-          )}
-        </div>
-      </div>
-
-      {/* ── Lower Deck: Integrated Search Bar & Neutral-by-Default Paper Type Ribbon ── */}
-      <div className="flex flex-col md:flex-row md:items-center gap-3 bg-muted/20 border border-border/70 rounded-2xl p-2.5 sm:p-3 shadow-2xs">
-        <div className="relative w-full md:w-80 shrink-0">
-          <label htmlFor={searchId} className="sr-only">
-            Search tests
-          </label>
-          <SearchIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
-          <Input
-            ref={searchInputRef}
-            id={searchId}
-            type="search"
-            value={searchQuery}
-            onChange={(e) => onSearchQueryChange(e.target.value)}
-            placeholder="Search by title, exam tag, or subjects..."
-            className="h-9 pl-9 pr-12 text-xs rounded-full bg-card border-border/80 shadow-2xs"
-          />
-          {searchQuery ? (
-            <button
-              type="button"
-              onClick={() => onSearchQueryChange("")}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 rounded-full cursor-pointer transition-colors"
-              aria-label="Clear search"
-            >
-              <XIcon className="size-3.5" />
-            </button>
-          ) : (
-            <kbd className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 hidden sm:inline-flex h-5 select-none items-center gap-0.5 rounded border border-border/70 bg-muted/60 px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
-              <span>⌘</span>K
-            </kbd>
-          )}
-        </div>
-
-        {/* Paper Type Filter Ribbon (Neutral Base with Vibrant Active Contours) */}
-        <div className="flex flex-wrap items-center gap-1.5 overflow-x-auto pb-0.5 md:pb-0">
-          {PAPER_TYPES.map((pt) => {
-            const isSelected = selectedPaperType === pt.id
-            return (
-              <button
-                key={pt.id}
-                type="button"
-                onClick={() => onSelectPaperType(pt.id)}
-                className={cn(
-                  "px-3 py-1.5 rounded-full text-xs transition-all shrink-0 cursor-pointer border",
-                  isSelected
-                    ? pt.activeClass
-                    : "border-border/70 bg-card text-muted-foreground hover:text-foreground hover:border-border hover:bg-muted/40 font-medium"
-                )}
-              >
-                {pt.label}
-              </button>
-            )
-          })}
-        </div>
-      </div>
+            <Button className="h-11" onClick={() => setOpen(false)}>
+              Show papers
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

@@ -38,17 +38,17 @@ describe("scheduled test action contract", () => {
       examPrepManifest.actions.map((action) => action.key)
     )
 
-    expect(examPrepManifest.release.version).toBe("1.11.0")
+    expect(examPrepManifest.release.version).toBe("1.12.0")
     for (const actionKey of scheduledTestActionKeys) {
       expect(declaredKeys.has(actionKey)).toBe(true)
     }
   })
 
-  test("binds every scheduled-test action to Exam Prep release 1.11.0", () => {
+  test("binds every scheduled-test action to Exam Prep release 1.12.0", () => {
     const source = readFileSync("lib/tools/execute-tool-action.ts", "utf8")
 
     for (const actionKey of scheduledTestActionKeys) {
-      expect(source).toContain(`core.exam-prep@1.11.0:${actionKey}`)
+      expect(source).toContain(`core.exam-prep@1.12.0:${actionKey}`)
     }
   })
 

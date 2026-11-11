@@ -1,11 +1,16 @@
+import { getBrowserTestConfig } from "./lib/browser-test-config"
+
 import { chromium } from "playwright"
 import path from "node:path"
 import fs from "node:fs"
 
-const BASE_URL = "http://127.0.0.1:3000"
-const USER_EMAIL = "sharmaharshitraj02@gmail.com"
-const USER_PASSWORD = "TestPassword123!"
-const WORKSPACE_SLUG = "personal-14e77ece-6df3-4d5f-bbc9-e90015c4250d"
+const {
+  baseUrl: BASE_URL,
+  email: USER_EMAIL,
+  password: USER_PASSWORD,
+  workspaceSlug: WORKSPACE_SLUG,
+} = getBrowserTestConfig()
+
 const SCREENSHOT_DIR = path.resolve(process.cwd(), "scratch/screenshots")
 
 async function run() {
@@ -35,7 +40,9 @@ async function run() {
     await page.fill('input[name="email"]', USER_EMAIL)
     await page.fill('input[name="password"]', USER_PASSWORD)
     await page.click('button[type="submit"]:has-text("Sign in")')
-    await page.waitForURL((url) => !url.pathname.includes("/login"), { timeout: 30000 })
+    await page.waitForURL((url) => !url.pathname.includes("/login"), {
+      timeout: 30000,
+    })
     console.log(`Signed in! Current URL: ${page.url()}`)
     await page.waitForTimeout(1500)
 
@@ -54,7 +61,7 @@ async function run() {
     // 3. Switch to List View
     console.log("3. Switching to List View...")
     const listBtn = page.locator('button[aria-label="List View"]')
-    if (await listBtn.count() > 0) {
+    if ((await listBtn.count()) > 0) {
       await listBtn.click()
       await page.waitForTimeout(1000)
       const listShotPath = path.join(SCREENSHOT_DIR, "dashboard-list-view.png")
@@ -67,10 +74,13 @@ async function run() {
     // 4. Switch to Community Hub
     console.log("4. Switching to Community Hub Tab...")
     const communityTabBtn = page.locator('button:has-text("Community Hub")')
-    if (await communityTabBtn.count() > 0) {
+    if ((await communityTabBtn.count()) > 0) {
       await communityTabBtn.first().click()
       await page.waitForTimeout(1000)
-      const communityShotPath = path.join(SCREENSHOT_DIR, "dashboard-community-hub.png")
+      const communityShotPath = path.join(
+        SCREENSHOT_DIR,
+        "dashboard-community-hub.png"
+      )
       await page.screenshot({ path: communityShotPath, fullPage: true })
       console.log(`Captured Community Hub screenshot: ${communityShotPath}`)
     } else {

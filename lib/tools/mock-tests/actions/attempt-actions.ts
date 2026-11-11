@@ -14,6 +14,8 @@ import { idempotencyKeySchema, workspaceSlugSchema } from "./common"
 
 function revalidateMockTests(workspaceSlug: string) {
   revalidatePath("/dashboard")
+  revalidatePath(workspaceRoutes.home(workspaceSlug))
+  revalidatePath(workspaceRoutes.examPrep.home(workspaceSlug), "layout")
   revalidatePath(workspaceRoutes.mockTests.home(workspaceSlug), "layout")
 }
 

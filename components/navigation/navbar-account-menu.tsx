@@ -4,7 +4,13 @@ import { useTransition } from "react"
 import Link from "next/link"
 import { useTheme } from "next-themes"
 import { useSettings } from "@/components/settings/settings-provider"
-import { HomeIcon, LogOutIcon, MoonIcon, SettingsIcon, SunIcon } from "lucide-react"
+import {
+  HomeIcon,
+  LogOutIcon,
+  MoonIcon,
+  SettingsIcon,
+  SunIcon,
+} from "lucide-react"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { buttonVariants } from "@/components/ui/button"
@@ -53,15 +59,19 @@ export function NavbarAccountMenu({
         )}
       >
         <Avatar className="size-8">
-          {user.avatarUrl ? <AvatarImage src={user.avatarUrl} alt={user.name} /> : null}
-          <AvatarFallback className="text-xs font-semibold">{user.initials || "CA"}</AvatarFallback>
+          {user.avatarUrl ? (
+            <AvatarImage src={user.avatarUrl} alt={user.name} />
+          ) : null}
+          <AvatarFallback className="text-xs font-semibold">
+            {user.initials || "CA"}
+          </AvatarFallback>
         </Avatar>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" sideOffset={8} className="w-56">
         <DropdownMenuGroup>
           <DropdownMenuLabel className="font-normal">
             <div className="flex flex-col space-y-1">
-              <p className="font-heading text-sm font-semibold leading-none text-foreground">
+              <p className="font-heading text-sm leading-none font-semibold text-foreground">
                 {user.name}
               </p>
               <p className="text-xs leading-none text-muted-foreground">
@@ -77,7 +87,7 @@ export function NavbarAccountMenu({
               <DropdownMenuItem
                 key={item.key}
                 render={<Link href={item.href} />}
-                className="sm:hidden"
+                className="md:hidden"
                 onClick={() => onSelect(item.key)}
               >
                 <Icon aria-hidden="true" />
@@ -86,11 +96,19 @@ export function NavbarAccountMenu({
             )
           })}
           <DropdownMenuItem
-            render={<Link href="/dashboard" />}
-            className="hidden sm:flex"
+            render={
+              <Link
+                href={
+                  workspaceSlug
+                    ? `/workspace/${encodeURIComponent(workspaceSlug)}`
+                    : "/workspace"
+                }
+              />
+            }
+            className="hidden md:flex"
           >
             <HomeIcon aria-hidden="true" />
-            Dashboard
+            Workspace
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => openSettings("workspace", workspaceSlug)}

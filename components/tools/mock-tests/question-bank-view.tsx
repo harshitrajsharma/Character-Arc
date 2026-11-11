@@ -9,18 +9,15 @@ import {
   CheckCircle2Icon,
   ChevronDownIcon,
   ChevronUpIcon,
-  CircleDotIcon,
   FilePenIcon,
   HashIcon,
   LayersIcon,
-  ListChecksIcon,
   PlusIcon,
   RotateCcwIcon,
   SearchIcon,
   SlidersHorizontalIcon,
   XIcon,
 } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
 import {
   Empty,
@@ -45,19 +42,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Separator } from "@/components/ui/separator"
-import {
-  Pagination,
-  PaginationContent,
-  PaginationEllipsis,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination"
-import { RichContent } from "@/components/tools/mock-tests/editor/rich-content"
-import { stripHtml } from "@/components/tools/mock-tests/editor/html-utils"
-import { questionKindLabel } from "@/lib/tools/mock-tests/kind-labels"
+import { PaginationControls } from "@/components/shared/pagination-controls"
+import { FilterSelectField } from "@/components/shared/filter-select-field"
+import { QuestionMetadata, QuestionStem } from "./questions/question-view"
+import { QuestionInspectionView } from "./questions/question-inspection-view"
+import { QuestionCard } from "./questions/question-card"
 import { workspaceRoutes } from "@/lib/routes/workspace-tools"
 import type { QuestionBankItem } from "@/lib/tools/definitions/mock-tests/repository"
 import { cn } from "@/lib/utils"
@@ -75,24 +64,6 @@ const kindOptions = [
   { value: "TRUE_FALSE", label: "True / false" },
   { value: "SHORT_ANSWER", label: "Short answer (legacy)" },
 ]
-const questionTypeStyles: Record<
-  string,
-  { className: string; icon: typeof HashIcon }
-> = {
-  SINGLE_CHOICE: {
-    className: "border-brand-cyan-line bg-brand-cyan-soft text-brand-cyan-ink",
-    icon: CircleDotIcon,
-  },
-  MULTIPLE_CHOICE: {
-    className: "border-brand-neon-line bg-brand-neon-soft text-brand-neon-ink",
-    icon: ListChecksIcon,
-  },
-  NUMERIC: {
-    className:
-      "border-brand-amber-line bg-brand-amber-soft text-brand-amber-ink",
-    icon: HashIcon,
-  },
-}
 const difficultyOptions = [
   { value: "ALL", label: "All levels" },
   { value: "1", label: "Level 1 · Easy" },
@@ -116,74 +87,12 @@ const sortOptions = [
   { value: "reused", label: "Most used" },
 ]
 
-function BankSelect({
-  id,
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  id: string
-  label: string
-  value: string
-  options: { value: string; label: string }[]
-  onChange: (value: string) => void
-}) {
-  return (
-    <Field className="min-w-0 gap-2">
-      <FieldLabel htmlFor={id}>{label}</FieldLabel>
-      <Select
-        items={options}
-        value={value}
-        onValueChange={(next) => {
-          if (next) onChange(next)
-        }}
-      >
-        <SelectTrigger
-          id={id}
-          className="w-full min-w-0 data-[size=default]:h-11 sm:data-[size=default]:h-9"
-        >
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent alignItemWithTrigger={false}>
-          <SelectGroup>
-            {options.map((option) => (
-              <SelectItem
-                key={option.value}
-                value={option.value}
-                className="min-h-11 sm:min-h-0"
-              >
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectGroup>
-        </SelectContent>
-      </Select>
-    </Field>
-  )
-}
 function formatDate(iso: string) {
   const date = new Date(iso)
   return Number.isNaN(date.getTime())
     ? "Unknown date"
     : dateFormatter.format(date)
 }
-function kindLabel(kind: string) {
-  return (
-    kindOptions.find((option) => option.value === kind)?.label ??
-    questionKindLabel(kind)
-  )
-}
-// Contain wide equations and tables without widening the page.
-const richContentClass =
-  "min-w-0 max-w-full overflow-x-auto [overflow-wrap:anywhere] [&_img]:max-w-full [&_table]:max-w-full"
-// KaTeX fractions can extend beyond their line box. Give math room inside the
-// horizontal scroller so it neither clips nor creates a vertical scrollbar.
-const previewContentClass = cn(
-  richContentClass,
-  "overflow-y-hidden [&_.katex]:text-[1.5rem]! [&:has(.math-inline)]:py-3"
-)
-
 export function QuestionBankView({
   workspaceSlug,
   bank,
@@ -242,17 +151,6 @@ export function QuestionBankView({
       })
     )
   }
-  const pageNumbers = [
-    ...new Set([
-      1,
-      pageData.page - 1,
-      pageData.page,
-      pageData.page + 1,
-      pageData.totalPages,
-    ]),
-  ]
-    .filter((page) => page >= 1 && page <= pageData.totalPages)
-    .sort((a, b) => a - b)
   function pageHref(page: number) {
     const params = new URLSearchParams(searchParams.toString())
     params.set("page", String(page))
@@ -454,34 +352,42 @@ export function QuestionBankView({
             )}
           >
             <div className="col-span-2 min-w-0 lg:col-span-1">
-              <BankSelect
+              <FilterSelectField
+                density="compact"
+                disabled={pending}
                 id={id + "-sort"}
                 label="Sort by"
                 value={sortBy}
-                options={sortOptions}
+                items={sortOptions}
                 onChange={(value) => navigate({ sort: value })}
               />
             </div>
-            <BankSelect
+            <FilterSelectField
+              density="compact"
+              disabled={pending}
               id={id + "-type"}
               label="Question type"
               value={typeFilter}
-              options={kindOptions}
+              items={kindOptions}
               onChange={(value) => navigate({ type: value })}
             />
-            <BankSelect
+            <FilterSelectField
+              density="compact"
+              disabled={pending}
               id={id + "-difficulty"}
               label="Difficulty"
               value={difficultyFilter}
-              options={difficultyOptions}
+              items={difficultyOptions}
               onChange={(value) => navigate({ difficulty: value })}
             />
             <div className="col-span-2 min-w-0 lg:col-span-1">
-              <BankSelect
+              <FilterSelectField
+                density="compact"
+                disabled={pending}
                 id={id + "-usage"}
                 label="Paper usage"
                 value={usageFilter}
-                options={usageOptions}
+                items={usageOptions}
                 onChange={(value) => navigate({ usage: value })}
               />
             </div>
@@ -534,96 +440,96 @@ export function QuestionBankView({
             </EmptyContent>
           </Empty>
         ) : (
-          <div className="overflow-hidden rounded-xl border border-border bg-card">
-            <ul className="divide-y divide-border">
+          <div className="grid min-w-0 gap-4">
+            <ul className="grid min-w-0 gap-3">
               {filteredQuestions.map((item, index) => {
                 const expanded = Boolean(expandedIds[item.id])
                 const questionNumber =
                   (pageData.page - 1) * pageData.pageSize + index + 1
-                const difficulty = difficultyOptions
-                  .find((option) => option.value === String(item.difficulty))
-                  ?.label.split(" · ")[1]
-                const previewId = id + "-preview-" + item.id
-                const typeStyle = questionTypeStyles[item.kind]
-                const TypeIcon = typeStyle?.icon
                 return (
                   <li key={item.id}>
-                    <article aria-label={"Question " + questionNumber}>
-                      <div
-                        className={cn(
-                          "group relative isolate grid min-w-0 gap-3 p-4 transition-colors hover:bg-muted/40 sm:p-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-x-6",
-                          expanded && "bg-card"
-                        )}
-                      >
-                        <button
-                          type="button"
-                          aria-label={
-                            (expanded
-                              ? "Hide preview for question "
-                              : "Preview question ") + questionNumber
-                          }
-                          aria-expanded={expanded}
-                          aria-controls={previewId}
-                          onClick={() => togglePreview(item.id)}
-                          className="absolute inset-0 z-10 cursor-pointer rounded-lg focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
-                        />
-                        <div className="pointer-events-none flex min-w-0 flex-col gap-3">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-xs text-muted-foreground tabular-nums">
-                              {questionNumber.toString().padStart(2, "0")}
+                    <QuestionCard
+                      mode="disclosure"
+                      question={item}
+                      allocation={{ number: questionNumber }}
+                      summary={
+                        <div
+                          className="grid min-w-0 gap-3"
+                          data-question-bank-summary
+                        >
+                          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
+                            <span className="text-sm font-semibold">
+                              Question {questionNumber}
                             </span>
-                            <Badge
-                              variant="outline"
-                              className={typeStyle?.className}
-                            >
-                              {TypeIcon ? (
-                                <TypeIcon aria-hidden="true" />
-                              ) : null}
-                              {kindLabel(item.kind)}
-                            </Badge>
-                            <Badge
-                              variant="outline"
-                              className={cn(
-                                item.difficulty === null
-                                  ? "text-muted-foreground"
-                                  : item.difficulty <= 2
-                                    ? "border-brand-cyan-line bg-brand-cyan-soft text-brand-cyan-ink"
-                                    : item.difficulty === 3
-                                      ? "border-brand-amber-line bg-brand-amber-soft text-brand-amber-ink"
-                                      : "border-brand-neon-line bg-brand-neon-soft text-brand-neon-ink"
-                              )}
-                            >
-                              {item.difficulty === null
-                                ? "Difficulty not set"
-                                : `${difficulty ?? "Level"} · Level ${item.difficulty}`}
-                            </Badge>
+                            <QuestionMetadata question={{ kind: item.kind }} />
+                            <span className="text-xs text-muted-foreground">
+                              Difficulty:{" "}
+                              {item.difficulty == null
+                                ? "Not set"
+                                : `Level ${item.difficulty}`}
+                            </span>
                           </div>
-                          <RichContent
-                            html={item.stem}
-                            className={cn(
-                              richContentClass,
-                              "line-clamp-2 overflow-hidden text-sm leading-relaxed"
-                            )}
-                          />
+                          {!expanded ? (
+                            <QuestionStem
+                              stem={item.stem}
+                              compact
+                              className="text-base leading-7 font-medium"
+                            />
+                          ) : null}
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span
-                            aria-hidden="true"
-                            className="pointer-events-none inline-flex h-11 items-center justify-center gap-1.5 rounded-full bg-secondary px-3 text-xs font-medium text-secondary-foreground sm:h-9"
+                      }
+                      expanded={expanded}
+                      onToggle={() => togglePreview(item.id)}
+                      label={
+                        (expanded
+                          ? "Hide preview for question "
+                          : "Preview question ") + questionNumber
+                      }
+                      footerPlacement="bottom"
+                      footer={
+                        <div
+                          className="flex min-w-0 items-center justify-between gap-3"
+                          data-question-library-details
+                        >
+                          <dl
+                            aria-label="Library details"
+                            className="flex min-w-0 flex-1 flex-wrap gap-x-6 gap-y-2 text-xs text-muted-foreground"
                           >
-                            {expanded ? (
-                              <ChevronUpIcon className="size-4" />
-                            ) : (
-                              <ChevronDownIcon className="size-4" />
-                            )}
-                            {expanded ? "Hide preview" : "Preview"}
-                          </span>
+                            <div className="flex min-w-0 basis-full gap-2">
+                              <dt className="shrink-0 font-medium">Coverage</dt>
+                              <dd className="min-w-0 [overflow-wrap:anywhere]">
+                                {item.targetTitles.length
+                                  ? item.targetTitles
+                                      .slice(0, expanded ? undefined : 2)
+                                      .join(" · ")
+                                  : "Not linked"}
+                                {!expanded && item.targetTitles.length > 2
+                                  ? ` · +${item.targetTitles.length - 2} more`
+                                  : ""}
+                              </dd>
+                            </div>
+                            <div className="flex flex-wrap gap-x-2 gap-y-1">
+                              <dt className="font-medium">Usage</dt>
+                              <dd>
+                                {item.assessmentsCount
+                                  ? `${item.assessmentsCount} ${item.assessmentsCount === 1 ? "assessment" : "assessments"}`
+                                  : "Not used yet"}
+                              </dd>
+                            </div>
+                            <div className="flex flex-wrap gap-x-2 gap-y-1">
+                              <dt className="font-medium">Updated</dt>
+                              <dd>
+                                <time dateTime={item.updatedAt}>
+                                  {formatDate(item.updatedAt)}
+                                </time>
+                              </dd>
+                            </div>
+                          </dl>
                           {canWrite ? (
                             <Link
                               className={buttonVariants({
                                 variant: "outline",
-                                className:
-                                  "relative z-20 h-11 flex-1 sm:h-9 lg:flex-none",
+                                className: "h-11",
                               })}
                               aria-label={"Edit question " + questionNumber}
                               href={workspaceRoutes.mockTests.questionEdit(
@@ -639,145 +545,10 @@ export function QuestionBankView({
                             </Link>
                           ) : null}
                         </div>
-                        <div className="pointer-events-none flex min-w-0 flex-col gap-3 text-xs text-muted-foreground sm:flex-row sm:items-start sm:justify-between lg:col-span-2">
-                          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-                            {(expanded
-                              ? item.targetTitles
-                              : item.targetTitles.slice(0, 2)
-                            ).map((title, topicIndex) => (
-                              <Badge
-                                key={title + topicIndex}
-                                variant="outline"
-                                className="h-auto max-w-full py-0.5 [overflow-wrap:anywhere] whitespace-normal"
-                              >
-                                {title}
-                              </Badge>
-                            ))}
-                            {!expanded && item.targetTitles.length > 2 ? (
-                              <span>
-                                +{item.targetTitles.length - 2} topics in
-                                preview
-                              </span>
-                            ) : null}
-                          </div>
-                          <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 sm:justify-end">
-                            <span>
-                              {item.assessmentsCount > 0
-                                ? "Used in " +
-                                  item.assessmentsCount +
-                                  (item.assessmentsCount === 1
-                                    ? " paper"
-                                    : " papers")
-                                : "Not used yet"}
-                            </span>
-                            <span>
-                              Updated{" "}
-                              <time dateTime={item.updatedAt}>
-                                {formatDate(item.updatedAt)}
-                              </time>
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <div id={previewId} hidden={!expanded}>
-                        {expanded ? (
-                          <div className="flex min-w-0 flex-col gap-5 border-t border-border bg-surface-inset p-4 inset-shadow-recessed sm:p-5">
-                            <div className="flex flex-col gap-2">
-                              <h3 className="text-sm font-semibold">
-                                Question preview
-                              </h3>
-                              <RichContent
-                                html={item.stem}
-                                className={cn(
-                                  previewContentClass,
-                                  "text-sm leading-relaxed"
-                                )}
-                              />
-                            </div>
-                            <Separator />
-                            <div className="flex min-w-0 flex-col gap-3">
-                              <h4 className="text-sm font-semibold">
-                                Answer key
-                              </h4>
-                              {item.options.length > 0 ? (
-                                <ul className="grid min-w-0 gap-2 sm:grid-cols-2">
-                                  {item.options.map((option) => {
-                                    const correct = item.answerKeys.includes(
-                                      option.key
-                                    )
-                                    return (
-                                      <li
-                                        key={option.key}
-                                        className={cn(
-                                          "flex min-w-0 items-start gap-3 rounded-lg border border-border bg-card p-3",
-                                          correct &&
-                                            "border-success-line bg-success-soft"
-                                        )}
-                                      >
-                                        <span className="flex size-6 shrink-0 items-center justify-center rounded-md border border-border text-xs font-medium">
-                                          {option.key}
-                                        </span>
-                                        <div className="flex min-w-0 flex-1 flex-col gap-1">
-                                          <RichContent
-                                            html={option.content}
-                                            className={cn(
-                                              previewContentClass,
-                                              "text-sm"
-                                            )}
-                                          />
-                                          {correct ? (
-                                            <span className="flex items-center gap-1 text-xs font-medium text-success-ink">
-                                              <CheckCircle2Icon
-                                                className="size-3.5"
-                                                aria-hidden="true"
-                                              />
-                                              Correct answer
-                                            </span>
-                                          ) : null}
-                                        </div>
-                                      </li>
-                                    )
-                                  })}
-                                </ul>
-                              ) : item.numericAnswer !== null ? (
-                                <p className="text-sm">
-                                  Correct numerical answer:{" "}
-                                  <strong className="text-success-ink">
-                                    {item.numericAnswer}
-                                  </strong>
-                                </p>
-                              ) : item.textAnswer ? (
-                                <p className="text-sm [overflow-wrap:anywhere]">
-                                  {item.textAnswer}
-                                </p>
-                              ) : (
-                                <p className="text-sm text-muted-foreground">
-                                  No answer key available.
-                                </p>
-                              )}
-                            </div>
-                            {item.explanation &&
-                            stripHtml(item.explanation).trim() ? (
-                              <>
-                                <Separator />
-                                <div className="flex min-w-0 flex-col gap-2">
-                                  <h4 className="text-sm font-semibold">
-                                    Solution
-                                  </h4>
-                                  <RichContent
-                                    html={item.explanation}
-                                    className={cn(
-                                      previewContentClass,
-                                      "text-sm leading-relaxed"
-                                    )}
-                                  />
-                                </div>
-                              </>
-                            ) : null}
-                          </div>
-                        ) : null}
-                      </div>
-                    </article>
+                      }
+                    >
+                      <QuestionInspectionView question={item} solution={item} />
+                    </QuestionCard>
                   </li>
                 )
               })}
@@ -817,92 +588,14 @@ export function QuestionBankView({
                   </SelectContent>
                 </Select>
               </div>
-              <Pagination
-                aria-label="Question bank pagination"
-                className="mx-0 w-auto sm:justify-end"
-              >
-                <PaginationContent className="flex-wrap justify-center">
-                  <PaginationItem>
-                    <PaginationPrevious
-                      role="link"
-                      href={pageHref(Math.max(1, pageData.page - 1))}
-                      aria-disabled={pending || pageData.page <= 1}
-                      tabIndex={pending || pageData.page <= 1 ? -1 : undefined}
-                      className={cn(
-                        "h-11 min-w-11",
-                        (pending || pageData.page <= 1) &&
-                          "pointer-events-none opacity-50"
-                      )}
-                      onClick={(event) =>
-                        onPageClick(
-                          event,
-                          pageData.page - 1,
-                          pending || pageData.page <= 1
-                        )
-                      }
-                    />
-                  </PaginationItem>
-                  {pageNumbers.map((page, index) => (
-                    <PaginationItem
-                      key={page}
-                      className={cn(
-                        "flex items-center",
-                        page !== 1 &&
-                          page !== pageData.totalPages &&
-                          page !== pageData.page &&
-                          "hidden sm:flex"
-                      )}
-                    >
-                      {index > 0 && page - pageNumbers[index - 1] > 1 ? (
-                        <PaginationEllipsis className="hidden sm:flex" />
-                      ) : null}
-                      <PaginationLink
-                        role="link"
-                        href={pageHref(page)}
-                        isActive={page === pageData.page}
-                        aria-label={`Page ${page}`}
-                        aria-disabled={pending}
-                        tabIndex={pending ? -1 : undefined}
-                        className={cn(
-                          "size-11",
-                          pending && "pointer-events-none opacity-50"
-                        )}
-                        onClick={(event) => onPageClick(event, page, pending)}
-                      >
-                        {page}
-                      </PaginationLink>
-                    </PaginationItem>
-                  ))}
-                  <PaginationItem>
-                    <PaginationNext
-                      role="link"
-                      href={pageHref(
-                        Math.min(pageData.totalPages, pageData.page + 1)
-                      )}
-                      aria-disabled={
-                        pending || pageData.page >= pageData.totalPages
-                      }
-                      tabIndex={
-                        pending || pageData.page >= pageData.totalPages
-                          ? -1
-                          : undefined
-                      }
-                      className={cn(
-                        "h-11 min-w-11",
-                        (pending || pageData.page >= pageData.totalPages) &&
-                          "pointer-events-none opacity-50"
-                      )}
-                      onClick={(event) =>
-                        onPageClick(
-                          event,
-                          pageData.page + 1,
-                          pending || pageData.page >= pageData.totalPages
-                        )
-                      }
-                    />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
+              <PaginationControls
+                page={pageData.page}
+                totalPages={pageData.totalPages}
+                label="Question bank pagination"
+                href={pageHref}
+                pending={pending}
+                onNavigate={(event, page) => onPageClick(event, page, pending)}
+              />
             </div>
           </div>
         )}

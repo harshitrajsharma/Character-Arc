@@ -8,12 +8,12 @@ import { examPrepManifest } from "@/lib/tools/definitions/exam-prep/manifest"
 const examId = "11111111-1111-4111-8111-111111111111"
 
 describe("exam subject recommendation action contract", () => {
-  test("publishes a deterministic read action in release 1.11.0", () => {
+  test("publishes a deterministic read action in release 1.12.0", () => {
     const action = examPrepManifest.actions.find(
       (candidate) => candidate.key === "exam.get-subject-recommendations"
     )
 
-    expect(examPrepManifest.release.version).toBe("1.11.0")
+    expect(examPrepManifest.release.version).toBe("1.12.0")
     expect(action).toBeDefined()
     expect(action?.execution).toBe("deterministic")
     expect(action?.requiredPermissions).toEqual(["blocks.read.owned"])
@@ -56,7 +56,7 @@ describe("exam subject recommendation action contract", () => {
     const source = readFileSync("lib/tools/execute-tool-action.ts", "utf8")
 
     expect(source).toContain(
-      "core.exam-prep@1.11.0:exam.get-subject-recommendations"
+      "core.exam-prep@1.12.0:exam.get-subject-recommendations"
     )
     expect(source).toContain("executeExamPrepGetSubjectRecommendations")
     expect(source).toContain("exam-prep.exam.get-subject-recommendations.v1")

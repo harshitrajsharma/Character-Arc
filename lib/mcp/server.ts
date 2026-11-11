@@ -1,323 +1,384 @@
+import { createHash, randomUUID } from "node:crypto"
 import { prisma } from "@/lib/prisma"
-import { executeToolActionForPrincipal } from "@/lib/tools/execute-tool-action"
-import { getFirstPartyToolManifest, listFirstPartyToolManifests } from "@/lib/tools/registry"
-import type { Prisma, ToolGrantEffect } from "../../generated/prisma/client"
+import {
+  executeToolActionForPrincipal,
+  hasTrustedToolActionHandler,
+} from "@/lib/tools/execute-tool-action"
+import { listFirstPartyToolManifests } from "@/lib/tools/registry"
+import { ToolActionExecutionError } from "@/lib/tools/errors"
+import {
+  evaluateToolPermissions,
+  type ToolGrantLike,
+} from "@/lib/tools/permissions"
+import { parseToolManifest, type ToolManifest } from "@/lib/tools/contracts"
 import type { AuthenticatedMcpPrincipal } from "./auth"
-import type {
-  McpJsonRpcRequest,
-  McpJsonRpcResponse,
-  McpToolCallResult,
+import type { McpJsonRpcResponse, McpToolCallResult } from "./contracts"
+import {
+  MCP_ERROR_CODES,
+  MCP_IDEMPOTENCY_FIELD,
+  MCP_PROTOCOL_VERSION,
+  MCP_PROTOCOL_VERSIONS,
+  McpProtocolError,
+  parseMcpToolName,
 } from "./contracts"
-import { MCP_ERROR_CODES, parseMcpToolName } from "./contracts"
-import { manifestsToMcpTools } from "./schema-adapter"
+import { manifestToMcpTools } from "./schema-adapter"
 
-/**
- * Returns active MCP tools for the workspace, falling back to all first-party tools
- * if no explicit installation records exist or during test discovery.
- */
-export async function listMcpToolsForWorkspace(workspaceId: string) {
-  try {
-    const activeInstallations = await prisma.toolInstallation.findMany({
-      where: {
-        workspaceId,
-        status: "ACTIVE",
-      },
-      include: {
-        toolDefinition: true,
+type Installation = {
+  id: string
+  toolKey: string
+  version: string
+  manifest: unknown
+  grants: ToolGrantLike[]
+}
+export type McpServerDependencies = {
+  installations: (workspaceId: string) => Promise<Installation[]>
+  execute: typeof executeToolActionForPrincipal
+}
+const dependencies: McpServerDependencies = {
+  installations: async (workspaceId) => {
+    const rows = await prisma.toolInstallation.findMany({
+      where: { workspaceId, status: "ACTIVE", workspace: { archivedAt: null } },
+      select: {
+        id: true,
+        toolDefinition: { select: { key: true } },
+        toolRelease: { select: { version: true, manifest: true } },
+        grants: {
+          select: { permissionKey: true, effect: true, constraints: true },
+        },
       },
     })
+    return rows.map((row) => ({
+      id: row.id,
+      toolKey: row.toolDefinition.key,
+      version: row.toolRelease.version,
+      manifest: row.toolRelease.manifest,
+      grants: row.grants,
+    }))
+  },
+  execute: executeToolActionForPrincipal,
+}
 
-    if (activeInstallations.length > 0) {
-      const activeKeys = new Set(
-        activeInstallations
-          .map((inst) => inst.toolDefinition?.key)
-          .filter((k): k is string => Boolean(k))
+function isRecord(input: unknown): input is Record<string, unknown> {
+  return !!input && typeof input === "object" && !Array.isArray(input)
+}
+function isReadOnly(action: ToolManifest["actions"][number]) {
+  return action.requiredPermissions.every((permission) =>
+    permission.startsWith("blocks.read")
+  )
+}
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`
+  if (value && typeof value === "object") {
+    return `{${Object.entries(value)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, child]) => `${JSON.stringify(key)}:${canonicalJson(child)}`)
+      .join(",")}}`
+  }
+  return JSON.stringify(value) ?? "null"
+}
+function hasTrustedManifest(stored: unknown, local: ToolManifest) {
+  try {
+    return canonicalJson(parseToolManifest(stored)) === canonicalJson(local)
+  } catch {
+    return false
+  }
+}
+function actionAllowed(
+  installation: Installation,
+  action: ToolManifest["actions"][number],
+  role: AuthenticatedMcpPrincipal["role"]
+) {
+  if (role === "VIEWER" && !isReadOnly(action)) return false
+  return evaluateToolPermissions(
+    installation.grants,
+    action.requiredPermissions,
+    {
+      installationId: installation.id,
+      originInstallationId: installation.id,
+      blockTypeKeys: [
+        ...new Set([
+          action.output.rootBlockTypeKey,
+          ...action.output.createsBlockTypeKeys,
+          ...action.output.writesBlockTypeKeys,
+        ]),
+      ],
+    }
+  ).allowed
+}
+async function availableActions(
+  principal: AuthenticatedMcpPrincipal,
+  deps: McpServerDependencies
+) {
+  // Discovery is read-only and fail-closed. Installation/grant changes require the normal web UI.
+  const installed = await deps.installations(principal.workspaceId)
+  return listFirstPartyToolManifests().flatMap((manifest) => {
+    const installation = installed.find(
+      (item) =>
+        item.toolKey === manifest.tool.key &&
+        item.version === manifest.release.version &&
+        hasTrustedManifest(item.manifest, manifest)
+    )
+    if (!installation) return []
+    return manifest.actions
+      .filter(
+        (action) =>
+          actionAllowed(installation, action, principal.role) &&
+          hasTrustedToolActionHandler(manifest.tool.key, action.key)
       )
-      const manifests = listFirstPartyToolManifests().filter((m) =>
-        activeKeys.has(m.tool.key)
-      )
-      if (manifests.length > 0) {
-        return manifestsToMcpTools(manifests)
+      .map((action) => ({ manifest, action, installation }))
+  })
+}
+
+export async function listMcpToolsForWorkspace(
+  principal: AuthenticatedMcpPrincipal,
+  deps = dependencies
+) {
+  const available = await availableActions(principal, deps)
+  return available
+    .flatMap(({ manifest, action }) =>
+      manifestToMcpTools({ ...manifest, actions: [action] })
+    )
+    .sort((a, b) => a.name.localeCompare(b.name))
+}
+
+export async function handleMcpToolCall(
+  params: Record<string, unknown>,
+  principal: AuthenticatedMcpPrincipal,
+  deps: McpServerDependencies = dependencies
+): Promise<McpToolCallResult> {
+  if (
+    typeof params.name !== "string" ||
+    !params.name ||
+    params.name.length > 128 ||
+    (params.arguments !== undefined && !isRecord(params.arguments))
+  ) {
+    throw new McpProtocolError(
+      MCP_ERROR_CODES.INVALID_PARAMS,
+      "tools/call requires a tool name and object arguments."
+    )
+  }
+  const resolved = parseMcpToolName(params.name, listFirstPartyToolManifests())
+  if (!resolved)
+    throw new McpProtocolError(
+      MCP_ERROR_CODES.INVALID_PARAMS,
+      "Unknown tool name."
+    )
+  const available = await availableActions(principal, deps)
+  const target = available.find(
+    ({ manifest, action }) =>
+      manifest.tool.key === resolved.toolKey &&
+      action.key === resolved.actionKey
+  )
+  if (!target)
+    return toolError(
+      "FORBIDDEN",
+      "The tool is not enabled and permitted in this workspace."
+    )
+
+  const args = {
+    ...((params.arguments as Record<string, unknown> | undefined) ?? {}),
+  }
+  const operationKey = args[MCP_IDEMPOTENCY_FIELD]
+  delete args[MCP_IDEMPOTENCY_FIELD]
+  if (
+    !isReadOnly(target.action) &&
+    (typeof operationKey !== "string" ||
+      operationKey.length < 8 ||
+      operationKey.length > 128 ||
+      !/^[\x21-\x7e]+$/.test(operationKey))
+  ) {
+    return toolError(
+      "INVALID_INPUT",
+      "Provide _idempotencyKey (8–128 visible ASCII characters) for this change. Reuse the same key and arguments when retrying it."
+    )
+  }
+  const idempotencyKey = isReadOnly(target.action)
+    ? `mcp-read-${randomUUID()}`
+    : `mcp-${createHash("sha256")
+        .update(
+          JSON.stringify([
+            principal.userId,
+            principal.workspaceId,
+            params.name,
+            operationKey,
+          ])
+        )
+        .digest("hex")}`
+  try {
+    const result = await deps.execute(
+      {
+        workspaceId: principal.workspaceId,
+        installationId: target.installation.id,
+        toolKey: resolved.toolKey,
+        actionKey: resolved.actionKey,
+        idempotencyKey,
+        input: args,
+      },
+      {
+        actorId: principal.userId,
+        workspaceId: principal.workspaceId,
+        invocationSource: "mcp",
       }
+    )
+    return {
+      content: [{ type: "text", text: JSON.stringify(result) }],
+      structuredContent: result as unknown as Record<string, unknown>,
+      isError: result.status === "failed" || result.status === "cancelled",
     }
   } catch (error) {
-    console.warn(
-      "Failed to query active tool installations, falling back to all manifests:",
-      error
+    if (error instanceof ToolActionExecutionError) {
+      const safe = [
+        "INVALID_INPUT",
+        "FORBIDDEN",
+        "NOT_AVAILABLE",
+        "REVISION_CONFLICT",
+        "HANDLER_MISSING",
+        "RELEASE_MISMATCH",
+      ].includes(error.code)
+      return toolError(
+        error.code,
+        safe
+          ? error.message
+          : "The action could not be completed. Retry with the same operation key if its outcome is uncertain."
+      )
+    }
+    // Unknown exceptions may contain SQL, tokens or connection strings. Never send them to clients.
+    return toolError(
+      "INTERNAL_ERROR",
+      "The action could not be completed. Retry with the same operation key if its outcome is uncertain."
     )
   }
-
-  // Fallback gracefully if workspace has no explicit tool installation records or during test discovery
-  const manifests = listFirstPartyToolManifests()
-  return manifestsToMcpTools(manifests)
 }
-
-/**
- * Ensures a tool is active for the workspace before executing an MCP call.
- */
-async function ensureActiveInstallation(
-  workspaceId: string,
-  userId: string,
-  toolKey: string
-) {
-  const manifest = getFirstPartyToolManifest(toolKey)
-  if (!manifest) {
-    throw new Error(`Tool "${toolKey}" is not available in this release.`)
-  }
-
-  const definition = await prisma.toolDefinition.findUnique({
-    where: { key: toolKey },
-  })
-
-  if (!definition) {
-    throw new Error(`Tool definition for "${toolKey}" was not found in registry.`)
-  }
-
-  const release = await prisma.toolRelease.findFirst({
-    where: {
-      toolDefinitionId: definition.id,
-      version: manifest.release.version,
-    },
-  })
-
-  if (!release) {
-    throw new Error(
-      `Tool release version ${manifest.release.version} for "${toolKey}" was not found.`
-    )
-  }
-
-  let installation = await prisma.toolInstallation.findUnique({
-    where: {
-      workspaceId_toolDefinitionId: {
-        workspaceId,
-        toolDefinitionId: definition.id,
-      },
-    },
-  })
-
-  if (!installation || installation.status !== "ACTIVE") {
-    installation = await prisma.toolInstallation.upsert({
-      where: {
-        workspaceId_toolDefinitionId: {
-          workspaceId,
-          toolDefinitionId: definition.id,
-        },
-      },
-      create: {
-        workspaceId,
-        installedById: userId,
-        toolDefinitionId: definition.id,
-        toolReleaseId: release.id,
-        status: "ACTIVE",
-      },
-      update: {
-        toolReleaseId: release.id,
-        status: "ACTIVE",
-        disabledAt: null,
-      },
-    })
-
-    // Sync default grants
-    const defaultGrants = manifest.defaultGrants ?? []
-    for (const grant of defaultGrants) {
-      await prisma.toolGrant.upsert({
-        where: {
-          installationId_permissionKey: {
-            installationId: installation.id,
-            permissionKey: grant.permissionKey,
-          },
-        },
-        create: {
-          workspaceId,
-          installationId: installation.id,
-          permissionKey: grant.permissionKey,
-          effect: grant.effect.toUpperCase() as ToolGrantEffect,
-          constraints: (grant.constraints ?? {}) as Prisma.InputJsonValue,
-        },
-        update: {
-          effect: grant.effect.toUpperCase() as ToolGrantEffect,
-          constraints: (grant.constraints ?? {}) as Prisma.InputJsonValue,
-        },
-      })
-    }
-  }
-
-  return installation
-}
-
-/**
- * Handles execution of a specific MCP tool call.
- */
-export async function handleMcpToolCall(
-  params: { name?: string; arguments?: unknown },
-  principal: AuthenticatedMcpPrincipal
-): Promise<McpToolCallResult> {
-  if (!params.name || typeof params.name !== "string") {
-    throw {
-      code: MCP_ERROR_CODES.INVALID_PARAMS,
-      message: "Tool execution requires a valid 'name' string parameter.",
-    }
-  }
-
-  const manifests = listFirstPartyToolManifests()
-  const resolved = parseMcpToolName(params.name, manifests)
-
-  if (!resolved) {
-    throw {
-      code: MCP_ERROR_CODES.METHOD_NOT_FOUND,
-      message: `MCP tool "${params.name}" does not match any registered Character Arc tool action.`,
-    }
-  }
-
-  const installation = await ensureActiveInstallation(
-    principal.workspaceId,
-    principal.userId,
-    resolved.toolKey
-  )
-
-  const idempotencyKey = `mcp-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
-
-  const actionResult = await executeToolActionForPrincipal(
-    {
-      workspaceId: principal.workspaceId,
-      installationId: installation.id,
-      toolKey: resolved.toolKey,
-      actionKey: resolved.actionKey,
-      idempotencyKey,
-      input: params.arguments ?? {},
-    },
-    {
-      actorId: principal.userId,
-      workspaceId: principal.workspaceId,
-      invocationSource: "mcp",
-    }
-  )
-
+function toolError(code: string, message: string): McpToolCallResult {
+  const data = { status: "failed", code, message }
   return {
-    content: [
-      {
-        type: "text",
-        text: JSON.stringify(actionResult, null, 2),
-      },
-    ],
+    content: [{ type: "text", text: JSON.stringify(data) }],
+    structuredContent: data,
+    isError: true,
   }
 }
 
-/**
- * Processes a JSON-RPC 2.0 MCP request payload.
- */
 export async function processMcpJsonRpcRequest(
   body: unknown,
-  principal: AuthenticatedMcpPrincipal
+  principal: AuthenticatedMcpPrincipal,
+  deps: McpServerDependencies = dependencies
 ): Promise<McpJsonRpcResponse | null> {
-  const req = body as Partial<McpJsonRpcRequest> | null | undefined
-
-  if (!req || typeof req !== "object") {
-    return {
-      jsonrpc: "2.0",
-      id: "1",
-      error: {
-        code: MCP_ERROR_CODES.INVALID_REQUEST,
-        message: "Invalid JSON-RPC 2.0 request structure.",
-      },
-    }
-  }
-
-  // Strictly comply with JSON-RPC 2.0 §4.1: notifications omit "id" or start with "notifications/".
-  // The server MUST NOT reply to a notification -> return null so HTTP layer responds with 202 Accepted.
-  const isNotification =
-    req.id === undefined ||
-    (typeof req.method === "string" && req.method.startsWith("notifications/"))
-
-  if (isNotification) {
-    return null
-  }
-
-  const requestId: string | number = req.id!
-
-  if (req.jsonrpc !== "2.0" || typeof req.method !== "string") {
-    return {
-      jsonrpc: "2.0",
-      id: requestId,
-      error: {
-        code: MCP_ERROR_CODES.INVALID_REQUEST,
-        message: "Invalid JSON-RPC 2.0 request structure.",
-      },
-    }
-  }
-
+  const id =
+    isRecord(body) &&
+    (typeof body.id === "string" ||
+      (typeof body.id === "number" && Number.isFinite(body.id)))
+      ? body.id
+      : null
+  const invalid = (
+    message = "Invalid JSON-RPC 2.0 request."
+  ): McpJsonRpcResponse => ({
+    jsonrpc: "2.0",
+    id,
+    error: { code: MCP_ERROR_CODES.INVALID_REQUEST, message },
+  })
+  if (
+    !isRecord(body) ||
+    body.jsonrpc !== "2.0" ||
+    typeof body.method !== "string" ||
+    ("id" in body && id === null) ||
+    (body.params !== undefined && !isRecord(body.params))
+  )
+    return invalid()
+  // Only a validated message without id is a notification; it never invokes mutating tools.
+  if (!("id" in body)) return null
+  const params = (body.params ?? {}) as Record<string, unknown>
   try {
-    switch (req.method) {
-      case "initialize":
+    switch (body.method) {
+      case "initialize": {
+        if (
+          typeof params.protocolVersion !== "string" ||
+          !isRecord(params.clientInfo) ||
+          typeof params.clientInfo.name !== "string" ||
+          typeof params.clientInfo.version !== "string" ||
+          !isRecord(params.capabilities)
+        ) {
+          throw new McpProtocolError(
+            MCP_ERROR_CODES.INVALID_PARAMS,
+            "initialize requires protocolVersion, capabilities and clientInfo."
+          )
+        }
+        const protocolVersion = MCP_PROTOCOL_VERSIONS.includes(
+          params.protocolVersion as (typeof MCP_PROTOCOL_VERSIONS)[number]
+        )
+          ? params.protocolVersion
+          : MCP_PROTOCOL_VERSION
         return {
           jsonrpc: "2.0",
-          id: requestId,
+          id,
           result: {
-            protocolVersion: "2024-11-05",
-            capabilities: {
-              tools: {},
-            },
-            serverInfo: {
-              name: "character-arc-mcp-server",
-              version: "1.0.0",
-            },
+            protocolVersion,
+            capabilities: { tools: { listChanged: false } },
+            serverInfo: { name: "character-arc-mcp-server", version: "1.1.0" },
+            instructions:
+              "This server uses explicit workspace-scoped Bearer credentials. Only enabled tool actions with current permissions are available. Review mutations with the user. Each change requires a unique _idempotencyKey; keep it and the arguments unchanged on retries. Study and assessment data are subject to agent-access settings.",
           },
         }
-
+      }
       case "ping":
-        return {
-          jsonrpc: "2.0",
-          id: requestId,
-          result: {},
-        }
-
+        return { jsonrpc: "2.0", id, result: {} }
       case "tools/list": {
-        const tools = await listMcpToolsForWorkspace(principal.workspaceId)
+        const tools = await listMcpToolsForWorkspace(principal, deps)
+        let start = 0
+        if (params.cursor !== undefined) {
+          try {
+            if (typeof params.cursor !== "string" || params.cursor.length > 512)
+              throw new Error()
+            const cursor = JSON.parse(
+              Buffer.from(params.cursor, "base64url").toString()
+            )
+            if (!isRecord(cursor) || typeof cursor.after !== "string")
+              throw new Error()
+            const index = tools.findIndex((tool) => tool.name === cursor.after)
+            if (index < 0) throw new Error()
+            start = index + 1
+          } catch {
+            throw new McpProtocolError(
+              MCP_ERROR_CODES.INVALID_PARAMS,
+              "Invalid or expired tools cursor. Restart tools/list."
+            )
+          }
+        }
+        const page = tools.slice(start, start + 40)
+        const nextCursor =
+          start + page.length < tools.length
+            ? Buffer.from(
+                JSON.stringify({ after: page.at(-1)!.name })
+              ).toString("base64url")
+            : undefined
         return {
           jsonrpc: "2.0",
-          id: requestId,
-          result: { tools },
+          id,
+          result: { tools: page, ...(nextCursor ? { nextCursor } : {}) },
         }
       }
-
-      case "tools/call": {
-        const params = (req.params as { name?: string; arguments?: unknown }) ?? {}
-        const toolResult = await handleMcpToolCall(params, principal)
+      case "tools/call":
         return {
           jsonrpc: "2.0",
-          id: requestId,
-          result: toolResult,
+          id,
+          result: await handleMcpToolCall(params, principal, deps),
         }
-      }
-
       default:
-        return {
-          jsonrpc: "2.0",
-          id: requestId,
-          error: {
-            code: MCP_ERROR_CODES.METHOD_NOT_FOUND,
-            message: `Method "${req.method}" is not supported by Character Arc MCP server.`,
-          },
-        }
+        throw new McpProtocolError(
+          MCP_ERROR_CODES.METHOD_NOT_FOUND,
+          "Method not supported by this server."
+        )
     }
   } catch (error) {
-    const thrown =
-      typeof error === "object" && error !== null
-        ? (error as { code?: unknown; message?: unknown })
-        : null
-    const code =
-      typeof thrown?.code === "number"
-        ? thrown.code
-        : MCP_ERROR_CODES.INTERNAL_ERROR
-    const message =
-      typeof thrown?.message === "string"
-        ? thrown.message
-        : "An unexpected error occurred during MCP execution."
     return {
       jsonrpc: "2.0",
-      id: requestId,
-      error: { code, message },
+      id,
+      error:
+        error instanceof McpProtocolError
+          ? { code: error.code, message: error.message }
+          : {
+              code: MCP_ERROR_CODES.INTERNAL_ERROR,
+              message: "MCP request failed. Please retry later.",
+            },
     }
   }
 }
-

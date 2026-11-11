@@ -1,7 +1,8 @@
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
+import { buttonVariants } from "@/components/ui/button"
+import type { VariantProps } from "class-variance-authority"
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -39,7 +40,7 @@ function PaginationItem({ ...props }: React.ComponentProps<"li">) {
 
 type PaginationLinkProps = {
   isActive?: boolean
-} & Pick<React.ComponentProps<typeof Button>, "size"> &
+} & Pick<VariantProps<typeof buttonVariants>, "size"> &
   React.ComponentProps<"a">
 
 function PaginationLink({
@@ -49,19 +50,15 @@ function PaginationLink({
   ...props
 }: PaginationLinkProps) {
   return (
-    <Button
-      variant={isActive ? "outline" : "ghost"}
-      size={size}
-      className={cn(className)}
-      nativeButton={false}
-      render={
-        <a
-          aria-current={isActive ? "page" : undefined}
-          data-slot="pagination-link"
-          data-active={isActive}
-          {...props}
-        />
-      }
+    <a
+      aria-current={isActive ? "page" : undefined}
+      data-slot="pagination-link"
+      data-active={isActive}
+      className={cn(
+        buttonVariants({ variant: isActive ? "outline" : "ghost", size }),
+        className
+      )}
+      {...props}
     />
   )
 }
@@ -69,8 +66,12 @@ function PaginationLink({
 function PaginationPrevious({
   className,
   text = "Previous",
+  showTextOnMobile = false,
   ...props
-}: React.ComponentProps<typeof PaginationLink> & { text?: string }) {
+}: React.ComponentProps<typeof PaginationLink> & {
+  text?: string
+  showTextOnMobile?: boolean
+}) {
   return (
     <PaginationLink
       aria-label="Go to previous page"
@@ -79,7 +80,9 @@ function PaginationPrevious({
       {...props}
     >
       <ChevronLeftIcon data-icon="inline-start" />
-      <span className="hidden sm:block">{text}</span>
+      <span className={showTextOnMobile ? undefined : "hidden sm:block"}>
+        {text}
+      </span>
     </PaginationLink>
   )
 }
@@ -87,8 +90,12 @@ function PaginationPrevious({
 function PaginationNext({
   className,
   text = "Next",
+  showTextOnMobile = false,
   ...props
-}: React.ComponentProps<typeof PaginationLink> & { text?: string }) {
+}: React.ComponentProps<typeof PaginationLink> & {
+  text?: string
+  showTextOnMobile?: boolean
+}) {
   return (
     <PaginationLink
       aria-label="Go to next page"
@@ -96,7 +103,9 @@ function PaginationNext({
       className={cn("pr-2!", className)}
       {...props}
     >
-      <span className="hidden sm:block">{text}</span>
+      <span className={showTextOnMobile ? undefined : "hidden sm:block"}>
+        {text}
+      </span>
       <ChevronRightIcon data-icon="inline-end" />
     </PaginationLink>
   )

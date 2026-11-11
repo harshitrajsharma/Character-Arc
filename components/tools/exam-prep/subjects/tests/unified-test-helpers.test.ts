@@ -1,6 +1,10 @@
 import { describe, it } from "node:test"
 import assert from "node:assert/strict"
-import { assessmentsForScope, joinTestRecords } from "./unified-test-helpers"
+import {
+  assessmentsForScope,
+  joinTestRecords,
+  filterSubjectAssessments,
+} from "./unified-test-helpers"
 import type {
   ScheduledTest,
   SubjectLinkedAssessment,
@@ -55,8 +59,61 @@ describe("unified test history", () => {
     )
     assert.deepEqual(
       assessmentsForScope(assessments).map((item) => item.assessmentId),
-      ["whole"]
+      ["whole", "chapter"]
     )
     assert.deepEqual(assessmentsForScope(assessments, "unrelated"), [])
+  })
+})
+
+describe("subject assessment discovery", () => {
+  const papers = [
+    {
+      assessmentId: "matched",
+      title: "Matrix practice",
+      linkage: "syllabus",
+      status: "PUBLISHED",
+      attempts: [],
+    },
+    {
+      assessmentId: "linked",
+      title: "Algebra draft",
+      linkage: "context",
+      status: "DRAFT",
+      attempts: [],
+    },
+    {
+      assessmentId: "ongoing",
+      title: "Matrix continuation",
+      linkage: "syllabus",
+      status: "PUBLISHED",
+      attempts: [{ status: "IN_PROGRESS" }],
+    },
+  ] as unknown as SubjectLinkedAssessment[]
+  it("prioritizes the saved unfinished attempt and direct links without mutating the source", () => {
+    assert.deepEqual(
+      filterSubjectAssessments(papers, "all", "").map(
+        (paper) => paper.assessmentId
+      ),
+      ["ongoing", "linked", "matched"]
+    )
+    assert.equal(papers[0].assessmentId, "matched")
+  })
+  it("combines source, title and status rather than mixing these categories", () => {
+    assert.deepEqual(
+      filterSubjectAssessments(papers, "matched", " MATRIX ", "active").map(
+        (paper) => paper.assessmentId
+      ),
+      ["ongoing"]
+    )
+    assert.deepEqual(
+      filterSubjectAssessments(papers, "linked", "", "draft").map(
+        (paper) => paper.assessmentId
+      ),
+      ["linked"]
+    )
+    assert.deepEqual(
+      filterSubjectAssessments(papers, "linked", "", "published"),
+      []
+    )
   })
 })

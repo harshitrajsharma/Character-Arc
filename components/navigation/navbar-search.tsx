@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { useTheme } from "next-themes"
 import { useSettings } from "@/components/settings/settings-provider"
 import {
@@ -12,8 +12,10 @@ import {
   MoonIcon,
   LayersIcon,
   BookOpenIcon,
-  TargetIcon,
   FileCheckIcon,
+  HistoryIcon,
+  LibraryIcon,
+  UsersIcon,
 } from "lucide-react"
 
 import { buttonVariants } from "@/components/ui/button"
@@ -38,10 +40,15 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { mapToolIcon } from "@/components/tools/tool-catalog-card"
+import { mapToolIcon } from "@/lib/tools/presentation"
 import type { getAppShellData } from "@/lib/workspaces/workspace-access"
 import { workspaceRoutes } from "@/lib/routes/workspace-tools"
-import { getNavbarDestinations, type NavbarDestinationKey } from "./navbar-data"
+import {
+  getLearningDestinations,
+  getNavbarDestinations,
+  resolveNavigationWorkspace,
+  type NavbarDestinationKey,
+} from "./navbar-data"
 import { cn } from "@/lib/utils"
 
 type AppShellData = NonNullable<Awaited<ReturnType<typeof getAppShellData>>>
@@ -69,6 +76,7 @@ const LISTBOX_ID = "navbar-search-results"
 
 export function NavbarSearch({ onSelect, memberships }: NavbarSearchProps) {
   const router = useRouter()
+  const pathname = usePathname()
   const { theme, setTheme } = useTheme()
   const { openSettings } = useSettings()
   const inputRef = useRef<HTMLInputElement>(null)
@@ -76,7 +84,10 @@ export function NavbarSearch({ onSelect, memberships }: NavbarSearchProps) {
   const [open, setOpen] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(0)
 
-  const primaryWorkspace = memberships?.[0]
+  const primaryWorkspace = resolveNavigationWorkspace(
+    pathname,
+    memberships ?? []
+  )
   const primarySlug = primaryWorkspace?.slug
 
   const setSearchOpen = useCallback((nextOpen: boolean) => {
@@ -108,7 +119,15 @@ export function NavbarSearch({ onSelect, memberships }: NavbarSearchProps) {
     const items: SearchResult[] = []
 
     // 1. Navigation items
-    const navItems = getNavbarDestinations(primarySlug)
+    const navItems = [
+      ...getLearningDestinations(
+        primarySlug,
+        primaryWorkspace?.installations.map((i) => i.toolDefinition.key) ?? []
+      ),
+      ...getNavbarDestinations(primarySlug).filter(
+        (item) => item.key === "tools"
+      ),
+    ]
     navItems.forEach((dest) => {
       items.push({
         key: dest.key,
@@ -133,39 +152,70 @@ export function NavbarSearch({ onSelect, memberships }: NavbarSearchProps) {
           badge: "Workspace",
         })
 
-        workspace.installations.forEach((installation: AppShellInstallation) => {
-          const toolHome = workspaceRoutes.toolHome(
-            workspace.slug,
-            installation.toolDefinition.key
-          )
-          if (toolHome) {
-            items.push({
-              key: `tool-${installation.id}`,
-              label: installation.toolDefinition.name,
-              description: `Tool in ${workspace.name}`,
-              category: "Workspace & Tools",
-              href: toolHome,
-              icon: mapToolIcon(installation.toolDefinition.icon) || WrenchIcon,
-              badge: "Installed",
-            })
+        workspace.installations.forEach(
+          (installation: AppShellInstallation) => {
+            if (
+              workspace.slug === primarySlug &&
+              ["core.exam-prep", "core.mock-tests"].includes(
+                installation.toolDefinition.key
+              )
+            )
+              return
+            const toolHome = workspaceRoutes.toolHome(
+              workspace.slug,
+              installation.toolDefinition.key
+            )
+            if (toolHome) {
+              items.push({
+                key: `tool-${installation.id}`,
+                label: installation.toolDefinition.name,
+                description: `Tool in ${workspace.name}`,
+                category: "Workspace & Tools",
+                href: toolHome,
+                icon:
+                  mapToolIcon(installation.toolDefinition.icon) || WrenchIcon,
+                badge: "Installed",
+              })
+            }
           }
-        })
+        )
       })
     }
 
     // 3. Quick Actions
     if (primarySlug) {
-      items.push(
-        {
-          key: "action-new-goal",
-          label: "New Goal or Character Arc",
-          description: "Define a new target milestone in Goals & Paths",
-          category: "Quick Actions",
-          href: workspaceRoutes.goalsPaths.new(primarySlug),
-          icon: TargetIcon,
-          badge: "Action",
-        },
-        {
+      const canCreate = primaryWorkspace?.role !== "VIEWER"
+      const keys =
+        primaryWorkspace?.installations.map((i) => i.toolDefinition.key) ?? []
+      if (keys.includes("core.mock-tests"))
+        items.push(
+          {
+            key: "question-bank",
+            label: "Question bank",
+            description: "Browse and reuse workspace questions",
+            category: "Navigation",
+            href: workspaceRoutes.mockTests.questions(primarySlug),
+            icon: LibraryIcon,
+          },
+          {
+            key: "community",
+            label: "Community assessments",
+            description: "Discover shared papers",
+            category: "Navigation",
+            href: `${workspaceRoutes.mockTests.home(primarySlug)}?tab=community`,
+            icon: UsersIcon,
+          },
+          {
+            key: "attempt-history",
+            label: "Attempt history",
+            description: "Your test attempts and results",
+            category: "Navigation",
+            href: `${workspaceRoutes.mockTests.home(primarySlug)}?tab=attempts`,
+            icon: HistoryIcon,
+          }
+        )
+      if (canCreate && keys.includes("core.exam-prep"))
+        items.push({
           key: "action-new-exam",
           label: "Add Exam & Syllabus",
           description: "Setup a syllabus tracker in Exam Prep",
@@ -173,29 +223,29 @@ export function NavbarSearch({ onSelect, memberships }: NavbarSearchProps) {
           href: workspaceRoutes.examPrep.new(primarySlug),
           icon: BookOpenIcon,
           badge: "Action",
-        },
-        {
+        })
+      if (canCreate && keys.includes("core.mock-tests"))
+        items.push({
           key: "action-new-mock",
-          label: "Create Mock Test",
+          label: "Create assessment",
           description: "Author or generate a new practice test",
           category: "Quick Actions",
           href: workspaceRoutes.mockTests.new(primarySlug),
           icon: FileCheckIcon,
           badge: "Action",
+        })
+      items.push({
+        key: "action-settings",
+        label: "Workspace Settings",
+        description: "Configure workspace, members, appearance, and MCP tokens",
+        category: "Quick Actions",
+        action: () => {
+          setOpen(false)
+          openSettings("workspace", primarySlug)
         },
-        {
-          key: "action-settings",
-          label: "Workspace Settings",
-          description: "Configure workspace, members, appearance, and MCP tokens",
-          category: "Quick Actions",
-          action: () => {
-            setOpen(false)
-            openSettings("workspace", primarySlug)
-          },
-          icon: SettingsIcon,
-          badge: "Settings",
-        }
-      )
+        icon: SettingsIcon,
+        badge: "Settings",
+      })
     }
 
     // Global toggle theme action
@@ -210,7 +260,14 @@ export function NavbarSearch({ onSelect, memberships }: NavbarSearchProps) {
     })
 
     return items
-  }, [memberships, primarySlug, theme, setTheme, openSettings])
+  }, [
+    memberships,
+    primarySlug,
+    primaryWorkspace,
+    theme,
+    setTheme,
+    openSettings,
+  ])
 
   const results = useMemo(() => {
     const normalized = query.trim().toLowerCase()
@@ -231,7 +288,12 @@ export function NavbarSearch({ onSelect, memberships }: NavbarSearchProps) {
     }
 
     if (item.href) {
-      if (item.key === "today" || item.key === "workspace" || item.key === "tools") {
+      if (
+        item.key === "workspace" ||
+        item.key === "exam-prep" ||
+        item.key === "assessments" ||
+        item.key === "tools"
+      ) {
         onSelect(item.key as NavbarDestinationKey)
       }
       setSearchOpen(false)
@@ -245,7 +307,9 @@ export function NavbarSearch({ onSelect, memberships }: NavbarSearchProps) {
       setSelectedIndex((prev) => (prev + 1) % Math.max(1, results.length))
     } else if (event.key === "ArrowUp") {
       event.preventDefault()
-      setSelectedIndex((prev) => (prev - 1 + results.length) % Math.max(1, results.length))
+      setSelectedIndex(
+        (prev) => (prev - 1 + results.length) % Math.max(1, results.length)
+      )
     } else if (event.key === "Enter") {
       event.preventDefault()
       if (results[selectedIndex]) {
@@ -348,7 +412,7 @@ export function NavbarSearch({ onSelect, memberships }: NavbarSearchProps) {
                   className={cn(
                     "flex min-h-11 w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     isSelected
-                      ? "bg-accent text-accent-foreground font-medium"
+                      ? "bg-accent font-medium text-accent-foreground"
                       : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
                   )}
                 >
@@ -356,9 +420,7 @@ export function NavbarSearch({ onSelect, memberships }: NavbarSearchProps) {
                     <Icon className="size-3.5" aria-hidden="true" />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <span className="block truncate text-sm">
-                      {item.label}
-                    </span>
+                    <span className="block truncate text-sm">{item.label}</span>
                     <span className="block truncate text-xs text-muted-foreground">
                       {item.description}
                     </span>
@@ -377,7 +439,8 @@ export function NavbarSearch({ onSelect, memberships }: NavbarSearchProps) {
             <EmptyHeader>
               <EmptyTitle>No results found</EmptyTitle>
               <EmptyDescription>
-                Try searching for &quot;Today&quot;, &quot;Exam&quot;, &quot;Goal&quot;, or &quot;Settings&quot;.
+                Try searching for &quot;Workspace&quot;, &quot;Exam&quot;,
+                &quot;Question&quot;, or &quot;Settings&quot;.
               </EmptyDescription>
             </EmptyHeader>
           </Empty>

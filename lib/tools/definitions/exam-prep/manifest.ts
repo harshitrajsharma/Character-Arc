@@ -1,4 +1,5 @@
 import { parseToolManifest } from "@/lib/tools/contracts"
+import { agentReadPageProperties } from "@/lib/tools/agent-read-contract"
 
 // ─── Shared property helpers ───────────────────────────────────────────────
 
@@ -111,7 +112,7 @@ export const examPrepManifest = parseToolManifest({
     category: "learn",
   },
   release: {
-    version: "1.11.0",
+    version: "1.12.0",
     schemaVersion: 1,
   },
   routes: {
@@ -1057,19 +1058,20 @@ export const examPrepManifest = parseToolManifest({
       key: "exam.get-context",
       name: "Get exam context",
       description:
-        "Returns the full exam context: all subjects with their chapter and topic trees, progress rollups, and exam metadata.",
+        "Returns exam metadata and one bounded page of agent-visible subjects. Continue with cursor; browse each subject through subject.get-context.",
       execution: "deterministic",
+      readOnly: true,
       requiredPermissions: ["blocks.read.owned"],
       inputSchema: {
         type: "object",
         additionalProperties: false,
         required: ["examId"],
-        properties: examIdInput,
+        properties: { ...agentReadPageProperties, ...examIdInput },
       },
       output: {
         rootBlockTypeKey: "exam-prep.exam",
         createsBlockTypeKeys: [],
-        writesBlockTypeKeys: ["exam-prep.exam"],
+        writesBlockTypeKeys: [],
       },
     },
     {
@@ -1137,14 +1139,16 @@ export const examPrepManifest = parseToolManifest({
       key: "exam.get-weak-topics",
       name: "Get weak topics",
       description:
-        "Returns topics that are below a progress threshold in the specified study stage. Ordered by subject weightage then chapter importance.",
+        "Finds below-complete topics in a bounded exam syllabus page. Test stage uses the current user’s assessment proficiency; other stages use subject completion targets. Continue with cursor.",
       execution: "deterministic",
+      readOnly: true,
       requiredPermissions: ["blocks.read.owned"],
       inputSchema: {
         type: "object",
         additionalProperties: false,
         required: ["examId", "stage"],
         properties: {
+          ...agentReadPageProperties,
           ...examIdInput,
           stage: {
             type: "string",
@@ -1162,15 +1166,16 @@ export const examPrepManifest = parseToolManifest({
       output: {
         rootBlockTypeKey: "exam-prep.exam",
         createsBlockTypeKeys: [],
-        writesBlockTypeKeys: ["exam-prep.exam"],
+        writesBlockTypeKeys: [],
       },
     },
     {
       key: "subject.get-progress",
       name: "Get subject progress",
       description:
-        "Returns the four-stage progress rollup for a single subject.",
+        "Returns canonical four-stage progress for agent-visible subject content and the current user’s manual test records. Reports incomplete rather than a partial rollup above safety limits.",
       execution: "deterministic",
+      readOnly: true,
       requiredPermissions: ["blocks.read.owned"],
       inputSchema: {
         type: "object",
@@ -1181,7 +1186,74 @@ export const examPrepManifest = parseToolManifest({
       output: {
         rootBlockTypeKey: "exam-prep.subject",
         createsBlockTypeKeys: [],
-        writesBlockTypeKeys: ["exam-prep.subject"],
+        writesBlockTypeKeys: [],
+      },
+    },
+    {
+      key: "exam.list",
+      name: "List exams",
+      description:
+        "Find agent-visible exams in this workspace, with bounded cursor pagination. Use returned IDs for subject discovery.",
+      execution: "deterministic",
+      readOnly: true,
+      requiredPermissions: ["blocks.read.owned"],
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        required: [],
+        properties: agentReadPageProperties,
+      },
+      output: {
+        rootBlockTypeKey: "exam-prep.exam",
+        createsBlockTypeKeys: [],
+        writesBlockTypeKeys: [],
+      },
+    },
+    {
+      key: "subject.list",
+      name: "List subjects",
+      description:
+        "Find agent-visible subjects, optionally within one exam. Shared subjects retain their canonical IDs.",
+      execution: "deterministic",
+      readOnly: true,
+      requiredPermissions: ["blocks.read.owned"],
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        required: [],
+        properties: {
+          ...agentReadPageProperties,
+          examId: { type: "string", format: "uuid" },
+        },
+      },
+      output: {
+        rootBlockTypeKey: "exam-prep.subject",
+        createsBlockTypeKeys: [],
+        writesBlockTypeKeys: [],
+      },
+    },
+    {
+      key: "subject.get-context",
+      name: "Get subject study context",
+      description:
+        "Get a subject and one bounded page of its chapters; supply chapterId to browse that chapter’s topics. Returns agent-visible content only.",
+      execution: "deterministic",
+      readOnly: true,
+      requiredPermissions: ["blocks.read.owned"],
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        required: ["subjectId"],
+        properties: {
+          ...agentReadPageProperties,
+          subjectId: { type: "string", format: "uuid" },
+          chapterId: { type: "string", format: "uuid" },
+        },
+      },
+      output: {
+        rootBlockTypeKey: "exam-prep.subject",
+        createsBlockTypeKeys: [],
+        writesBlockTypeKeys: [],
       },
     },
   ],

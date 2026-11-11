@@ -1,32 +1,24 @@
 "use client"
+import { normalizeAssessmentMetadata } from "./assessment-metadata-model"
+import type { PaperType } from "./assessment-paper-types"
 
-import { useEffect, useId, useMemo, useRef, useState, useTransition } from "react"
-import { flushSync } from "react-dom"
-import { useRouter } from "next/navigation"
-import Link from "next/link"
 import {
-  AlertCircleIcon,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+  type ReactNode,
+} from "react"
+import {
   ArrowDownIcon,
-  ArrowLeftIcon,
-  ArrowRightIcon,
   ArrowUpIcon,
-  CheckIcon,
-  CheckCircle2Icon,
-  ChevronDownIcon,
-  ChevronUpIcon,
-  ClockIcon,
-  EyeIcon,
-  FilePenLineIcon,
   HelpCircleIcon,
   LayersIcon,
-  ListChecksIcon,
-  Loader2Icon,
-  PlayIcon,
-  PlusIcon,
-  SearchIcon,
-  SlidersHorizontalIcon,
+  FilePenIcon,
+  CircleCheckIcon,
+  MoreVerticalIcon,
   Trash2Icon,
-  TrophyIcon,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -43,9 +35,13 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import {
   Select,
   SelectContent,
@@ -57,11 +53,8 @@ import {
   Sheet,
   SheetContent,
   SheetDescription,
-  SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
-import { Switch } from "@/components/ui/switch"
-import { SegmentedSelector } from "@/components/ui/segmented-selector"
 import { Spinner } from "@/components/ui/spinner"
 import { cn } from "@/lib/utils"
 import { createIdempotencyKey } from "@/lib/forms/idempotency-key"
@@ -71,20 +64,28 @@ import {
   publishAssessmentAction,
 } from "@/lib/tools/mock-tests/actions/assessment-actions"
 import { createAttemptAction } from "@/lib/tools/mock-tests/actions/attempt-actions"
-import {
-  questionKindLabel,
-  formatNumber,
-} from "@/lib/tools/mock-tests/kind-labels"
+import { formatNumber } from "@/lib/tools/mock-tests/kind-labels"
 import { workspaceRoutes } from "@/lib/routes/workspace-tools"
 import { RichContent } from "@/components/tools/mock-tests/editor/rich-content"
-import { stripHtml, htmlTextLength } from "@/components/tools/mock-tests/editor/html-utils"
-import { reportSaveError } from "@/components/tools/mock-tests/save-error"
+import { QuestionCard } from "./questions/question-card"
+import { AuthorQuestionPreview } from "./questions/author-question-preview"
+import { QuestionOptions, QuestionSolution } from "./questions/question-view"
 import { SectionDialog } from "./section-dialog"
+import { BuilderQuestionSection } from "./builder-question-section"
+import { withSubjectReturn } from "@/lib/tools/exam-prep/assessment-study-context"
+import { AttemptDisplayNotice } from "./attempt-display-notice"
+import { canUseAssessmentDisplayNow } from "@/lib/tools/mock-tests/attempt-display"
+import { BuilderQuestionPicker } from "./builder-question-picker"
+import { useBuilderNavigation } from "./use-builder-navigation"
+import { validateBuilder, type BuilderIssue } from "./builder-validation"
 import {
-  BlueprintFormFields,
-  PAPER_TYPES,
-  type PaperType,
-} from "@/components/tools/mock-tests/blueprint-form-fields"
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuGroup,
+} from "@/components/ui/dropdown-menu"
+import { BlueprintFormFields } from "@/components/tools/mock-tests/blueprint-form-fields"
 import type {
   AssessmentDetail,
   QuestionBankItem,
@@ -194,271 +195,43 @@ function snapshotsEqual(a: SavedSnapshot, b: SavedSnapshot) {
   return JSON.stringify(a) === JSON.stringify(b)
 }
 
-function questionKindBadgeClass(kind: string): string {
-  switch (kind) {
-    case "SINGLE_CHOICE":
-      return "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300"
-    case "MULTIPLE_CHOICE":
-      return "border-teal-500/30 bg-teal-500/10 text-teal-700 dark:text-teal-300"
-    case "TRUE_FALSE":
-      return "border-border bg-muted/60 text-muted-foreground"
-    case "NUMERIC":
-      return "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300"
-    case "SHORT_ANSWER":
-      return "border-cyan-500/30 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300"
-    default:
-      return "border-border bg-muted/60 text-foreground"
-  }
-}
-
-function difficultyBadgeClass(difficulty: number | null): string {
-  if (difficulty === null)
-    return "border-border bg-muted/60 text-muted-foreground"
-  if (difficulty <= 2)
-    return "border-border bg-muted text-muted-foreground"
-  if (difficulty === 3)
-    return "border-brand-amber-line/40 bg-brand-amber-soft text-brand-amber-ink"
-  return "border-success-line/40 bg-success-soft text-success-ink"
-}
-
-function StudentQuestionCard({
-  entry,
-  number,
-  className,
-  onEdit,
+function QuestionRowAction({
+  label,
+  hint,
+  disabled,
+  onClick,
+  children,
+  destructive = false,
 }: {
-  entry: Entry
-  number: number
-  className?: string
-  onEdit?: () => void
+  label: string
+  hint: string
+  disabled?: boolean
+  onClick: () => void
+  children: ReactNode
+  destructive?: boolean
 }) {
-  const [selectedKeys, setSelectedKeys] = useState<string[]>([])
-  const [answerText, setAnswerText] = useState("")
-  const [showAnswerKey, setShowAnswerKey] = useState(false)
-
-  const canRevealSolution = Boolean(
-    entry.answerKeys?.length ||
-    (entry.kind === "NUMERIC" && entry.numericAnswer !== null) ||
-    (entry.kind === "SHORT_ANSWER" && Boolean(entry.textAnswer)) ||
-    (entry.explanation && stripHtml(entry.explanation).trim())
-  )
-
-  function toggleOption(key: string) {
-    if (entry.kind === "SINGLE_CHOICE" || entry.kind === "TRUE_FALSE") {
-      setSelectedKeys((current) => (current.includes(key) ? [] : [key]))
-    } else if (entry.kind === "MULTIPLE_CHOICE") {
-      setSelectedKeys((current) =>
-        current.includes(key)
-          ? current.filter((candidate) => candidate !== key)
-          : [...current, key]
-      )
-    }
-  }
-
-  const isChoice =
-    entry.kind === "SINGLE_CHOICE" ||
-    entry.kind === "MULTIPLE_CHOICE" ||
-    entry.kind === "TRUE_FALSE"
-
   return (
-    <article
-      className={cn(
-        "overflow-hidden rounded-lg border border-border bg-card shadow-xs",
-        className
-      )}
-    >
-      <div className="border-b border-border/80 bg-muted/30 px-4 py-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <span className="flex size-6 items-center justify-center rounded-md border border-border bg-card font-mono text-xs font-bold text-foreground">
-              {number}
-            </span>
-            <Badge
-              variant="outline"
-              className={cn("text-[11px]", questionKindBadgeClass(entry.kind))}
-            >
-              {questionKindLabel(entry.kind)}
-            </Badge>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <span className="font-semibold text-foreground">
-                {formatNumber(entry.marks)} marks
-              </span>
-              {entry.negativeMarks < 0 ? (
-                <span className="text-destructive">
-                  -{formatNumber(Math.abs(entry.negativeMarks))} negative
-                </span>
-              ) : null}
-            </div>
-            {onEdit ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                onClick={onEdit}
-                aria-label={`Edit question ${number}`}
-                className="size-8 text-muted-foreground hover:bg-card hover:text-foreground"
-              >
-                <FilePenLineIcon className="size-3.5" aria-hidden="true" />
-              </Button>
-            ) : null}
-          </div>
-        </div>
-        {entry.section ? (
-          <p className="mt-1 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
-            {entry.section}
-          </p>
-        ) : null}
-      </div>
-
-      <div className="space-y-4 p-4 sm:p-5">
-        <RichContent html={entry.stem} className="text-sm leading-7" />
-
-        {isChoice ? (
-          entry.options.length > 0 ? (
-            <div className="space-y-2">
-              {entry.options.map((option) => {
-                const isSelected = selectedKeys.includes(option.key)
-                const isCorrect = entry.answerKeys?.includes(option.key)
-
-                const stateClass = showAnswerKey
-                  ? isCorrect
-                    ? "border-success-line bg-success-soft"
-                    : isSelected
-                      ? "border-destructive/50 bg-destructive/10"
-                      : "border-border bg-background"
-                  : isSelected
-                    ? "border-primary/50 bg-primary/10 ring-1 ring-primary/30"
-                    : "border-border bg-background hover:bg-muted/40"
-
-                return (
-                  <button
-                    key={option.key}
-                    type="button"
-                    onClick={() => toggleOption(option.key)}
-                    className={cn(
-                      "flex w-full items-start gap-3 rounded-lg border px-3 py-2.5 text-left text-sm transition-colors",
-                      stateClass
-                    )}
-                    aria-pressed={isSelected}
-                  >
-                    <span
-                      className={cn(
-                        "mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full border font-mono text-xs font-semibold",
-                        showAnswerKey && isCorrect
-                          ? "border-success-ink bg-success-ink text-success-foreground"
-                          : isSelected
-                            ? "border-primary bg-primary text-primary-foreground"
-                            : "border-border bg-muted text-muted-foreground"
-                      )}
-                    >
-                      {showAnswerKey && isCorrect ? (
-                        <CheckIcon className="size-3.5" aria-hidden="true" />
-                      ) : (
-                        option.key
-                      )}
-                    </span>
-                    <RichContent
-                      html={option.content}
-                      className="min-w-0 flex-1 leading-6"
-                    />
-                  </button>
-                )
-              })}
-            </div>
-          ) : (
-            <p className="rounded-lg border border-dashed border-border bg-muted/20 px-3 py-4 text-center text-xs text-muted-foreground">
-              No answer options added yet.
-            </p>
-          )
-        ) : entry.kind === "NUMERIC" ? (
-          <div className="space-y-2">
-            <Label htmlFor={`student-numeric-${entry.id}`} className="text-xs">
-              Numeric answer
-            </Label>
-            <Input
-              id={`student-numeric-${entry.id}`}
-              type="number"
-              inputMode="decimal"
-              step="any"
-              value={answerText}
-              onChange={(event) => setAnswerText(event.target.value)}
-              placeholder="Type your answer..."
-              className="h-11"
-            />
-            {showAnswerKey ? (
-              <p className="flex items-center gap-1.5 text-xs font-semibold text-success-ink">
-                <CheckCircle2Icon className="size-3.5" aria-hidden="true" />
-                Correct answer:{" "}
-                <span className="font-mono">
-                  {entry.numericAnswer ?? "Not set"}
-                </span>
-              </p>
-            ) : null}
-          </div>
-        ) : (
-          <div className="space-y-2">
-            <Label htmlFor={`student-text-${entry.id}`} className="text-xs">
-              Written answer
-            </Label>
-            <Textarea
-              id={`student-text-${entry.id}`}
-              rows={3}
-              value={answerText}
-              onChange={(event) => setAnswerText(event.target.value)}
-              placeholder="Type your answer..."
-              className="min-h-24"
-            />
-            {showAnswerKey && entry.textAnswer ? (
-              <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs">
-                <p className="font-semibold text-muted-foreground">
-                  Model answer
-                </p>
-                <p className="mt-1 whitespace-pre-wrap text-foreground">
-                  {entry.textAnswer}
-                </p>
-              </div>
-            ) : null}
-          </div>
-        )}
-
-        {canRevealSolution ? (
-          <div className="border-t border-border/70 pt-3">
-            <Button
-              type="button"
-              variant="ghost"
-              size="xs"
-              className={cn(
-                "h-8 gap-1.5 text-xs",
-                showAnswerKey &&
-                  "bg-muted text-foreground hover:bg-muted"
-              )}
-              aria-pressed={showAnswerKey}
-              onClick={() => setShowAnswerKey((value) => !value)}
-            >
-              <CheckCircle2Icon className="size-3.5" aria-hidden="true" />
-              {showAnswerKey ? "Hide answer key" : "Reveal answer key"}
-            </Button>
-            {showAnswerKey && entry.explanation ? (
-              <div className="mt-3 rounded-lg border border-border bg-muted/20 p-3">
-                <p className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
-                  <HelpCircleIcon
-                    className="size-3.5 text-muted-foreground"
-                    aria-hidden="true"
-                  />
-                  Explanation
-                </p>
-                <RichContent
-                  html={entry.explanation}
-                  className="mt-1 text-xs leading-relaxed text-muted-foreground"
-                />
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-      </div>
-    </article>
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            disabled={disabled}
+            aria-label={label}
+            onClick={onClick}
+            className={cn(
+              "size-11 text-muted-foreground hover:text-foreground",
+              destructive && "hover:bg-destructive/10 hover:text-destructive"
+            )}
+          />
+        }
+      >
+        {children}
+      </TooltipTrigger>
+      <TooltipContent>{hint}</TooltipContent>
+    </Tooltip>
   )
 }
 
@@ -524,7 +297,7 @@ function StudentPaperPreview({
     }
     return [...map.entries()].map(([key, groupEntries]) => ({
       key: key || "__unsectioned__",
-      title: key,
+      title: "Other questions",
       description: null,
       entries: groupEntries,
     }))
@@ -558,7 +331,7 @@ function StudentPaperPreview({
             />
             Instructions
           </p>
-          <p className="whitespace-pre-wrap">{instructions}</p>
+          <RichContent html={instructions} />
         </div>
       ) : null}
 
@@ -593,7 +366,7 @@ function StudentPaperPreview({
                     </Badge>
                   </div>
                   {group.description?.trim() ? (
-                    <p className="mt-2 text-xs text-muted-foreground whitespace-pre-wrap leading-relaxed">
+                    <p className="mt-2 text-xs leading-relaxed whitespace-pre-wrap text-muted-foreground">
                       {group.description.trim()}
                     </p>
                   ) : null}
@@ -603,13 +376,26 @@ function StudentPaperPreview({
                 {group.entries.map((entry) => (
                   <div
                     key={entry.id}
-                    className="block w-full text-left focus-visible:outline-none"
+                    className="block w-full text-left focus-visible:outline-2 focus-visible:outline-ring"
                   >
-                    <StudentQuestionCard
-                      entry={entry}
-                      number={entry.position + 1}
-                      className="transition-colors hover:border-foreground/20"
-                      onEdit={() => onSelect(entry.id)}
+                    <AuthorQuestionPreview
+                      question={entry}
+                      solution={entry}
+                      allocation={{
+                        number: entry.position + 1,
+                        marks: entry.marks,
+                        negativeMarks: entry.negativeMarks,
+                      }}
+                      actions={
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className="min-h-11"
+                          onClick={() => onSelect(entry.id)}
+                        >
+                          Edit question {entry.position + 1}
+                        </Button>
+                      }
                     />
                   </div>
                 ))}
@@ -624,20 +410,25 @@ function StudentPaperPreview({
 
 export function AssessmentBuilder({
   workspaceSlug,
+  viewerId,
   assessment,
-  bank,
+  addedQuestionId,
+  initialTargetSection,
+  subjectReturnHref,
 }: {
   workspaceSlug: string
+  viewerId: string
   assessment: AssessmentDetail
-  bank: QuestionBankItem[]
+  addedQuestionId?: string
+  initialTargetSection?: string | null
+  subjectReturnHref?: string | null
 }) {
-  const router = useRouter()
-  const sectionListId = useId()
   const [revision, setRevision] = useState(assessment.revision)
   const [showBank, setShowBank] = useState(false)
+  const [displayNotice, setDisplayNotice] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>("build")
   const [selectedId, setSelectedId] = useState<string | null>(
-    assessment.questions[0]?.id ?? null
+    addedQuestionId ?? assessment.questions[0]?.id ?? null
   )
   const [expandedIds, setExpandedIds] = useState<Record<string, boolean>>({})
   const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null)
@@ -677,18 +468,17 @@ export function AssessmentBuilder({
   const [sections, setSections] = useState<SectionDefinition[]>(
     assessment.sections ?? []
   )
-  const [bankTargetSection, setBankTargetSection] = useState<string | null>(null)
+  const [bankTargetSection, setBankTargetSection] = useState<string | null>(
+    initialTargetSection ?? null
+  )
   const [isSectionDialogOpen, setIsSectionDialogOpen] = useState(false)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
-  const [editingSection, setEditingSection] = useState<SectionDefinition | null>(
-    null
-  )
-  const [deletingSection, setDeletingSection] = useState<SectionDefinition | null>(
-    null
-  )
-  const [targetQuestionForNewSection, setTargetQuestionForNewSection] = useState<
-    string | null
-  >(null)
+  const [editingSection, setEditingSection] =
+    useState<SectionDefinition | null>(null)
+  const [deletingSection, setDeletingSection] =
+    useState<SectionDefinition | null>(null)
+  const [targetQuestionForNewSection, setTargetQuestionForNewSection] =
+    useState<string | null>(null)
   const [collapsedSections, setCollapsedSections] = useState<
     Record<string, boolean>
   >({})
@@ -697,11 +487,6 @@ export function AssessmentBuilder({
     orderEntriesBySections(assessment.questions, assessment.sections ?? [])
   )
 
-  const [saving, startSaving] = useTransition()
-  const [isPendingSave, setIsPendingSave] = useState(false)
-  const [isPendingPublish, setIsPendingPublish] = useState(false)
-  const isSaveActive = saving || isPendingSave
-  const isPublishActive = saving || isPendingPublish
   const [detailsKey, setDetailsKey] = useState(() => createIdempotencyKey())
   const [questionsKey, setQuestionsKey] = useState(() => createIdempotencyKey())
 
@@ -725,47 +510,10 @@ export function AssessmentBuilder({
     )
   )
 
-  const [bankQuery, setBankQuery] = useState("")
-  const [bankKind, setBankKind] = useState("ALL")
-  const [bankDifficulty, setBankDifficulty] = useState("ALL")
-  const [bankTopic, setBankTopic] = useState("ALL")
-
   const addedQuestionIds = useMemo(
     () => new Set(entries.map((entry) => entry.id)),
     [entries]
   )
-
-  const bankTopics = useMemo(() => {
-    const topics = new Set<string>()
-    for (const item of bank) {
-      for (const topic of item.targetTitles) topics.add(topic)
-    }
-    return [...topics].sort((a, b) => a.localeCompare(b))
-  }, [bank])
-
-  const filteredBank = useMemo(() => {
-    const query = bankQuery.trim().toLowerCase()
-    return bank.filter((item) => {
-      if (query) {
-        const stemMatch = item.stem.toLowerCase().includes(query)
-        const topicMatch = item.targetTitles.some((topic) =>
-          topic.toLowerCase().includes(query)
-        )
-        const optionMatch = item.options.some((option) =>
-          option.content.toLowerCase().includes(query)
-        )
-        if (!stemMatch && !topicMatch && !optionMatch) return false
-      }
-      if (bankKind !== "ALL" && item.kind !== bankKind) return false
-      if (bankDifficulty === "UNSET" && item.difficulty !== null) return false
-      if (bankDifficulty !== "ALL" && bankDifficulty !== "UNSET") {
-        if (item.difficulty !== Number(bankDifficulty)) return false
-      }
-      if (bankTopic !== "ALL" && !item.targetTitles.includes(bankTopic))
-        return false
-      return true
-    })
-  }, [bank, bankQuery, bankKind, bankDifficulty, bankTopic])
 
   const sectionStats = useMemo(() => {
     const map = new Map<string, { count: number; marks: number }>()
@@ -838,53 +586,47 @@ export function AssessmentBuilder({
 
   const isDirty = !snapshotsEqual(savedSnapshot, currentSnapshot)
 
-  function clearBankFilters() {
-    setBankQuery("")
-    setBankKind("ALL")
-    setBankDifficulty("ALL")
-    setBankTopic("ALL")
-  }
-
   function openAddFromBank(targetSectionKey?: string | null) {
-    if (targetSectionKey !== undefined) {
-      setBankTargetSection(targetSectionKey)
-    } else {
-      setBankTargetSection(sections[0]?.key ?? null)
-    }
+    setBankTargetSection((current) => {
+      const next = targetSectionKey === undefined ? current : targetSectionKey
+      return sections.some((section) => section.key === next) ? next : null
+    })
     setShowBank(true)
   }
-
-  function addFromBank(questionId: string) {
-    const item = bank.find((candidate) => candidate.id === questionId)
-    if (!item) return
-    const targetSectionKey =
-      bankTargetSection ?? (sections[0]?.key ?? null)
-
-    const newEntry: Entry = {
-      id: item.id,
-      kind: item.kind,
-      stem: item.stem,
-      difficulty: item.difficulty,
-      options: item.options,
-      answerKeys: item.answerKeys,
-      numericAnswer: item.numericAnswer,
-      textAnswer: item.textAnswer,
-      explanation: item.explanation,
-      targetTitles: item.targetTitles,
-      position: entries.length,
-      section: targetSectionKey,
-      marks: 1,
-      negativeMarks: 0,
-      isNew: true,
-    }
-
+  function addManyFromBank(
+    items: QuestionBankItem[],
+    allocation = { marks: 1, negativeMarks: 0 }
+  ) {
     setEntries((current) => {
-      const next = [...current, newEntry]
-      return orderEntriesBySections(next, sections)
+      const existing = new Set(current.map((entry) => entry.id))
+      const additions: Entry[] = items
+        .filter((item) => {
+          if (existing.has(item.id)) return false
+          existing.add(item.id)
+          return true
+        })
+        .map((item, index) => ({
+          id: item.id,
+          kind: item.kind,
+          stem: item.stem,
+          difficulty: item.difficulty,
+          options: item.options,
+          answerKeys: item.answerKeys,
+          numericAnswer: item.numericAnswer,
+          textAnswer: item.textAnswer,
+          explanation: item.explanation,
+          targetTitles: item.targetTitles,
+          position: current.length + index,
+          section: sections.some((section) => section.key === bankTargetSection)
+            ? bankTargetSection
+            : null,
+          marks: allocation.marks,
+          negativeMarks: allocation.negativeMarks,
+          isNew: true,
+        }))
+      return orderEntriesBySections([...current, ...additions], sections)
     })
-    setSelectedId(questionId)
-    setExpandedIds((current) => ({ ...current, [questionId]: true }))
-    toast.success("Question added to blueprint")
+    if (items.length) setSelectedId(items[items.length - 1].id)
   }
 
   function updateEntry(id: string, patch: Partial<Entry>) {
@@ -931,7 +673,9 @@ export function AssessmentBuilder({
         const targetId = targetQuestionForNewSection
         setEntries((current) => {
           const updated = current.map((entry) =>
-            entry.id === targetId ? { ...entry, section: newSection.key } : entry
+            entry.id === targetId
+              ? { ...entry, section: newSection.key }
+              : entry
           )
           return orderEntriesBySections(updated, nextSections)
         })
@@ -991,21 +735,15 @@ export function AssessmentBuilder({
   function confirmRemove() {
     const id = pendingRemoveId
     if (!id) return
+    const index = entries.findIndex((entry) => entry.id === id)
+    const next = entries[index + 1] ?? entries[index - 1]
     startRemoving(() => {
       removeEntry(id)
       setPendingRemoveId(null)
-    })
-  }
-
-  function moveEntry(id: string, direction: -1 | 1) {
-    setEntries((current) => {
-      const index = current.findIndex((entry) => entry.id === id)
-      const target = index + direction
-      if (index < 0 || target < 0 || target >= current.length) return current
-      const next = [...current]
-      const [moved] = next.splice(index, 1)
-      next.splice(target, 0, moved)
-      return next.map((entry, position) => ({ ...entry, position }))
+      setFocusRequest({
+        id: next ? `question-${next.id}` : "builder-questions",
+        message: "",
+      })
     })
   }
 
@@ -1046,278 +784,275 @@ export function AssessmentBuilder({
     }))
   }
 
-  function validateQuestionValues(): boolean {
-    for (const entry of entries) {
-      if (!Number.isFinite(entry.marks) || entry.marks < 0) {
-        toast.warning("Invalid marks", {
-          description: "Question marks must be zero or greater.",
-        })
-        return false
-      }
-      if (!Number.isFinite(entry.negativeMarks) || entry.negativeMarks > 0) {
-        toast.warning("Invalid negative marks", {
-          description: "Negative marks must be zero or less.",
-        })
-        return false
-      }
-    }
-    return true
-  }
-
-  function validateBenchmarkValues(): boolean {
-    if (
-      !Number.isInteger(passingBenchmark) ||
-      passingBenchmark < 1 ||
-      passingBenchmark > 100
-    ) {
-      toast.warning("Invalid passing cut-off", {
-        description: "Passing cut-off must be a percentage between 1 and 100.",
-      })
-      return false
-    }
-    if (
-      !Number.isInteger(distinctionBenchmark) ||
-      distinctionBenchmark < 1 ||
-      distinctionBenchmark > 100
-    ) {
-      toast.warning("Invalid distinction cut-off", {
-        description: "Distinction cut-off must be a percentage between 1 and 100.",
-      })
-      return false
-    }
-    if (distinctionBenchmark <= passingBenchmark) {
-      toast.warning("Benchmark conflict", {
-        description: "Distinction cut-off must be higher than the passing cut-off.",
-      })
-      return false
-    }
-    return true
-  }
-
-  function handleSaveAll() {
-    if (isSaveActive || isPublishActive) return
-    if (!validateBenchmarkValues()) return
-    const durationMinutes = duration.trim() === "" ? null : Number(duration)
-    const marks = totalMarks.trim() === "" ? null : Number(totalMarks)
-    if (
-      durationMinutes !== null &&
-      (!Number.isInteger(durationMinutes) || durationMinutes < 1)
-    ) {
-      toast.warning("Invalid duration", {
-        description: "Duration must be a whole number of minutes.",
-      })
-      return
-    }
-    if (marks !== null && (!Number.isFinite(marks) || marks <= 0)) {
-      toast.warning("Invalid total marks", {
-        description: "Total marks must be greater than zero.",
-      })
-      return
-    }
-    if (!validateQuestionValues()) return
-
-    flushSync(() => {
-      setIsPendingSave(true)
-    })
-
-    setTimeout(() => {
-      const subjects = subjectsText
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean)
-      const subjectScope = subjects.length > 1 ? "multi_subject" : "single_subject"
-
-      const questions = entries.map((entry) => ({
-        questionId: entry.id,
-        section:
-          entry.section && entry.section.trim() !== ""
-            ? entry.section.trim()
-            : null,
-        position: entry.position,
-        marks: entry.marks,
-        negativeMarks: entry.negativeMarks,
-      }))
-      const snapshot = currentSnapshot
-
-      startSaving(async () => {
-        try {
-          const detailsResult = await updateAssessmentAction({
-            workspaceSlug,
-            assessmentId: assessment.id,
-            expectedRevision: revision,
-            title: title.trim(),
-            instructions: instructions.trim() === "" ? null : instructions.trim(),
-            durationMinutes,
-            totalMarks: marks,
-            blueprint: {
-              sections,
-              calculatorAllowed,
-              taxonomy: {
-                paperType,
-                subjectScope,
-                subjects,
-                examTag: examTag.trim() || null,
-              },
-            },
-            passingBenchmark,
-            distinctionBenchmark,
-            idempotencyKey: detailsKey,
-          })
-          const questionsResult = await saveQuestionsAction({
-            workspaceSlug,
-            assessmentId: assessment.id,
-            expectedRevision: detailsResult.revision,
-            questions,
-            idempotencyKey: questionsKey,
-          })
-          setRevision(questionsResult.revision)
-          setDetailsKey(createIdempotencyKey())
-          setQuestionsKey(createIdempotencyKey())
-          setEntries((current) =>
-            current.map((entry) => ({ ...entry, isNew: false }))
-          )
-          setSavedSnapshot({
-            ...snapshot,
-            sections: [...sections],
-            questions: snapshot.questions.map((question) => ({
-              ...question,
-              isNew: false,
-            })),
-          })
-          setViewMode("build")
-          toast.success("Mock test saved")
-          router.refresh()
-        } catch (error) {
-          setDetailsKey(createIdempotencyKey())
-          setQuestionsKey(createIdempotencyKey())
-          reportSaveError(error, "Failed to save the test.")
-        } finally {
-          setIsPendingSave(false)
-        }
-      })
-    }, 0)
-  }
-
-  function handlePublishAndStartExam() {
-    if (isSaveActive || isPublishActive) return
-    if (entries.length === 0) {
-      toast.warning("Incomplete Paper", {
-        description: "Add at least one question before publishing & attempting.",
-      })
-      return
-    }
-
-    if (!validateQuestionValues()) return
-    if (!validateBenchmarkValues()) return
-
-    flushSync(() => {
-      setIsPendingPublish(true)
-    })
-
-    setTimeout(() => {
-      const durationMinutes = duration.trim() === "" ? null : Number(duration)
-      const marks = totalMarks.trim() === "" ? null : Number(totalMarks)
-
-      const subjects = subjectsText
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean)
-      const subjectScope = subjects.length > 1 ? "multi_subject" : "single_subject"
-
-      const questions = entries.map((entry) => ({
-        questionId: entry.id,
-        section: entry.section ? entry.section.trim() : null,
-        position: entry.position,
-        marks: entry.marks,
-        negativeMarks: entry.negativeMarks,
-      }))
-
-      startSaving(async () => {
-        try {
-          const detailsResult = await updateAssessmentAction({
-            workspaceSlug,
-            assessmentId: assessment.id,
-            expectedRevision: revision,
-            title: title.trim(),
-            instructions: instructions.trim() === "" ? null : instructions.trim(),
-            durationMinutes,
-            totalMarks: marks,
-            blueprint: {
-              sections,
-              calculatorAllowed,
-              taxonomy: {
-                paperType,
-                subjectScope,
-                subjects,
-                examTag: examTag.trim() || null,
-              },
-            },
-            passingBenchmark,
-            distinctionBenchmark,
-            idempotencyKey: detailsKey,
-          })
-          const questionsResult = await saveQuestionsAction({
-            workspaceSlug,
-            assessmentId: assessment.id,
-            expectedRevision: detailsResult.revision,
-            questions,
-            idempotencyKey: questionsKey,
-          })
-
-          const currentRev = questionsResult.revision
-          setRevision(currentRev)
-
-          if (assessment.status !== "published") {
-            await publishAssessmentAction({
-              workspaceSlug,
-              assessmentId: assessment.id,
-              expectedRevision: currentRev,
-              idempotencyKey: createIdempotencyKey(),
-            })
-          }
-
-          const attemptRes = await createAttemptAction({
-            workspaceSlug,
-            assessmentId: assessment.id,
-            idempotencyKey: createIdempotencyKey(),
-          })
-
-          toast.success("Exam paper published! Entering CBT Exam Room...")
-          router.push(workspaceRoutes.mockTests.attempt(workspaceSlug, attemptRes.attemptId))
-        } catch (error) {
-          setDetailsKey(createIdempotencyKey())
-          setQuestionsKey(createIdempotencyKey())
-          reportSaveError(error, "Failed to publish & start exam.")
-        } finally {
-          setIsPendingPublish(false)
-        }
-      })
-    }, 0)
-  }
-
-  const handleSaveAllRef = useRef(handleSaveAll)
-  handleSaveAllRef.current = handleSaveAll
-
+  const [operation, setOperation] = useState<
+    "save" | "publish" | "test" | null
+  >(null)
+  const busy = operation !== null
+  const operationLock = useRef(false)
+  const revisionRef = useRef(assessment.revision)
+  const [published, setPublished] = useState(assessment.status === "published")
+  const [showErrors, setShowErrors] = useState(false)
+  const [reviewMode, setReviewMode] = useState<"publish" | "test" | null>(null)
+  const [saveError, setSaveError] = useState("")
+  const [focusRequest, setFocusRequest] = useState<BuilderIssue | null>(null)
   useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
-      if ((event.metaKey || event.ctrlKey) && !event.shiftKey && !event.altKey) {
-        if (event.key.toLowerCase() === "s") {
-          event.preventDefault()
-          if (isDirty && !saving) {
-            handleSaveAllRef.current()
-          }
-        } else if (event.key.toLowerCase() === "p") {
-          event.preventDefault()
-          setViewMode((prev) => (prev === "build" ? "preview" : "build"))
-        } else if (event.key.toLowerCase() === "b") {
-          event.preventDefault()
-          setShowBank((prev) => !prev)
-        }
+    if (!addedQuestionId) return
+    const row = document.getElementById(`question-${addedQuestionId}`)
+    row?.focus({ preventScroll: true })
+    row?.scrollIntoView({ block: "center" })
+  }, [addedQuestionId])
+  const navigation = useBuilderNavigation(isDirty, busy)
+  const issues = useMemo(
+    () =>
+      validateBuilder({
+        title,
+        instructions,
+        duration,
+        totalMarks,
+        examTag,
+        subjectsText,
+        passingBenchmark,
+        distinctionBenchmark,
+        entries,
+      }),
+    [
+      title,
+      instructions,
+      duration,
+      totalMarks,
+      examTag,
+      subjectsText,
+      passingBenchmark,
+      distinctionBenchmark,
+      entries,
+    ]
+  )
+  const publishIssues: BuilderIssue[] = entries.length
+    ? issues
+    : [
+        {
+          id: "builder-questions",
+          message: "Add at least one question before publishing.",
+        },
+        ...issues,
+      ]
+  const fieldErrors = Object.fromEntries(
+    (showErrors ? issues : [])
+      .filter((issue) => issue.settings)
+      .map((issue) => [issue.id, issue.message])
+  )
+  const targetMismatch =
+    totalMarks.trim() !== "" &&
+    Number.isFinite(Number(totalMarks)) &&
+    Math.abs(paperMarks - Number(totalMarks)) > 0.005
+  const newQuestionHref = withSubjectReturn(
+    workspaceRoutes.mockTests.assessmentQuestionNew(
+      workspaceSlug,
+      assessment.id,
+      bankTargetSection
+    ),
+    subjectReturnHref
+  )
+
+  function focusIssue(issue: BuilderIssue) {
+    setShowErrors(true)
+    if (!issue.settings) setViewMode("build")
+    if (issue.settings) setIsSettingsOpen(true)
+    if (issue.questionId) {
+      setViewMode("build")
+      setExpandedIds((current) => ({ ...current, [issue.questionId!]: true }))
+    }
+    setFocusRequest({ ...issue })
+  }
+  useEffect(() => {
+    if (!focusRequest) return
+    const focus = () => {
+      const wrapper = document.getElementById(focusRequest.id)
+      const target =
+        wrapper?.querySelector<HTMLElement>('[contenteditable="true"]') ??
+        wrapper
+      if (
+        !target ||
+        (focusRequest.id.endsWith("instructions") && !target.isContentEditable)
+      )
+        return false
+      target.focus()
+      target.scrollIntoView({ block: "center" })
+      return true
+    }
+    if (focus()) return
+    const observer = new MutationObserver(() => {
+      if (focus()) observer.disconnect()
+    })
+    observer.observe(document.body, { childList: true, subtree: true })
+    return () => observer.disconnect()
+  }, [focusRequest])
+
+  function openReview() {
+    if (published && !canUseAssessmentDisplayNow()) {
+      setDisplayNotice(true)
+      return
+    }
+    setShowErrors(true)
+    setReviewMode(published ? "test" : "publish")
+  }
+
+  const [, startSaveTransition] = useTransition()
+  function persist(
+    mode: "save" | "publish" | "test" = "save"
+  ): Promise<boolean> {
+    return new Promise((resolve) => {
+      startSaveTransition(async () => {
+        resolve(await persistNow(mode))
+      })
+    })
+  }
+  async function persistNow(
+    mode: "save" | "publish" | "test" = "save"
+  ): Promise<boolean> {
+    if (mode === "test" && !canUseAssessmentDisplayNow()) {
+      setReviewMode(null)
+      setDisplayNotice(true)
+      return false
+    }
+    if (operationLock.current) return false
+    const blocking = mode === "save" ? issues : publishIssues
+    if (blocking.length) {
+      focusIssue(blocking[0])
+      return false
+    }
+    operationLock.current = true
+    setOperation(mode)
+    setSaveError("")
+    let stage = "details"
+    try {
+      if (isDirty) {
+        const metadata = normalizeAssessmentMetadata({
+          title,
+          instructions,
+          paperType,
+          examTag,
+          subjects: subjectsText,
+          durationMinutes: duration,
+          totalMarks,
+          calculatorAllowed,
+          passingBenchmark: String(passingBenchmark),
+          distinctionBenchmark: String(distinctionBenchmark),
+        })
+        const detailsResult = await updateAssessmentAction({
+          workspaceSlug,
+          assessmentId: assessment.id,
+          expectedRevision: revisionRef.current,
+          title: metadata.title,
+          instructions: instructions.trim() || null,
+          durationMinutes: metadata.durationMinutes,
+          totalMarks: metadata.totalMarks,
+          blueprint: {
+            sections,
+            calculatorAllowed,
+            taxonomy: {
+              paperType,
+              subjectScope:
+                metadata.subjects.length > 1 || paperType === "multi_subject"
+                  ? "multi_subject"
+                  : "single_subject",
+              subjects: metadata.subjects,
+              examTag: metadata.examTag,
+            },
+          },
+          passingBenchmark,
+          distinctionBenchmark,
+          idempotencyKey: detailsKey,
+        })
+        revisionRef.current = detailsResult.revision
+        setRevision(detailsResult.revision)
+        setDetailsKey(createIdempotencyKey())
+        stage = "questions"
+        const questionResult = await saveQuestionsAction({
+          workspaceSlug,
+          assessmentId: assessment.id,
+          expectedRevision: revisionRef.current,
+          questions: entries.map((entry) => ({
+            questionId: entry.id,
+            section: entry.section?.trim() || null,
+            position: entry.position,
+            marks: entry.marks,
+            negativeMarks: entry.negativeMarks,
+          })),
+          idempotencyKey: questionsKey,
+        })
+        revisionRef.current = questionResult.revision
+        setRevision(questionResult.revision)
+        setQuestionsKey(createIdempotencyKey())
+        setSavedSnapshot({
+          ...currentSnapshot,
+          questions: currentSnapshot.questions.map((q) => ({
+            ...q,
+            isNew: false,
+          })),
+        })
+        setEntries((current) =>
+          current.map((entry) => ({ ...entry, isNew: false }))
+        )
+      }
+      stage = mode
+      if (mode === "publish" && !published) {
+        const result = await publishAssessmentAction({
+          workspaceSlug,
+          assessmentId: assessment.id,
+          expectedRevision: revisionRef.current,
+          idempotencyKey: createIdempotencyKey(),
+        })
+        revisionRef.current = result.revision
+        setRevision(result.revision)
+        setPublished(true)
+        setReviewMode(null)
+        toast.success("Assessment published", {
+          description:
+            "You can share it from the assessment page. No test attempt was started.",
+        })
+      } else if (mode === "test") {
+        if (!published)
+          throw new Error("Publish this assessment before starting a test run.")
+        const result = await createAttemptAction({
+          workspaceSlug,
+          assessmentId: assessment.id,
+          idempotencyKey: createIdempotencyKey(),
+        })
+        navigation.leave(
+          workspaceRoutes.mockTests.attempt(workspaceSlug, result.attemptId)
+        )
+      } else toast.success("Assessment saved")
+      return true
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "Try again."
+      setSaveError(
+        stage === "questions"
+          ? `Assessment details were saved, but the question list could not be saved. Your edits are retained. Retry saving. ${detail}`
+          : `Could not ${mode === "save" ? "save" : mode === "publish" ? "publish" : "start test run"}. Your edits are retained. ${detail}`
+      )
+      return false
+    } finally {
+      operationLock.current = false
+      setOperation(null)
+    }
+  }
+  const saveShortcut = useRef<() => void>(() => {})
+  useEffect(() => {
+    saveShortcut.current = () => {
+      void persist("save")
+    }
+  })
+  useEffect(() => {
+    const key = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+        event.preventDefault()
+        saveShortcut.current()
       }
     }
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [isDirty, saving])
+    window.addEventListener("keydown", key)
+    return () => window.removeEventListener("keydown", key)
+  }, [])
 
   function renderQuestionItem(entry: Entry, siblingIds: string[]) {
     const isExpanded = Boolean(expandedIds[entry.id])
@@ -1327,1051 +1062,809 @@ export function AssessmentBuilder({
 
     return (
       <li
+        id={`question-${entry.id}`}
+        tabIndex={-1}
         key={entry.id}
         className={cn(
-          "transition-colors",
-          entry.isNew && "bg-emerald-500/5 dark:bg-emerald-500/10",
-          selectedId === entry.id &&
-            "border-l-2 border-foreground",
-          selectedId === entry.id &&
-            !isExpanded &&
-            "bg-muted/30",
+          "scroll-mt-24 transition-colors focus-visible:outline-2 focus-visible:outline-ring",
+          entries.length > 50 &&
+            "[contain-intrinsic-size:auto_160px] [content-visibility:auto]",
+          entry.isNew && "bg-success-soft/30",
+          selectedId === entry.id && !isExpanded && "bg-muted/30",
           isExpanded && "bg-muted/20"
         )}
       >
-        <div className="flex items-start gap-3 p-3 sm:p-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => toggleExpanded(entry.id)}
-            aria-label={
-              isExpanded
-                ? `Collapse question ${entry.position + 1}`
-                : `Expand question ${entry.position + 1}`
-            }
-            aria-expanded={isExpanded}
-            className="mt-0.5 size-9 shrink-0 rounded-lg border border-border bg-card text-muted-foreground hover:text-foreground sm:size-10"
-          >
-            {isExpanded ? (
-              <ChevronUpIcon className="size-4" aria-hidden="true" />
-            ) : (
-              <ChevronDownIcon className="size-4" aria-hidden="true" />
-            )}
-          </Button>
-
-          <button
-            type="button"
-            aria-current={selectedId === entry.id ? "true" : undefined}
-            onClick={() => {
-              setSelectedId(entry.id)
-              if (!isExpanded) toggleExpanded(entry.id)
-            }}
-            className="min-w-0 flex-1 cursor-pointer text-left focus-visible:outline-none"
-          >
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="font-mono text-xs font-medium text-muted-foreground tabular-nums">
-                Q{entry.position + 1}
-              </span>
-              <Badge
-                variant="outline"
-                className={cn(
-                  "text-[10px]",
-                  questionKindBadgeClass(entry.kind)
-                )}
-              >
-                {questionKindLabel(entry.kind)}
-              </Badge>
-              {entry.difficulty !== null ? (
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    "text-[10px]",
-                    difficultyBadgeClass(entry.difficulty)
-                  )}
-                >
-                  Level {entry.difficulty}
-                </Badge>
-              ) : null}
+        <QuestionCard
+          mode="disclosure"
+          question={entry}
+          allocation={{
+            number: entry.position + 1,
+            marks: entry.marks,
+            negativeMarks: entry.negativeMarks,
+            section:
+              sections.find((s) => s.key === entry.section)?.title ??
+              entry.section,
+          }}
+          expanded={isExpanded}
+          onToggle={() => {
+            setSelectedId(entry.id)
+            toggleExpanded(entry.id)
+          }}
+          label={`${isExpanded ? "Collapse" : "Expand"} question ${entry.position + 1}`}
+          footer={
+            <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
               {entry.isNew ? (
-                <Badge className="border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
+                <Badge className="border-success-line bg-success-soft text-success-ink">
                   New
                 </Badge>
               ) : null}
-            </div>
-
-            <RichContent
-              html={entry.stem}
-              className="mt-1.5 line-clamp-2 text-sm leading-6"
-            />
-
-            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-              <span className="font-medium text-foreground">
-                {formatNumber(entry.marks)} marks
-              </span>
-              {entry.negativeMarks < 0 ? (
-                <span className="text-destructive">
-                  -{formatNumber(Math.abs(entry.negativeMarks))} negative
-                </span>
+              {!entry.section && sections.length ? (
+                <span>Unassigned</span>
               ) : null}
-              <span>
-                {(() => {
-                  if (!entry.section) return "Unassigned"
-                  const matched = sections.find((s) => s.key === entry.section)
-                  return matched ? matched.title : entry.section
-                })()}
-              </span>
               {entry.targetTitles?.length ? (
-                <span className="hidden truncate sm:inline">
+                <span className="[overflow-wrap:anywhere]">
                   {entry.targetTitles.join(", ")}
                 </span>
               ) : null}
             </div>
-          </button>
-
-          <div className="flex shrink-0 flex-col items-center gap-1 sm:flex-row">
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => moveEntryInSection(entry.id, -1, siblingIds)}
-              disabled={isFirstInSiblings}
-              aria-label={`Move question ${entry.position + 1} up`}
-              className="size-9 text-muted-foreground hover:text-foreground"
-            >
-              <ArrowUpIcon className="size-4" aria-hidden="true" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => moveEntryInSection(entry.id, 1, siblingIds)}
-              disabled={isLastInSiblings}
-              aria-label={`Move question ${entry.position + 1} down`}
-              className="size-9 text-muted-foreground hover:text-foreground"
-            >
-              <ArrowDownIcon className="size-4" aria-hidden="true" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => setPendingRemoveId(entry.id)}
-              aria-label={`Remove question ${entry.position + 1}`}
-              className="size-9 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-            >
-              <Trash2Icon className="size-4" aria-hidden="true" />
-            </Button>
-          </div>
-        </div>
-
-        {isExpanded ? (
-          <div className="border-t border-border bg-muted/15 p-3 sm:p-4">
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="grid gap-1.5">
-                <Label htmlFor={`marks-${entry.id}`} className="text-xs">
-                  Marks
-                </Label>
-                <Input
-                  id={`marks-${entry.id}`}
-                  type="number"
-                  inputMode="decimal"
-                  min={0}
-                  max={999999.99}
-                  step="any"
-                  value={String(entry.marks)}
-                  onChange={(event) =>
-                    updateEntry(entry.id, {
-                      marks: Number(event.target.value),
-                    })
-                  }
-                  className="h-11"
-                />
-              </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor={`negative-${entry.id}`} className="text-xs">
-                  Negative marks (0 or less)
-                </Label>
-                <Input
-                  id={`negative-${entry.id}`}
-                  type="number"
-                  inputMode="decimal"
-                  min={-999999.99}
-                  max={0}
-                  step="any"
-                  value={String(entry.negativeMarks)}
-                  onChange={(event) =>
-                    updateEntry(entry.id, {
-                      negativeMarks: Number(event.target.value),
-                    })
-                  }
-                  className="h-11"
-                />
-              </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor={`section-${entry.id}`} className="text-xs">
-                  Section
-                </Label>
-                <Select
-                  value={entry.section ?? "__none__"}
-                  onValueChange={(val) => {
-                    if (val === "__create_new__") {
-                      handleRequestCreateSection(entry.id)
-                      return
-                    }
-                    if (val === "__none__") {
-                      handleAssignSection(entry.id, null)
-                      return
-                    }
-                    handleAssignSection(entry.id, val)
-                  }}
+          }
+          actions={
+            <>
+              <div className="hidden shrink-0 items-center gap-1 sm:flex">
+                <QuestionRowAction
+                  label={`Move question ${entry.position + 1} up`}
+                  hint="Move up within this section"
+                  disabled={isFirstInSiblings}
+                  onClick={() => moveEntryInSection(entry.id, -1, siblingIds)}
                 >
-                  <SelectTrigger
-                    id={`section-${entry.id}`}
-                    className="h-11 w-full text-xs"
+                  <ArrowUpIcon className="size-4" aria-hidden="true" />
+                </QuestionRowAction>
+                <QuestionRowAction
+                  label={`Move question ${entry.position + 1} down`}
+                  hint="Move down within this section"
+                  disabled={isLastInSiblings}
+                  onClick={() => moveEntryInSection(entry.id, 1, siblingIds)}
+                >
+                  <ArrowDownIcon className="size-4" aria-hidden="true" />
+                </QuestionRowAction>
+                <QuestionRowAction
+                  label={`Remove question ${entry.position + 1}`}
+                  hint="Remove from this assessment"
+                  destructive
+                  onClick={() => setPendingRemoveId(entry.id)}
+                >
+                  <Trash2Icon className="size-4" aria-hidden="true" />
+                </QuestionRowAction>
+              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      variant="ghost"
+                      className="size-11 shrink-0 sm:hidden"
+                      aria-label={`Actions for question ${entry.position + 1}`}
+                    />
+                  }
+                >
+                  <MoreVerticalIcon aria-hidden="true" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    disabled={isFirstInSiblings}
+                    onClick={() => moveEntryInSection(entry.id, -1, siblingIds)}
                   >
-                    <SelectValue placeholder="Select section">
-                      {(() => {
-                        if (!entry.section || entry.section === "__none__") {
-                          return "None / Unassigned"
-                        }
-                        const matched = sections.find(
-                          (s) => s.key === entry.section
-                        )
-                        return matched
-                          ? matched.title
-                          : `${entry.section} (Custom)`
-                      })()}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">None / Unassigned</SelectItem>
-                    {sections.map((sec) => (
-                      <SelectItem key={sec.key} value={sec.key}>
-                        {sec.title} ({sec.key})
-                      </SelectItem>
-                    ))}
-                    {entry.section &&
-                    !sections.some((s) => s.key === entry.section) ? (
-                      <SelectItem value={entry.section}>
-                        {entry.section} (Legacy)
-                      </SelectItem>
-                    ) : null}
-                    <SelectItem
-                      value="__create_new__"
-                      className="font-semibold text-foreground"
+                    Move up
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={isLastInSiblings}
+                    onClick={() => moveEntryInSection(entry.id, 1, siblingIds)}
+                  >
+                    Move down
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onClick={() => setPendingRemoveId(entry.id)}
+                  >
+                    Remove question
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
+          }
+        >
+          {isExpanded ? (
+            <div className="min-w-0">
+              <h3 className="mb-3 text-sm font-semibold">
+                Assessment settings
+              </h3>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="grid gap-1.5">
+                  <Label htmlFor={`marks-${entry.id}`} className="text-xs">
+                    Marks
+                  </Label>
+                  <Input
+                    id={`marks-${entry.id}`}
+                    aria-invalid={
+                      showErrors &&
+                      issues.some((issue) => issue.id === `marks-${entry.id}`)
+                    }
+                    aria-describedby={
+                      showErrors &&
+                      issues.some((issue) => issue.id === `marks-${entry.id}`)
+                        ? `marks-error-${entry.id}`
+                        : undefined
+                    }
+                    type="number"
+                    inputMode="decimal"
+                    min={0}
+                    max={999999.99}
+                    step="any"
+                    value={
+                      Number.isFinite(entry.marks) ? String(entry.marks) : ""
+                    }
+                    onChange={(event) =>
+                      updateEntry(entry.id, {
+                        marks: Number(event.target.value),
+                      })
+                    }
+                    className="h-11"
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor={`negative-${entry.id}`} className="text-xs">
+                    Negative marks (0 or less)
+                  </Label>
+                  <Input
+                    id={`negative-${entry.id}`}
+                    aria-invalid={
+                      showErrors &&
+                      issues.some(
+                        (issue) => issue.id === `negative-${entry.id}`
+                      )
+                    }
+                    aria-describedby={
+                      showErrors &&
+                      issues.some(
+                        (issue) => issue.id === `negative-${entry.id}`
+                      )
+                        ? `negative-error-${entry.id}`
+                        : undefined
+                    }
+                    type="number"
+                    inputMode="decimal"
+                    min={-999999.99}
+                    max={0}
+                    step="any"
+                    value={
+                      Number.isFinite(entry.negativeMarks)
+                        ? String(entry.negativeMarks)
+                        : ""
+                    }
+                    onChange={(event) =>
+                      updateEntry(entry.id, {
+                        negativeMarks: Number(event.target.value),
+                      })
+                    }
+                    className="h-11"
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor={`section-${entry.id}`} className="text-xs">
+                    Section
+                  </Label>
+                  <Select
+                    value={entry.section ?? "__none__"}
+                    onValueChange={(val) => {
+                      if (val === "__create_new__") {
+                        handleRequestCreateSection(entry.id)
+                        return
+                      }
+                      if (val === "__none__") {
+                        handleAssignSection(entry.id, null)
+                        return
+                      }
+                      handleAssignSection(entry.id, val)
+                    }}
+                  >
+                    <SelectTrigger
+                      id={`section-${entry.id}`}
+                      className="h-11 w-full text-xs"
                     >
-                      + Create new section...
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
+                      <SelectValue placeholder="Select section">
+                        {(() => {
+                          if (!entry.section || entry.section === "__none__") {
+                            return "None / Unassigned"
+                          }
+                          const matched = sections.find(
+                            (s) => s.key === entry.section
+                          )
+                          return matched
+                            ? matched.title
+                            : `${entry.section} (Custom)`
+                        })()}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">
+                        None / Unassigned
+                      </SelectItem>
+                      {sections.map((sec) => (
+                        <SelectItem key={sec.key} value={sec.key}>
+                          {sec.title}
+                        </SelectItem>
+                      ))}
+                      {entry.section &&
+                      !sections.some((s) => s.key === entry.section) ? (
+                        <SelectItem value={entry.section}>
+                          {entry.section} (Legacy)
+                        </SelectItem>
+                      ) : null}
+                      <SelectItem
+                        value="__create_new__"
+                        className="font-semibold text-foreground"
+                      >
+                        + Create new section...
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {showErrors
+                ? issues
+                    .filter((issue) => issue.questionId === entry.id)
+                    .map((issue) => (
+                      <p
+                        id={`${issue.id.startsWith("negative") ? "negative" : "marks"}-error-${entry.id}`}
+                        key={issue.id}
+                        role="alert"
+                        className="mt-2 text-sm text-destructive"
+                      >
+                        {issue.message}
+                      </p>
+                    ))
+                : null}
+              <Button
+                variant="outline"
+                className="mt-3 h-11"
+                onClick={() =>
+                  navigation.request(
+                    withSubjectReturn(
+                      workspaceRoutes.mockTests.questionEdit(
+                        workspaceSlug,
+                        entry.id
+                      ) +
+                        `?fromAssessmentId=${encodeURIComponent(assessment.id)}`,
+                      subjectReturnHref
+                    )
+                  )
+                }
+              >
+                Edit question content
+              </Button>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Question content is shared with your question bank. Marks and
+                section apply to this assessment.
+              </p>
+              <div className="mt-4 grid min-w-0 gap-3 border-t border-border pt-3">
+                <h3 className="text-sm font-semibold">Answer key</h3>
+                {entry.options.length ? (
+                  <QuestionOptions question={entry} solution={entry} />
+                ) : null}
+                <QuestionSolution question={entry} solution={entry} />
               </div>
             </div>
-
-            <div className="mt-4 border-t border-border pt-3">
-              <p className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
-                Answer key
-              </p>
-              {entry.options.length > 0 ? (
-                <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                  {entry.options.map((option) => {
-                    const isCorrect = entry.answerKeys?.includes(option.key)
-                    return (
-                      <div
-                        key={option.key}
-                        className={cn(
-                          "flex items-start gap-2 rounded-lg border px-2.5 py-2 text-xs",
-                          isCorrect
-                            ? "border-success-line bg-success-soft"
-                            : "border-border bg-card"
-                        )}
-                      >
-                        <span
-                          className={cn(
-                            "flex size-5 shrink-0 items-center justify-center rounded border font-mono text-[10px] font-bold",
-                            isCorrect
-                              ? "border-success-ink bg-success-ink text-success-foreground"
-                              : "border-border bg-muted text-muted-foreground"
-                          )}
-                        >
-                          {option.key}
-                        </span>
-                        <RichContent
-                          html={option.content}
-                          className="min-w-0 flex-1 leading-relaxed"
-                        />
-                        {isCorrect ? (
-                          <CheckCircle2Icon
-                            className="mt-0.5 size-3.5 shrink-0 text-success-ink"
-                            aria-hidden="true"
-                          />
-                        ) : null}
-                      </div>
-                    )
-                  })}
-                </div>
-              ) : entry.kind === "NUMERIC" && entry.numericAnswer !== null ? (
-                <p className="mt-2 rounded-lg border border-border bg-card px-3 py-2 text-xs">
-                  Correct answer:{" "}
-                  <span className="font-mono font-bold text-success-ink">
-                    {entry.numericAnswer}
-                  </span>
-                </p>
-              ) : entry.kind === "SHORT_ANSWER" && entry.textAnswer ? (
-                <p className="mt-2 rounded-lg border border-border bg-card px-3 py-2 text-xs">
-                  <span className="font-semibold text-muted-foreground">
-                    Model answer:
-                  </span>{" "}
-                  {entry.textAnswer}
-                </p>
-              ) : (
-                <p className="mt-2 text-xs text-muted-foreground italic">
-                  No answer key set for this question.
-                </p>
-              )}
-            </div>
-          </div>
-        ) : null}
+          ) : null}
+        </QuestionCard>
       </li>
     )
   }
 
   return (
-    <div className="space-y-6">
-      {/* Blueprint strip */}
-      <section className="border-b border-border pb-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge
-              variant="outline"
-              className={cn(
-                "capitalize",
-                assessment.status === "published"
-                  ? "border-success-line/40 bg-success-soft text-success-ink"
-                  : "border-muted-foreground/30 bg-muted/40 text-muted-foreground"
-              )}
-            >
-              {assessment.status === "published" ? "Published" : "Draft"}
-            </Badge>
-            <span className="text-xs text-muted-foreground">
-              Rev {revision}
-            </span>
-            <Badge
-              variant="outline"
-              aria-live="polite"
-              className={cn(
-                "text-[11px]",
-                isDirty
-                  ? "border-brand-amber-line/40 bg-brand-amber-soft text-brand-amber-ink"
-                  : "border-success-line/40 bg-success-soft text-success-ink"
-              )}
-            >
-              {isDirty ? "Unsaved changes" : "Saved"}
-            </Badge>
-          </div>
-          <div className="hidden items-center gap-2 sm:flex">
-            <Button
-              variant="outline"
-              onClick={() => openAddFromBank()}
-              disabled={isSaveActive || isPublishActive}
-            >
-              <PlusIcon data-icon="inline-start" aria-hidden="true" />
-              Add from bank
-            </Button>
-            <Button
-              onClick={handlePublishAndStartExam}
-              disabled={isSaveActive || isPublishActive}
-              className="font-bold gap-1 text-xs"
-            >
-              {isPublishActive ? (
-                <Loader2Icon className="size-3.5 animate-spin" aria-hidden="true" />
-              ) : (
-                <PlayIcon className="size-3.5 fill-current stroke-none" />
-              )}
-              {isPublishActive
-                ? "Publishing..."
-                : assessment.status === "published"
-                  ? "Test run CBT"
-                  : "Publish paper"}
-            </Button>
-            <Button onClick={handleSaveAll} disabled={!isDirty || isSaveActive || isPublishActive}>
-              {isSaveActive ? (
-                <Loader2Icon className="animate-spin" aria-hidden="true" />
-              ) : (
-                <CheckIcon data-icon="inline-start" aria-hidden="true" />
-              )}
-              {isSaveActive ? "Saving..." : "Save changes"}
-            </Button>
-          </div>
-        </div>
-
-        <dl className="mt-4 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border lg:grid-cols-4">
-          <div className="bg-card px-4 py-3">
-            <dt className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
-              <ListChecksIcon
-                className="size-3.5 text-muted-foreground"
-                aria-hidden="true"
-              />
-              Questions
-            </dt>
-            <dd className="mt-1 font-heading text-xl font-semibold text-foreground">
-              {entries.length}
-            </dd>
-          </div>
-          <div className="bg-card px-4 py-3">
-            <dt className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
-              <TrophyIcon
-                className="size-3.5 text-muted-foreground"
-                aria-hidden="true"
-              />
-              Total marks
-            </dt>
-            <dd className="mt-1 font-heading text-xl font-semibold text-foreground">
-              {formatNumber(paperMarks)}
-              {totalMarks.trim() !== "" ? (
-                <span className="ml-1 text-xs font-normal text-muted-foreground">
-                  / {totalMarks} target
-                </span>
-              ) : null}
-            </dd>
-          </div>
-          <div className="bg-card px-4 py-3">
-            <dt className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
-              <ClockIcon
-                className="size-3.5 text-muted-foreground"
-                aria-hidden="true"
-              />
-              Duration
-            </dt>
-            <dd className="mt-1 font-heading text-xl font-semibold text-foreground">
-              {duration.trim() === "" ? "Untimed" : `${duration} min`}
-            </dd>
-          </div>
-          <div className="bg-card px-4 py-3">
-            <dt className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
-              <LayersIcon
-                className="size-3.5 text-muted-foreground"
-                aria-hidden="true"
-              />
-              Readiness
-            </dt>
-            <dd className="mt-1">
-              <Badge
-                variant="outline"
-                className={cn(
-                  "text-xs font-semibold",
-                  entries.length > 0
-                    ? assessment.status === "published"
-                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
-                      : "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300"
-                    : "border-border bg-muted/60 text-muted-foreground"
-                )}
-              >
-                {entries.length > 0
-                  ? assessment.status === "published"
-                    ? "Published"
-                    : "Ready to publish"
-                  : "Needs questions"}
-              </Badge>
-            </dd>
-          </div>
-        </dl>
-      </section>
-
-      {/* View switch */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <SegmentedSelector
-          value={viewMode}
-          onValueChange={(value) => setViewMode(value)}
-          options={[
-            {
-              value: "build",
-              label: "Build",
-              icon: FilePenLineIcon,
-              activeClassName:
-                "bg-background text-foreground shadow-xs font-semibold data-[pressed]:bg-background",
-            },
-            {
-              value: "preview",
-              label: "Student preview",
-              icon: EyeIcon,
-              activeClassName:
-                "bg-background text-foreground shadow-xs font-semibold data-[pressed]:bg-background",
-            },
-          ]}
-          ariaLabel="Editor view"
-          className="sm:w-fit"
-        />
-        <p className="hidden text-xs text-muted-foreground sm:block">
-          {viewMode === "build"
-            ? "Configure questions, sections, and marks."
-            : "Review paper layout as candidates will see it."}
-        </p>
-      </div>
-
-      <div className="grid gap-6">
-        {/* Main builder / paper column */}
-        <div className="min-w-0 space-y-6">
-          {viewMode === "build" ? (
-            <>
-              {/* Compact Blueprint Summary HUD Card */}
-              <div className="rounded-xl border border-border bg-card p-4 sm:p-5 shadow-xs transition-colors">
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                  <div className="space-y-2.5 min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      {(() => {
-                        const currentPaperTypeObj = PAPER_TYPES.find(
-                          (p) => p.id === paperType
-                        )
-                        return (
-                          <Badge
-                            variant="outline"
-                            className={cn(
-                              "text-[11px] font-semibold",
-                              currentPaperTypeObj?.pillClass
-                            )}
-                          >
-                            {currentPaperTypeObj?.label ?? "Full-Length Mock"}
-                          </Badge>
-                        )
-                      })()}
-                      {examTag.trim() ? (
-                        <Badge
-                          variant="outline"
-                          className="text-[11px] font-medium border-border bg-muted/60 text-foreground"
-                        >
-                          {examTag.trim()}
-                        </Badge>
-                      ) : null}
-                      {subjectsText
-                        .split(",")
-                        .map((s) => s.trim())
-                        .filter(Boolean)
-                        .map((sub) => (
-                          <Badge
-                            key={sub}
-                            variant="outline"
-                            className="text-[11px] font-normal border-border/80 bg-muted/40 text-muted-foreground"
-                          >
-                            {sub}
-                          </Badge>
-                        ))}
-                    </div>
-
-                    <div>
-                      <h2 className="font-heading text-lg sm:text-xl font-bold tracking-tight text-foreground truncate">
-                        {title.trim() || "Untitled Mock Test"}
-                      </h2>
-                      {instructions.trim() ? (
-                        <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
-                          <span className="font-medium text-foreground">Instructions: </span>
-                          {stripHtml(instructions).trim()}
-                        </p>
-                      ) : null}
-                    </div>
-
-                    {/* Meta Specs Pill Row */}
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 pt-1 text-xs text-muted-foreground">
-                      <span className="inline-flex items-center gap-1.5">
-                        <ClockIcon className="size-3.5 text-muted-foreground" aria-hidden="true" />
-                        <span>{duration.trim() === "" ? "Untimed" : `${duration} mins`}</span>
-                      </span>
-                      <span className="inline-flex items-center gap-1.5">
-                        <TrophyIcon className="size-3.5 text-muted-foreground" aria-hidden="true" />
-                        <span>{totalMarks.trim() === "" ? "Marks unconstrained" : `${totalMarks} target marks`}</span>
-                      </span>
-                      <span className="inline-flex items-center gap-1.5 font-mono text-[11px]">
-                        <span className="text-amber-700 dark:text-amber-400 font-medium">Pass: {passingBenchmark}%</span>
-                        <span className="text-muted-foreground/40">•</span>
-                        <span className="text-emerald-700 dark:text-emerald-400 font-medium">Distinction: {distinctionBenchmark}%</span>
-                      </span>
-                      <span className="inline-flex items-center gap-1">
-                        <span
-                          className={cn(
-                            "size-2 rounded-full",
-                            calculatorAllowed ? "bg-emerald-500" : "bg-muted-foreground/40"
-                          )}
-                          aria-hidden="true"
-                        />
-                        <span>{calculatorAllowed ? "Calculator allowed" : "No calculator"}</span>
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="shrink-0 flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setIsSettingsOpen(true)}
-                      className="gap-1.5 text-xs font-semibold"
-                    >
-                      <SlidersHorizontalIcon className="size-3.5" aria-hidden="true" />
-                      Edit Settings
-                    </Button>
-                  </div>
-                </div>
+    <div className="flex min-w-0 flex-col gap-5">
+      <div inert={busy} className="flex min-w-0 flex-col gap-5">
+        <header className="flex min-w-0 flex-col gap-4">
+          <div className="flex min-w-0 flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0 flex-1">
+              <p className="mb-1 text-sm text-muted-foreground">
+                Assessment builder
+              </p>
+              <div className="flex min-w-0 flex-wrap items-center gap-3">
+                <h1 className="min-w-0 font-heading text-2xl font-semibold [overflow-wrap:anywhere] break-words sm:text-3xl">
+                  {title.trim() || "Untitled assessment"}
+                </h1>
+                <Badge
+                  variant="secondary"
+                  className={cn(
+                    "min-h-8 gap-1.5 px-3 text-sm",
+                    published && "bg-success-soft text-success-ink"
+                  )}
+                  data-assessment-status
+                >
+                  {published ? (
+                    <CircleCheckIcon aria-hidden="true" />
+                  ) : (
+                    <FilePenIcon aria-hidden="true" />
+                  )}
+                  {published ? "Published" : "Draft"}
+                </Badge>
               </div>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <span role="status" aria-live="polite">
+                  {busy
+                    ? operation === "save"
+                      ? "Saving…"
+                      : operation === "publish"
+                        ? "Publishing…"
+                        : "Starting test run…"
+                    : isDirty
+                      ? "Unsaved changes"
+                      : "Saved"}
+                </span>
+                <span title="Assessment revision">Revision {revision}</span>
+              </div>
+            </div>
+            <div className="hidden gap-2 lg:flex">
+              <Button
+                variant="outline"
+                className="h-11"
+                disabled={!isDirty || busy}
+                onClick={() => void persist("save")}
+              >
+                {operation === "save" ? "Saving…" : "Save changes"}
+              </Button>
+              <Button
+                variant="outline"
+                className="h-11"
+                disabled={busy}
+                onClick={openReview}
+              >
+                {published ? "Test run" : "Review & publish"}
+              </Button>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
+            <p className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+              <span>
+                {entries.length}{" "}
+                {entries.length === 1 ? "question" : "questions"}
+              </span>
+              <span>
+                {formatNumber(paperMarks)} marks
+                {totalMarks.trim() ? ` / ${totalMarks} target` : ""}
+              </span>
+              <span>{duration.trim() ? `${duration} min` : "Untimed"}</span>
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              {subjectReturnHref ? (
+                <Button
+                  variant="outline"
+                  className="h-11"
+                  onClick={() => navigation.request(subjectReturnHref)}
+                >
+                  Subject tests
+                </Button>
+              ) : null}
+              <Button
+                variant="ghost"
+                className="h-11"
+                onClick={() => setIsSettingsOpen(true)}
+              >
+                Edit details
+              </Button>
+              <Button
+                variant="ghost"
+                className="h-11"
+                aria-pressed={viewMode === "preview"}
+                onClick={() =>
+                  setViewMode((v) => (v === "build" ? "preview" : "build"))
+                }
+              >
+                {viewMode === "preview" ? "Back to build" : "Student preview"}
+              </Button>
+              <Button
+                variant="ghost"
+                className="h-11 lg:hidden"
+                onClick={openReview}
+              >
+                {published ? "Test run" : "Review & publish"}
+              </Button>
+            </div>
+          </div>
+        </header>
 
-              {/* Exam Sections Manager Strip */}
-              <section className="space-y-4 rounded-xl border border-border bg-card p-4 sm:p-5">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex items-center gap-2.5">
-                    <div className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-border bg-muted text-foreground">
-                      <LayersIcon className="size-4" aria-hidden="true" />
-                    </div>
-                    <div>
-                      <h2 className="font-heading text-base font-semibold text-foreground sm:text-lg">
-                        Exam sections
-                      </h2>
-                      <p className="text-xs text-muted-foreground sm:text-sm">
-                        Divide questions into timed or categorized test sections.
-                      </p>
-                    </div>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleRequestCreateSection()}
-                    className="gap-1.5 text-xs font-semibold"
-                  >
-                    <PlusIcon className="size-3.5" aria-hidden="true" />
-                    Add section
-                  </Button>
-                </div>
+        {saveError ? (
+          <div
+            className="rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive"
+            role="alert"
+          >
+            {saveError}
+          </div>
+        ) : null}
 
-                {sections.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 px-4 py-8 text-center">
-                    <LayersIcon
-                      className="size-6 text-muted-foreground/60"
-                      aria-hidden="true"
-                    />
-                    <p className="mt-2 text-sm font-medium text-foreground">
-                      No sections yet
-                    </p>
-                    <p className="mt-1 max-w-md text-xs text-muted-foreground">
-                      Group questions by subject or pattern, or leave paper unsectioned.
-                    </p>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleRequestCreateSection()}
-                      className="mt-3 gap-1.5 text-xs"
-                    >
-                      <PlusIcon className="size-3.5" aria-hidden="true" />
-                      Add section
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {sections.map((section, index) => {
-                      const stats = sectionStats.sectionMap.get(section.key) ?? {
-                        count: 0,
-                        marks: 0,
-                      }
-                      return (
-                        <div
-                          key={section.key}
-                          className="flex flex-col justify-between rounded-lg border border-border bg-background p-3.5 shadow-xs transition-colors hover:border-foreground/20"
-                        >
-                          <div>
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="flex size-5 shrink-0 items-center justify-center rounded border border-border bg-muted font-mono text-[10px] font-bold text-muted-foreground">
-                                    {index + 1}
-                                  </span>
-                                  <h3 className="truncate text-sm font-semibold text-foreground">
-                                    {section.title}
-                                  </h3>
-                                </div>
-                                <Badge
-                                  variant="outline"
-                                  className="mt-1.5 font-mono text-[10px] text-muted-foreground"
-                                >
-                                  {section.key}
-                                </Badge>
-                              </div>
-                              <div className="flex shrink-0 items-center gap-0.5">
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon-xs"
-                                  onClick={() => moveSection(index, -1)}
-                                  disabled={index === 0}
-                                  aria-label={`Move section ${section.title} left`}
-                                  className="size-7 text-muted-foreground hover:text-foreground"
-                                >
-                                  <ArrowLeftIcon className="size-3.5" aria-hidden="true" />
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon-xs"
-                                  onClick={() => moveSection(index, 1)}
-                                  disabled={index === sections.length - 1}
-                                  aria-label={`Move section ${section.title} right`}
-                                  className="size-7 text-muted-foreground hover:text-foreground"
-                                >
-                                  <ArrowRightIcon className="size-3.5" aria-hidden="true" />
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon-xs"
-                                  onClick={() => {
-                                    setEditingSection(section)
-                                    setIsSectionDialogOpen(true)
-                                  }}
-                                  aria-label={`Edit section ${section.title}`}
-                                  className="size-7 text-muted-foreground hover:text-foreground"
-                                >
-                                  <FilePenLineIcon className="size-3.5" aria-hidden="true" />
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon-xs"
-                                  onClick={() => setDeletingSection(section)}
-                                  aria-label={`Delete section ${section.title}`}
-                                  className="size-7 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                                >
-                                  <Trash2Icon className="size-3.5" aria-hidden="true" />
-                                </Button>
-                              </div>
-                            </div>
-                            {section.description ? (
-                              <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">
-                                {section.description}
-                              </p>
-                            ) : null}
-                          </div>
-
-                          <div className="mt-3.5 flex items-center justify-between border-t border-border/80 pt-2.5 text-xs text-muted-foreground">
-                            <span className="font-medium text-foreground">
-                              {stats.count} {stats.count === 1 ? "question" : "questions"}
-                            </span>
-                            <span>{formatNumber(stats.marks)} marks</span>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </section>
-
-              {/* Questions list with sections */}
-              <section className="space-y-4 rounded-xl border border-border bg-card p-4 sm:p-5">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <h2 className="font-heading text-base font-semibold text-foreground sm:text-lg">
-                      Questions ({entries.length})
-                    </h2>
-                    <p className="text-xs text-muted-foreground sm:text-sm">
-                      Questions ordered by test sections.
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => openAddFromBank()}
-                      className="gap-1.5 text-xs font-semibold"
-                    >
-                      <PlusIcon className="size-3.5" aria-hidden="true" />
-                      Add from bank
-                    </Button>
-                  </div>
-                </div>
-
-                {entries.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 px-4 py-12 text-center">
-                    <ListChecksIcon
-                      className="size-8 text-muted-foreground/60"
-                      aria-hidden="true"
-                    />
-                    <p className="mt-3 text-sm font-semibold text-foreground">
-                      No questions in this paper yet
-                    </p>
-                    <p className="mt-1 max-w-sm text-xs text-muted-foreground">
-                      Select questions from your workspace question bank or
-                      author a brand-new question.
-                    </p>
-                    <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={() => openAddFromBank()}
-                        className="gap-1.5 text-xs font-semibold"
-                      >
-                        <PlusIcon className="size-3.5" aria-hidden="true" />
-                        Add from bank
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="text-xs"
-                        render={
-                          <Link
-                            href={`${workspaceRoutes.mockTests.questionNew(workspaceSlug)}?fromAssessmentId=${encodeURIComponent(assessment.id)}`}
-                          />
-                        }
-                      >
-                        New question
-                      </Button>
-                    </div>
-                  </div>
-                ) : sections.length > 0 ? (
-                  <div className="space-y-4">
-                    {sections.map((section) => {
-                      const sectionQuestions = entries.filter(
-                        (e) => e.section === section.key
-                      )
-                      const siblingIds = sectionQuestions.map((e) => e.id)
-                      const isCollapsed = Boolean(
-                        collapsedSections[section.key]
-                      )
-                      const stats = sectionStats.sectionMap.get(
-                        section.key
-                      ) ?? { count: 0, marks: 0 }
-
-                      return (
-                        <div
-                          key={section.key}
-                          className="overflow-hidden rounded-lg border border-border bg-background shadow-xs"
-                        >
-                          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-muted/40 px-3.5 py-2.5 sm:px-4">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setCollapsedSections((prev) => ({
-                                  ...prev,
-                                  [section.key]: !prev[section.key],
-                                }))
-                              }
-                              className="flex min-w-0 flex-1 items-center gap-2 text-left focus-visible:outline-none"
-                            >
-                              <div className="flex size-5 shrink-0 items-center justify-center rounded border border-border bg-card text-muted-foreground">
-                                {isCollapsed ? (
-                                  <ChevronDownIcon
-                                    className="size-3"
-                                    aria-hidden="true"
-                                  />
-                                ) : (
-                                  <ChevronUpIcon
-                                    className="size-3"
-                                    aria-hidden="true"
-                                  />
-                                )}
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <div className="flex flex-wrap items-center gap-1.5">
-                                  <h3 className="text-sm font-semibold text-foreground">
-                                    {section.title}
-                                  </h3>
-                                  <Badge
-                                    variant="outline"
-                                    className="font-mono text-[10px] text-muted-foreground"
-                                  >
-                                    {section.key}
-                                  </Badge>
-                                  <Badge
-                                    variant="outline"
-                                    className="border-border bg-muted/60 text-[10px] font-semibold text-foreground"
-                                  >
-                                    {stats.count}{" "}
-                                    {stats.count === 1
-                                      ? "question"
-                                      : "questions"}{" "}
-                                    • {formatNumber(stats.marks)} marks
-                                  </Badge>
-                                </div>
-                                {section.description ? (
-                                  <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
-                                    {section.description}
-                                  </p>
-                                ) : null}
-                              </div>
-                            </button>
-
-                            <div className="flex items-center gap-2">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="xs"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  openAddFromBank(section.key)
-                                }}
-                                className="h-7 gap-1.5 text-xs"
-                              >
-                                <PlusIcon
-                                  className="size-3.5"
-                                  aria-hidden="true"
-                                />
-                                <span className="hidden sm:inline">Add to</span>{" "}
-                                {section.title}
-                              </Button>
-                            </div>
-                          </div>
-
-                          {!isCollapsed ? (
-                            sectionQuestions.length === 0 ? (
-                              <div className="px-4 py-8 text-center text-xs text-muted-foreground">
-                                <p>No questions in this section yet.</p>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="xs"
-                                  onClick={() => openAddFromBank(section.key)}
-                                  className="mt-2 text-foreground hover:text-foreground"
-                                >
-                                  <PlusIcon
-                                    className="mr-1 size-3.5"
-                                    aria-hidden="true"
-                                  />
-                                  Add questions
-                                </Button>
-                              </div>
-                            ) : (
-                              <ul className="divide-y divide-border">
-                                {sectionQuestions.map((entry) =>
-                                  renderQuestionItem(entry, siblingIds)
-                                )}
-                              </ul>
-                            )
-                          ) : null}
-                        </div>
-                      )
-                    })}
-
-                    {(() => {
-                      const unassignedQuestions = entries.filter(
-                        (e) =>
-                          !e.section ||
-                          !sections.some((s) => s.key === e.section)
-                      )
-                      if (unassignedQuestions.length === 0) return null
-                      const siblingIds = unassignedQuestions.map((q) => q.id)
-                      const isCollapsed = Boolean(
-                        collapsedSections["__unassigned__"]
-                      )
-
-                      return (
-                        <div className="overflow-hidden rounded-xl border border-brand-amber-line/50 bg-card shadow-xs">
-                          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-brand-amber-line/30 bg-brand-amber-soft/20 px-4 py-3 sm:px-5">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setCollapsedSections((prev) => ({
-                                  ...prev,
-                                  __unassigned__: !prev.__unassigned__,
-                                }))
-                              }
-                              className="flex min-w-0 flex-1 cursor-pointer items-center gap-2.5 text-left focus-visible:outline-none"
-                            >
-                              <div className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-brand-amber-line/50 bg-brand-amber-soft text-brand-amber-ink">
-                                <AlertCircleIcon
-                                  className="size-4"
-                                  aria-hidden="true"
-                                />
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <h3 className="text-sm font-semibold text-foreground">
-                                    Unassigned questions
-                                  </h3>
-                                  <Badge
-                                    variant="outline"
-                                    className="border-brand-amber-line/40 bg-brand-amber-soft text-[10px] font-semibold text-brand-amber-ink"
-                                  >
-                                    {unassignedQuestions.length}{" "}
-                                    {unassignedQuestions.length === 1
-                                      ? "question"
-                                      : "questions"}{" "}
-                                    •{" "}
-                                    {formatNumber(
-                                      sectionStats.unassigned.marks
-                                    )}{" "}
-                                    marks
-                                  </Badge>
-                                </div>
-                                <p className="mt-0.5 text-xs text-brand-amber-ink/90">
-                                  These questions are not assigned to a section.
-                                </p>
-                              </div>
-                            </button>
-
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="xs"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                openAddFromBank(null)
-                              }}
-                              className="h-8 gap-1.5 border-brand-amber-line/50 text-xs"
-                            >
-                              <PlusIcon
-                                className="size-3.5"
-                                aria-hidden="true"
-                              />
-                              Add question
-                            </Button>
-                          </div>
-
-                          {!isCollapsed ? (
-                            <ul className="divide-y divide-border">
-                              {unassignedQuestions.map((entry) =>
-                                renderQuestionItem(entry, siblingIds)
-                              )}
-                            </ul>
-                          ) : null}
-                        </div>
-                      )
-                    })()}
-                  </div>
-                ) : (
-                  <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
-                    {entries.map((entry) =>
-                      renderQuestionItem(
-                        entry,
-                        entries.map((e) => e.id)
-                      )
-                    )}
-                  </ul>
-                )}
-              </section>
-            </>
-          ) : (
+        {viewMode === "preview" ? (
+          <>
+            <p className="text-sm text-muted-foreground">
+              Layout preview only. Answers here are not saved and do not create
+              an attempt. Use Test run after publishing to try the CBT player.
+            </p>
             <StudentPaperPreview
               title={title}
               instructions={instructions}
-              durationMinutes={duration.trim() === "" ? null : Number(duration)}
-              totalMarks={totalMarks.trim() === "" ? null : Number(totalMarks)}
+              durationMinutes={duration.trim() ? Number(duration) : null}
+              totalMarks={totalMarks.trim() ? Number(totalMarks) : paperMarks}
               entries={entries}
               sections={sections}
               onSelect={(id) => {
+                setViewMode("build")
                 setSelectedId(id)
                 setExpandedIds((current) => ({ ...current, [id]: true }))
-                setViewMode("build")
+                setFocusRequest({ id: `question-${id}`, message: "" })
               }}
             />
-          )}
+          </>
+        ) : (
+          <section
+            className="flex min-w-0 flex-col gap-4"
+            aria-labelledby="builder-questions"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2
+                id="builder-questions"
+                tabIndex={-1}
+                className="scroll-mt-24 font-heading text-lg font-semibold focus-visible:outline-2 focus-visible:outline-ring"
+              >
+                Questions ({entries.length})
+              </h2>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  className="h-11"
+                  onClick={() => handleRequestCreateSection()}
+                >
+                  Add section
+                </Button>
+                {entries.length > 0 ? (
+                  <Button className="h-11" onClick={() => openAddFromBank()}>
+                    Add questions
+                  </Button>
+                ) : null}
+              </div>
+            </div>
+            {entries.length > 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Expand a question to edit its marks or section. Changes stay
+                local until you save.
+              </p>
+            ) : null}
+            {entries.length === 0 ? (
+              <div className="flex flex-col items-start gap-4 rounded-lg border border-dashed border-border p-5 sm:p-8">
+                <div>
+                  <h3 className="text-base font-semibold">
+                    Build your assessment
+                  </h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Choose questions from your bank or create a new one.
+                    Sections are optional.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button className="h-11" onClick={() => openAddFromBank()}>
+                    Add from bank
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="h-11"
+                    onClick={() => navigation.request(newQuestionHref)}
+                  >
+                    New question
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+            {sections.map((section, index) => {
+              const group = entries.filter(
+                (entry) => entry.section === section.key
+              )
+              const siblingIds = group.map((entry) => entry.id)
+              return (
+                <BuilderQuestionSection
+                  key={section.key}
+                  section={section}
+                  questionCount={group.length}
+                  marks={group.reduce((sum, entry) => sum + entry.marks, 0)}
+                  open={!collapsedSections[section.key]}
+                  onOpenChange={(open) =>
+                    setCollapsedSections((current) => ({
+                      ...current,
+                      [section.key]: !open,
+                    }))
+                  }
+                  onAddQuestions={() => {
+                    setCollapsedSections((current) => ({
+                      ...current,
+                      [section.key]: false,
+                    }))
+                    openAddFromBank(section.key)
+                  }}
+                  busy={busy}
+                  actions={
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        render={
+                          <Button
+                            variant="ghost"
+                            className="size-11 shrink-0"
+                            disabled={busy}
+                            aria-label={`Actions for section ${section.title}`}
+                          />
+                        }
+                      >
+                        <MoreVerticalIcon aria-hidden="true" />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuGroup>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setEditingSection(section)
+                              setIsSectionDialogOpen(true)
+                            }}
+                          >
+                            Edit section
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            disabled={index === 0}
+                            onClick={() => moveSection(index, -1)}
+                          >
+                            Move section up
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            disabled={index === sections.length - 1}
+                            onClick={() => moveSection(index, 1)}
+                          >
+                            Move section down
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            variant="destructive"
+                            onClick={() => setDeletingSection(section)}
+                          >
+                            Remove section
+                          </DropdownMenuItem>
+                        </DropdownMenuGroup>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  }
+                >
+                  {group.map((entry) => renderQuestionItem(entry, siblingIds))}
+                </BuilderQuestionSection>
+              )
+            })}
+            {(() => {
+              const group = sections.length
+                ? entries.filter(
+                    (entry) => !sections.some((s) => s.key === entry.section)
+                  )
+                : entries
+              return group.length ? (
+                <div className="min-w-0">
+                  {sections.length ? (
+                    <h3 className="mb-3 text-sm font-semibold">
+                      Unassigned questions
+                    </h3>
+                  ) : null}
+                  <ul className="grid min-w-0 gap-3">
+                    {group.map((entry) =>
+                      renderQuestionItem(
+                        entry,
+                        group.map((e) => e.id)
+                      )
+                    )}
+                  </ul>
+                </div>
+              ) : null
+            })()}
+          </section>
+        )}
+      </div>
+
+      <AttemptDisplayNotice
+        open={displayNotice}
+        onOpenChange={setDisplayNotice}
+      />
+      <BuilderQuestionPicker
+        open={showBank}
+        onOpenChange={setShowBank}
+        workspaceSlug={workspaceSlug}
+        addedIds={addedQuestionIds}
+        onAddMany={addManyFromBank}
+        defaultAllocation={{
+          marks: entries.at(-1)?.marks ?? 1,
+          negativeMarks: entries.at(-1)?.negativeMarks ?? 0,
+        }}
+        viewerId={viewerId}
+        assessmentId={assessment.id}
+        onCreate={() => {
+          setShowBank(false)
+          navigation.request(newQuestionHref)
+        }}
+        sections={sections}
+        target={bankTargetSection}
+        onTargetChange={setBankTargetSection}
+      />
+
+      <AlertDialog
+        open={reviewMode !== null}
+        onOpenChange={(open) => {
+          if (!open && !busy) setReviewMode(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {reviewMode === "test"
+                ? "Start a test run?"
+                : "Review assessment"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {reviewMode === "test"
+                ? "This starts a real CBT attempt and adds it to your attempt history. Unsaved edits will be saved first."
+                : "Save your changes and publish this assessment. Publishing does not start a test or change its sharing settings."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <p className="text-sm">
+            {entries.length} questions · {formatNumber(paperMarks)} marks ·{" "}
+            {duration.trim() ? `${duration} minutes` : "Untimed"}
+          </p>
+          {publishIssues.length ? (
+            <div className="max-h-52 overflow-y-auto">
+              <p className="mb-2 text-sm font-medium">Fix before continuing</p>
+              <ul className="flex flex-col gap-2">
+                {publishIssues.map((issue) => (
+                  <li key={issue.id}>
+                    <button
+                      className="min-h-11 text-left text-sm text-destructive underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-ring"
+                      onClick={() => {
+                        setReviewMode(null)
+                        focusIssue(issue)
+                      }}
+                    >
+                      {issue.message}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {targetMismatch ? (
+            <p className="text-sm text-muted-foreground">
+              The question marks total {formatNumber(paperMarks)}, while the
+              target is {totalMarks}. This is a warning; it does not prevent
+              publishing.
+            </p>
+          ) : null}
+          {saveError ? (
+            <p role="alert" className="text-sm text-destructive">
+              {saveError}
+            </p>
+          ) : null}
+          <AlertDialogFooter>
+            <Button
+              variant="outline"
+              className="h-11"
+              disabled={busy}
+              onClick={() => setReviewMode(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="h-11"
+              disabled={busy || publishIssues.length > 0}
+              onClick={() => void persist(reviewMode ?? "publish")}
+            >
+              {busy
+                ? "Working…"
+                : reviewMode === "test"
+                  ? "Start test run"
+                  : "Publish assessment"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={navigation.pending !== null}
+        onOpenChange={(open) => {
+          if (!open && !busy) navigation.setPending(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Save your changes?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have unsaved assessment edits. Save them before leaving, or
+              discard them.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {saveError ? (
+            <p role="alert" className="text-sm text-destructive">
+              {saveError}
+            </p>
+          ) : null}
+          <AlertDialogFooter className="flex-wrap">
+            <Button
+              variant="outline"
+              className="h-11"
+              disabled={busy}
+              onClick={() => navigation.setPending(null)}
+            >
+              Stay
+            </Button>
+            <Button
+              variant="destructive"
+              className="h-11"
+              disabled={busy}
+              onClick={() => navigation.leave(navigation.pending!)}
+            >
+              Discard changes
+            </Button>
+            <Button
+              className="h-11"
+              disabled={busy}
+              onClick={async () => {
+                const href = navigation.pending!
+                if (await persist("save")) navigation.leave(href)
+                else navigation.setPending(null)
+              }}
+            >
+              {busy ? "Saving…" : "Save and continue"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <div
+        role="group"
+        className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 border-t border-border bg-background/95 px-4 py-3 backdrop-blur md:bottom-0 lg:hidden"
+        aria-label="Assessment editing actions"
+      >
+        <div className="mx-auto flex max-w-6xl gap-3 sm:pl-16">
+          <Button
+            variant="outline"
+            className="h-11 flex-1"
+            disabled={busy}
+            onClick={() => openAddFromBank()}
+          >
+            Add questions
+          </Button>
+          <Button
+            className="h-11 flex-1"
+            disabled={!isDirty || busy}
+            onClick={() => void persist("save")}
+          >
+            {operation === "save" ? "Saving…" : "Save changes"}
+          </Button>
         </div>
       </div>
 
       {/* Blueprint Settings Sheet */}
       <Sheet open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-2xl! overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>Test Blueprint Settings</SheetTitle>
-            <SheetDescription>
-              Configure paper format, target exam, scoring thresholds, and candidate instructions.
-            </SheetDescription>
-          </SheetHeader>
+        <SheetContent
+          side="right"
+          className="w-full overflow-hidden sm:max-w-2xl!"
+        >
+          <SheetTitle className="sr-only">Edit assessment details</SheetTitle>
+          <SheetDescription className="sr-only">
+            Configure paper format, target exam, scoring thresholds, and
+            candidate instructions.
+          </SheetDescription>
 
-          <div className="px-6 py-4">
+          <fieldset
+            disabled={busy}
+            inert={busy}
+            className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+          >
             <BlueprintFormFields
+              errors={fieldErrors}
               title={title}
               setTitle={setTitle}
               instructions={instructions}
@@ -2397,243 +1890,11 @@ export function AssessmentBuilder({
               calculatorAllowed={calculatorAllowed}
               setCalculatorAllowed={setCalculatorAllowed}
             />
-          </div>
+          </fieldset>
 
-          <div className="border-t border-border px-6 py-4 flex items-center justify-end">
-            <Button onClick={() => setIsSettingsOpen(false)}>
+          <div className="flex shrink-0 items-center justify-end border-t border-border px-6 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+            <Button className="h-11" onClick={() => setIsSettingsOpen(false)}>
               Done
-            </Button>
-          </div>
-        </SheetContent>
-      </Sheet>
-
-      {/* Bank picker */}
-      <Sheet open={showBank} onOpenChange={(open) => setShowBank(open)}>
-        {/* Wider panel for the bank picker; overrides the sheet default max-w-sm cap */}
-        <SheetContent side="right" className="w-full sm:max-w-2xl!">
-          <SheetHeader>
-            <SheetTitle>Question bank</SheetTitle>
-            <SheetDescription>
-              Select questions to add to this paper.
-            </SheetDescription>
-          </SheetHeader>
-
-          <div className="space-y-3 px-6 pb-4">
-            {bankTargetSection ? (
-              <div className="flex items-center gap-1.5 rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-foreground">
-                <LayersIcon className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-                <span>
-                  Target section:{" "}
-                  <strong className="font-semibold">
-                    {sections.find((s) => s.key === bankTargetSection)?.title ??
-                      bankTargetSection}
-                  </strong>
-                </span>
-              </div>
-            ) : null}
-            <div className="relative">
-              <SearchIcon
-                className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
-                aria-hidden="true"
-              />
-              <Input
-                value={bankQuery}
-                onChange={(event) => setBankQuery(event.target.value)}
-                placeholder="Search questions..."
-                className="h-11 pl-9"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <Select
-                value={bankKind}
-                onValueChange={(value) => {
-                  if (value) setBankKind(value)
-                }}
-              >
-                <SelectTrigger className="h-10 w-full text-xs">
-                  <SelectValue placeholder="Question type">
-                    {bankKind === "ALL"
-                      ? "All types"
-                      : questionKindLabel(bankKind)}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">All types</SelectItem>
-                  <SelectItem value="SINGLE_CHOICE">Multiple Choice (MCQ)</SelectItem>
-                  <SelectItem value="MULTIPLE_CHOICE">Multiple Select (MSQ)</SelectItem>
-                  <SelectItem value="NUMERIC">Numerical Answer (NAT)</SelectItem>
-                  <SelectItem value="TRUE_FALSE">True / False</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select
-                value={bankDifficulty}
-                onValueChange={(value) => {
-                  if (value) setBankDifficulty(value)
-                }}
-              >
-                <SelectTrigger className="h-10 w-full text-xs">
-                  <SelectValue placeholder="Difficulty">
-                    {bankDifficulty === "ALL"
-                      ? "All levels"
-                      : bankDifficulty === "UNSET"
-                        ? "No level"
-                        : `Level ${bankDifficulty}`}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">All levels</SelectItem>
-                  <SelectItem value="1">Level 1</SelectItem>
-                  <SelectItem value="2">Level 2</SelectItem>
-                  <SelectItem value="3">Level 3</SelectItem>
-                  <SelectItem value="4">Level 4</SelectItem>
-                  <SelectItem value="5">Level 5</SelectItem>
-                  <SelectItem value="UNSET">No level</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {bankTopics.length > 0 ? (
-              <Select
-                value={bankTopic}
-                onValueChange={(value) => {
-                  if (value) setBankTopic(value)
-                }}
-              >
-                <SelectTrigger className="h-10 w-full text-xs">
-                  <SelectValue placeholder="Topic">
-                    {bankTopic === "ALL" ? "All topics" : bankTopic}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">All topics</SelectItem>
-                  {bankTopics.map((topic) => (
-                    <SelectItem value={topic} key={topic}>
-                      {topic}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : null}
-
-            <div className="flex items-center justify-between gap-2 border-t border-border pt-3">
-              <span className="text-xs text-muted-foreground">
-                {filteredBank.length}{" "}
-                {filteredBank.length === 1 ? "question" : "questions"}
-              </span>
-              <Button
-                variant="ghost"
-                size="xs"
-                className="h-8 text-xs text-muted-foreground hover:text-foreground"
-                onClick={clearBankFilters}
-              >
-                Reset filters
-              </Button>
-            </div>
-          </div>
-
-          <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6">
-            {filteredBank.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
-                No matching questions. Adjust the filters or create a new
-                question.
-              </div>
-            ) : (
-              <ul className="space-y-2">
-                {filteredBank.map((item) => (
-                  <li
-                    key={item.id}
-                    className="rounded-lg border border-border bg-card p-3"
-                  >
-                    <RichContent
-                      html={item.stem}
-                      className="line-clamp-2 text-sm leading-5"
-                    />
-                    <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          "text-[10px]",
-                          questionKindBadgeClass(item.kind)
-                        )}
-                      >
-                        {questionKindLabel(item.kind)}
-                      </Badge>
-                      {item.difficulty !== null ? (
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            "text-[10px]",
-                            difficultyBadgeClass(item.difficulty)
-                          )}
-                        >
-                          Level {item.difficulty}
-                        </Badge>
-                      ) : null}
-                      {item.targetTitles.slice(0, 2).map((topic) => (
-                        <span
-                          key={topic}
-                          className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/50 px-1.5 py-0.5 text-[10px] font-medium text-foreground"
-                        >
-                          <span
-                            className="size-1 rounded-full bg-muted-foreground"
-                            aria-hidden="true"
-                          />
-                          {topic}
-                        </span>
-                      ))}
-                      {item.targetTitles.length > 2 ? (
-                        <span className="text-[10px] text-muted-foreground">
-                          +{item.targetTitles.length - 2} more
-                        </span>
-                      ) : null}
-                    </div>
-                    <div className="mt-3 flex items-center justify-between gap-2">
-                      <span className="text-xs text-muted-foreground">
-                        {item.assessmentsCount}{" "}
-                        {item.assessmentsCount === 1 ? "test" : "tests"}
-                      </span>
-                      {addedQuestionIds.has(item.id) ? (
-                        <Button
-                          variant="outline"
-                          size="xs"
-                          disabled
-                          className="h-8 text-xs border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-medium"
-                        >
-                          <CheckIcon data-icon="inline-start" className="size-3.5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
-                          Added
-                        </Button>
-                      ) : (
-                        <Button
-                          variant="outline"
-                          size="xs"
-                          className="h-8 text-xs hover:border-foreground/20"
-                          onClick={() => addFromBank(item.id)}
-                        >
-                          <PlusIcon data-icon="inline-start" aria-hidden="true" />
-                          Add
-                        </Button>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          <div className="border-t border-border px-6 py-4">
-            <Button
-              variant="secondary"
-              className="w-full"
-              render={
-                <Link
-                  href={`${workspaceRoutes.mockTests.questionNew(workspaceSlug)}?fromAssessmentId=${encodeURIComponent(assessment.id)}`}
-                />
-              }
-            >
-              <PlusIcon data-icon="inline-start" aria-hidden="true" />
-              Create new question
             </Button>
           </div>
         </SheetContent>
@@ -2650,21 +1911,20 @@ export function AssessmentBuilder({
             <AlertDialogMedia className="bg-destructive/10 text-destructive">
               <Trash2Icon aria-hidden="true" />
             </AlertDialogMedia>
-            <AlertDialogTitle>
-              Remove question from paper?
-            </AlertDialogTitle>
+            <AlertDialogTitle>Remove question from paper?</AlertDialogTitle>
             <AlertDialogDescription>
               <strong className="font-medium text-foreground">
-                Q{(entries.find((entry) => entry.id === pendingRemoveId)?.position ?? 0) + 1}
+                Q
+                {(entries.find((entry) => entry.id === pendingRemoveId)
+                  ?.position ?? 0) + 1}
               </strong>{" "}
-              will be removed from this paper. It will remain in your question bank.
+              will be removed from this paper. It will remain in your question
+              bank.
             </AlertDialogDescription>
           </AlertDialogHeader>
 
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isRemoving}>
-              Cancel
-            </AlertDialogCancel>
+            <AlertDialogCancel disabled={isRemoving}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               type="button"
               variant="destructive"
@@ -2743,53 +2003,6 @@ export function AssessmentBuilder({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Mobile sticky action bar */}
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-card/95 px-4 py-3 backdrop-blur supports-backdrop-filter:bg-card/80 lg:hidden">
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="lg"
-            className="h-11 flex-1"
-            onClick={() => openAddFromBank()}
-            disabled={isSaveActive || isPublishActive}
-          >
-            <PlusIcon data-icon="inline-start" aria-hidden="true" />
-            Add
-          </Button>
-          <Button
-            variant="outline"
-            size="lg"
-            className="h-11 flex-1 font-semibold"
-            onClick={handlePublishAndStartExam}
-            disabled={isSaveActive || isPublishActive || entries.length === 0}
-          >
-            {isPublishActive ? (
-              <Loader2Icon className="animate-spin" aria-hidden="true" />
-            ) : (
-              <PlayIcon className="size-4 fill-current stroke-none" aria-hidden="true" />
-            )}
-            {isPublishActive
-              ? "Publishing..."
-              : assessment.status === "published"
-                ? "Test run"
-                : "Publish"}
-          </Button>
-          <Button
-            size="lg"
-            className="h-11 flex-1"
-            onClick={handleSaveAll}
-            disabled={!isDirty || isSaveActive || isPublishActive}
-          >
-            {isSaveActive ? (
-              <Loader2Icon className="animate-spin" aria-hidden="true" />
-            ) : (
-              <CheckIcon data-icon="inline-start" aria-hidden="true" />
-            )}
-            {isSaveActive ? "Saving..." : "Save"}
-          </Button>
-        </div>
-      </div>
     </div>
   )
 }

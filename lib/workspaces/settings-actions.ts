@@ -40,10 +40,7 @@ export async function getSettingsModalData(workspaceSlug?: string) {
           some: { userId },
         },
       },
-      orderBy: [
-        { kind: "asc" },
-        { createdAt: "asc" },
-      ],
+      orderBy: [{ kind: "asc" }, { createdAt: "asc" }],
       select: {
         id: true,
         name: true,
@@ -75,7 +72,9 @@ export async function getSettingsModalData(workspaceSlug?: string) {
       },
       orderBy: { joinedAt: "asc" },
     }),
-    listMcpTokens(workspace.id).catch(() => []),
+    listMcpTokens(workspace.id)
+      .then((items) => ({ items, unavailable: false }))
+      .catch(() => ({ items: [], unavailable: true })),
     Promise.resolve(listFirstPartyToolManifests()),
     getToolCatalog().catch(() => ({ items: [] })),
   ])
@@ -113,14 +112,17 @@ export async function getSettingsModalData(workspaceSlug?: string) {
   return {
     workspace: {
       ...workspace,
+      canManageMcpKeys: rawMembers.some(
+        (member) => member.userId === userId && member.role === "OWNER"
+      ),
       createdAt: workspace.createdAt.toISOString(),
     },
     members,
-    initialTokens: tokens || [],
+    initialTokens: tokens.items,
+    mcpTokensUnavailable: tokens.unavailable,
     manifests: manifests || [],
     catalogItems: catalog.items || [],
     origin,
     user: { name, email, avatarUrl, initials },
   }
 }
-

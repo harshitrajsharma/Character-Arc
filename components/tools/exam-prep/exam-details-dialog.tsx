@@ -1,4 +1,5 @@
 "use client"
+import { parseIsoLocalDate as parseDateOnly } from "@/lib/dates/local-date"
 
 import React from "react"
 import Link from "next/link"
@@ -29,30 +30,6 @@ type ExamDetailsDialogContentProps = {
   exam: ExamDetailHeaderData
   settingsHref?: string
   onOpenSettings?: () => void
-}
-
-function parseDateOnly(value: string | null) {
-  if (!value) return null
-
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
-  if (!match) return null
-
-  const [, yearValue, monthValue, dayValue] = match
-  const year = Number(yearValue)
-  const month = Number(monthValue)
-  const day = Number(dayValue)
-  const date = new Date(year, month - 1, day)
-
-  if (
-    Number.isNaN(date.getTime()) ||
-    date.getFullYear() !== year ||
-    date.getMonth() !== month - 1 ||
-    date.getDate() !== day
-  ) {
-    return null
-  }
-
-  return date
 }
 
 function formatExamDate(value: string | null) {

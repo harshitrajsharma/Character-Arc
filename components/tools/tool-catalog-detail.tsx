@@ -1,12 +1,10 @@
+import { toolIconByKey, categoryLabel } from "@/lib/tools/presentation"
 import Link from "next/link"
 import {
   ArrowRightIcon,
   CheckCircle2Icon,
   Layers3Icon,
-  ListChecksIcon,
-  RouteIcon,
   SparklesIcon,
-  type LucideIcon,
 } from "lucide-react"
 
 import { InstallToolForm } from "@/components/tools/install-tool-form"
@@ -17,20 +15,6 @@ import { buttonVariants } from "@/components/ui/button"
 import { workspaceRoutes } from "@/lib/routes/workspace-tools"
 import type { ToolCatalogIssue, ToolCatalogItem } from "@/lib/tools/catalog"
 import { cn } from "@/lib/utils"
-
-const iconByKey: Record<string, LucideIcon> = {
-  route: RouteIcon,
-  "list-checks": ListChecksIcon,
-}
-
-const categoryLabel = {
-  learn: "Learn",
-  plan: "Plan",
-  decide: "Decide",
-  track: "Track",
-  practice: "Practice",
-  connect: "Connect",
-} as const
 
 type ToolCatalogDetailProps = {
   item: ToolCatalogItem
@@ -43,7 +27,7 @@ export function ToolCatalogDetail({
   workspace,
   issue,
 }: ToolCatalogDetailProps) {
-  const Icon = iconByKey[item.icon] ?? SparklesIcon
+  const Icon = toolIconByKey[item.icon] ?? SparklesIcon
   const installed = item.installationStatus === "active"
   const workspaceHome = workspace
     ? workspaceRoutes.toolHome(workspace.slug, item.key)
@@ -66,7 +50,7 @@ export function ToolCatalogDetail({
     ) : null
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 md:px-6 xl:px-12 pt-24 pb-12">
+    <main className="mx-auto w-full max-w-6xl px-4 pt-24 pb-12 md:px-6 xl:px-12">
       <ToolPageHeader
         eyebrow="Tool catalog"
         title={item.name}

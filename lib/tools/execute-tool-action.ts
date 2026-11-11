@@ -16,6 +16,12 @@ import {
 import { ToolActionExecutionError } from "@/lib/tools/errors"
 import { evaluateToolPermissions } from "@/lib/tools/permissions"
 import { getFirstPartyToolManifest } from "@/lib/tools/registry"
+import { createAgentReadExecutor } from "@/lib/tools/agent-read-handlers"
+import {
+  assertAgentActionAccess,
+  assertAgentResultBlockAccess,
+} from "@/lib/tools/agent-action-access"
+import { executeLegacyAgentWithReplay } from "@/lib/tools/agent-legacy-replay"
 import {
   executeCreateArc,
   createArcUpdateExecutor,
@@ -56,6 +62,7 @@ import {
 } from "./exam-prep-scheduled-test-handlers"
 import {
   executeMockTestsAssessmentAddQuestions,
+  executeMockTestsAssessmentCreateQuestion,
   executeMockTestsAssessmentClone,
   executeMockTestsAssessmentCreate,
   executeMockTestsAssessmentGetQuestions,
@@ -64,6 +71,8 @@ import {
   executeMockTestsAssessmentRemoveQuestion,
   executeMockTestsAssessmentReorderQuestions,
   executeMockTestsAssessmentUpdate,
+  executeMockTestsAssessmentRename,
+  executeMockTestsAssessmentDelete,
   executeMockTestsAttemptAbandon,
   executeMockTestsAttemptCreate,
   executeMockTestsAttemptGetAnalysis,
@@ -170,305 +179,398 @@ const handlers = new Map<string, HandlerBinding>([
     },
   ],
   [
-    "core.exam-prep@1.11.0:exam.create",
+    "core.exam-prep@1.12.0:exam.create",
     {
       handlerVersion: "exam-prep.exam.create.v2",
       execute: executeExamPrepCreateExam,
     },
   ],
   [
-    "core.exam-prep@1.11.0:exam.update",
+    "core.exam-prep@1.12.0:exam.update",
     {
       handlerVersion: "exam-prep.exam.update.v2",
       execute: executeExamPrepUpdateExam,
     },
   ],
   [
-    "core.exam-prep@1.11.0:exam.update-settings",
+    "core.exam-prep@1.12.0:exam.update-settings",
     {
       handlerVersion: "exam-prep.exam.update-settings.v5",
       execute: executeExamPrepExamUpdateSettings,
     },
   ],
   [
-    "core.exam-prep@1.11.0:exam.delete",
+    "core.exam-prep@1.12.0:exam.delete",
     {
       handlerVersion: "exam-prep.exam.delete.v1",
       execute: executeExamPrepDeleteExam,
     },
   ],
   [
-    "core.exam-prep@1.11.0:subject.create",
+    "core.exam-prep@1.12.0:subject.create",
     {
       handlerVersion: "exam-prep.subject.create.v1",
       execute: executeExamPrepCreateSubject,
     },
   ],
   [
-    "core.exam-prep@1.11.0:exam.attach-subject",
+    "core.exam-prep@1.12.0:exam.attach-subject",
     {
       handlerVersion: "exam-prep.exam.attach-subject.v1",
       execute: createExamPrepExamSubjectExecutor("attach"),
     },
   ],
   [
-    "core.exam-prep@1.11.0:exam.detach-subject",
+    "core.exam-prep@1.12.0:exam.detach-subject",
     {
       handlerVersion: "exam-prep.exam.detach-subject.v1",
       execute: createExamPrepExamSubjectExecutor("detach"),
     },
   ],
   [
-    "core.exam-prep@1.11.0:chapter.create",
+    "core.exam-prep@1.12.0:chapter.create",
     {
       handlerVersion: "exam-prep.chapter.create.v1",
       execute: executeExamPrepCreateChapter,
     },
   ],
   [
-    "core.exam-prep@1.11.0:topic.create",
+    "core.exam-prep@1.12.0:topic.create",
     {
       handlerVersion: "exam-prep.topic.create.v1",
       execute: executeExamPrepCreateTopic,
     },
   ],
   [
-    "core.exam-prep@1.11.0:chapter.update",
+    "core.exam-prep@1.12.0:chapter.update",
     {
       handlerVersion: "exam-prep.chapter.update.v1",
       execute: createExamPrepSyllabusItemExecutor("chapter", "update"),
     },
   ],
   [
-    "core.exam-prep@1.11.0:chapter.delete",
+    "core.exam-prep@1.12.0:chapter.delete",
     {
       handlerVersion: "exam-prep.chapter.delete.v1",
       execute: createExamPrepSyllabusItemExecutor("chapter", "delete"),
     },
   ],
   [
-    "core.exam-prep@1.11.0:topic.update",
+    "core.exam-prep@1.12.0:topic.update",
     {
       handlerVersion: "exam-prep.topic.update.v1",
       execute: createExamPrepSyllabusItemExecutor("topic", "update"),
     },
   ],
   [
-    "core.exam-prep@1.11.0:topic.delete",
+    "core.exam-prep@1.12.0:topic.delete",
     {
       handlerVersion: "exam-prep.topic.delete.v1",
       execute: createExamPrepSyllabusItemExecutor("topic", "delete"),
     },
   ],
   [
-    "core.exam-prep@1.11.0:exam.reorder-subjects",
+    "core.exam-prep@1.12.0:exam.reorder-subjects",
     {
       handlerVersion: "exam-prep.exam.reorder-subjects.v1",
       execute: executeExamPrepReorderSubjects,
     },
   ],
   [
-    "core.exam-prep@1.11.0:chapter.reorder",
+    "core.exam-prep@1.12.0:chapter.reorder",
     {
       handlerVersion: "exam-prep.chapter.reorder.v1",
       execute: executeExamPrepReorderChapters,
     },
   ],
   [
-    "core.exam-prep@1.11.0:topic.reorder",
+    "core.exam-prep@1.12.0:topic.reorder",
     {
       handlerVersion: "exam-prep.topic.reorder.v1",
       execute: executeExamPrepReorderTopics,
     },
   ],
   [
-    "core.exam-prep@1.11.0:topic.set-learning",
+    "core.exam-prep@1.12.0:topic.set-learning",
     {
       handlerVersion: "exam-prep.topic.set-learning.v1",
       execute: executeExamPrepTopicSetLearning,
     },
   ],
   [
-    "core.exam-prep@1.11.0:topic.set-progress",
+    "core.exam-prep@1.12.0:topic.set-progress",
     {
       handlerVersion: "exam-prep.topic.set-progress.v1",
       execute: executeExamPrepTopicSetProgress,
     },
   ],
   [
-    "core.exam-prep@1.11.0:topic.record-revision",
+    "core.exam-prep@1.12.0:topic.record-revision",
     {
       handlerVersion: "exam-prep.topic.record-revision.v1",
       execute: executeExamPrepTopicRecordRevision,
     },
   ],
   [
-    "core.exam-prep@1.11.0:topic.record-practice",
+    "core.exam-prep@1.12.0:topic.record-practice",
     {
       handlerVersion: "exam-prep.topic.record-practice.v1",
       execute: executeExamPrepTopicRecordPractice,
     },
   ],
   [
-    "core.exam-prep@1.11.0:topic.record-test",
+    "core.exam-prep@1.12.0:topic.record-test",
     {
       handlerVersion: "exam-prep.topic.record-test.v1",
       execute: executeExamPrepTopicRecordTest,
     },
   ],
   [
-    "core.exam-prep@1.11.0:subject.update-settings",
+    "core.exam-prep@1.12.0:subject.update-settings",
     {
       handlerVersion: "exam-prep.subject.update-settings.v1",
       execute: executeExamPrepSubjectUpdateSettings,
     },
   ],
   [
-    "core.exam-prep@1.11.0:scheduled-test.create",
+    "core.exam-prep@1.12.0:scheduled-test.create",
     {
       handlerVersion: "exam-prep.scheduled-test.create.v1",
       execute: executeExamPrepScheduledTestCreate,
     },
   ],
   [
-    "core.exam-prep@1.11.0:scheduled-test.update",
+    "core.exam-prep@1.12.0:scheduled-test.update",
     {
       handlerVersion: "exam-prep.scheduled-test.update.v1",
       execute: executeExamPrepScheduledTestUpdate,
     },
   ],
   [
-    "core.exam-prep@1.11.0:scheduled-test.cancel",
+    "core.exam-prep@1.12.0:scheduled-test.cancel",
     {
       handlerVersion: "exam-prep.scheduled-test.cancel.v1",
       execute: executeExamPrepScheduledTestCancel,
     },
   ],
   [
-    "core.exam-prep@1.11.0:scheduled-test.restore",
+    "core.exam-prep@1.12.0:scheduled-test.restore",
     {
       handlerVersion: "exam-prep.scheduled-test.restore.v1",
       execute: executeExamPrepScheduledTestRestore,
     },
   ],
   [
-    "core.exam-prep@1.11.0:scheduled-test.complete",
+    "core.exam-prep@1.12.0:scheduled-test.complete",
     {
       handlerVersion: "exam-prep.scheduled-test.complete.v1",
       execute: executeExamPrepScheduledTestComplete,
     },
   ],
   [
-    "core.exam-prep@1.11.0:scheduled-test.reopen",
+    "core.exam-prep@1.12.0:scheduled-test.reopen",
     {
       handlerVersion: "exam-prep.scheduled-test.reopen.v1",
       execute: executeExamPrepScheduledTestReopen,
     },
   ],
   [
-    "core.exam-prep@1.11.0:scheduled-test.delete",
+    "core.exam-prep@1.12.0:scheduled-test.delete",
     {
       handlerVersion: "exam-prep.scheduled-test.delete.v1",
       execute: executeExamPrepScheduledTestDelete,
     },
   ],
   [
-    "core.exam-prep@1.11.0:test-record.create",
+    "core.exam-prep@1.12.0:test-record.create",
     {
       handlerVersion: "exam-prep.test-record.create.v1",
       execute: executeExamPrepTestRecordCreate,
     },
   ],
   [
-    "core.exam-prep@1.11.0:test-record.update",
+    "core.exam-prep@1.12.0:test-record.update",
     {
       handlerVersion: "exam-prep.test-record.update.v1",
       execute: executeExamPrepTestRecordUpdate,
     },
   ],
   [
-    "core.exam-prep@1.11.0:test-record.delete",
+    "core.exam-prep@1.12.0:test-record.delete",
     {
       handlerVersion: "exam-prep.test-record.delete.v1",
       execute: executeExamPrepTestRecordDelete,
     },
   ],
   [
-    "core.exam-prep@1.11.0:exam.get-subject-recommendations",
+    "core.exam-prep@1.12.0:exam.get-subject-recommendations",
     {
       handlerVersion: "exam-prep.exam.get-subject-recommendations.v1",
       execute: executeExamPrepGetSubjectRecommendations,
     },
   ],
   [
-    "core.mock-tests@1.0.0:question.create",
-    { handlerVersion: "mock-tests.question.create.v1", execute: executeMockTestsQuestionCreate.execute },
+    "core.mock-tests@1.2.0:question.create",
+    {
+      handlerVersion: "mock-tests.question.create.v1",
+      execute: executeMockTestsQuestionCreate.execute,
+    },
   ],
   [
-    "core.mock-tests@1.0.0:question.update",
-    { handlerVersion: "mock-tests.question.update.v1", execute: executeMockTestsQuestionUpdate.execute },
+    "core.mock-tests@1.2.0:question.update",
+    {
+      handlerVersion: "mock-tests.question.update.v1",
+      execute: executeMockTestsQuestionUpdate.execute,
+    },
   ],
   [
-    "core.mock-tests@1.0.0:question.delete",
-    { handlerVersion: "mock-tests.question.delete.v1", execute: executeMockTestsQuestionDelete.execute },
+    "core.mock-tests@1.2.0:question.delete",
+    {
+      handlerVersion: "mock-tests.question.delete.v1",
+      execute: executeMockTestsQuestionDelete.execute,
+    },
   ],
   [
-    "core.mock-tests@1.0.0:assessment.get-questions",
-    { handlerVersion: "mock-tests.assessment.get-questions.v1", execute: executeMockTestsAssessmentGetQuestions.execute },
+    "core.mock-tests@1.2.0:assessment.get-questions",
+    {
+      handlerVersion: "mock-tests.assessment.get-questions.v1",
+      execute: executeMockTestsAssessmentGetQuestions.execute,
+    },
   ],
   [
-    "core.mock-tests@1.0.0:assessment.create",
-    { handlerVersion: "mock-tests.assessment.create.v1", execute: executeMockTestsAssessmentCreate.execute },
+    "core.mock-tests@1.2.0:assessment.create",
+    {
+      handlerVersion: "mock-tests.assessment.create.v1",
+      execute: executeMockTestsAssessmentCreate.execute,
+    },
   ],
   [
-    "core.mock-tests@1.0.0:assessment.update",
-    { handlerVersion: "mock-tests.assessment.update.v1", execute: executeMockTestsAssessmentUpdate.execute },
+    "core.mock-tests@1.2.0:assessment.update",
+    {
+      handlerVersion: "mock-tests.assessment.update.v1",
+      execute: executeMockTestsAssessmentUpdate.execute,
+    },
+  ],
+  ["core.mock-tests@1.2.0:assessment.rename", executeMockTestsAssessmentRename],
+  ["core.mock-tests@1.2.0:assessment.delete", executeMockTestsAssessmentDelete],
+  [
+    "core.mock-tests@1.2.0:assessment.create-question",
+    executeMockTestsAssessmentCreateQuestion,
   ],
   [
-    "core.mock-tests@1.0.0:assessment.add-questions",
-    { handlerVersion: "mock-tests.assessment.add-questions.v1", execute: executeMockTestsAssessmentAddQuestions.execute },
+    "core.mock-tests@1.2.0:assessment.add-questions",
+    {
+      handlerVersion: "mock-tests.assessment.add-questions.v1",
+      execute: executeMockTestsAssessmentAddQuestions.execute,
+    },
   ],
   [
-    "core.mock-tests@1.0.0:assessment.remove-question",
-    { handlerVersion: "mock-tests.assessment.remove-question.v1", execute: executeMockTestsAssessmentRemoveQuestion.execute },
+    "core.mock-tests@1.2.0:assessment.remove-question",
+    {
+      handlerVersion: "mock-tests.assessment.remove-question.v1",
+      execute: executeMockTestsAssessmentRemoveQuestion.execute,
+    },
   ],
   [
-    "core.mock-tests@1.0.0:assessment.reorder-questions",
-    { handlerVersion: "mock-tests.assessment.reorder-questions.v1", execute: executeMockTestsAssessmentReorderQuestions.execute },
+    "core.mock-tests@1.2.0:assessment.reorder-questions",
+    {
+      handlerVersion: "mock-tests.assessment.reorder-questions.v1",
+      execute: executeMockTestsAssessmentReorderQuestions.execute,
+    },
   ],
   [
-    "core.mock-tests@1.0.0:assessment.publish",
-    { handlerVersion: "mock-tests.assessment.publish.v1", execute: executeMockTestsAssessmentPublish.execute },
+    "core.mock-tests@1.2.0:assessment.publish",
+    {
+      handlerVersion: "mock-tests.assessment.publish.v1",
+      execute: executeMockTestsAssessmentPublish.execute,
+    },
   ],
   [
-    "core.mock-tests@1.0.0:assessment.clone",
-    { handlerVersion: "mock-tests.assessment.clone.v1", execute: executeMockTestsAssessmentClone.execute },
+    "core.mock-tests@1.2.0:assessment.clone",
+    {
+      handlerVersion: "mock-tests.assessment.clone.v1",
+      execute: executeMockTestsAssessmentClone.execute,
+    },
   ],
   [
-    "core.mock-tests@1.0.0:attempt.create",
-    { handlerVersion: "mock-tests.attempt.create.v1", execute: executeMockTestsAttemptCreate.execute },
+    "core.mock-tests@1.2.0:attempt.create",
+    {
+      handlerVersion: "mock-tests.attempt.create.v1",
+      execute: executeMockTestsAttemptCreate.execute,
+    },
   ],
   [
-    "core.mock-tests@1.0.0:attempt.record-answer",
-    { handlerVersion: "mock-tests.attempt.record-answer.v1", execute: executeMockTestsAttemptRecordAnswer.execute },
+    "core.mock-tests@1.2.0:attempt.record-answer",
+    {
+      handlerVersion: "mock-tests.attempt.record-answer.v1",
+      execute: executeMockTestsAttemptRecordAnswer.execute,
+    },
   ],
   [
-    "core.mock-tests@1.0.0:attempt.submit",
-    { handlerVersion: "mock-tests.attempt.submit.v1", execute: executeMockTestsAttemptSubmit.execute },
+    "core.mock-tests@1.2.0:attempt.submit",
+    {
+      handlerVersion: "mock-tests.attempt.submit.v1",
+      execute: executeMockTestsAttemptSubmit.execute,
+    },
   ],
   [
-    "core.mock-tests@1.0.0:attempt.abandon",
-    { handlerVersion: "mock-tests.attempt.abandon.v1", execute: executeMockTestsAttemptAbandon.execute },
+    "core.mock-tests@1.2.0:attempt.abandon",
+    {
+      handlerVersion: "mock-tests.attempt.abandon.v1",
+      execute: executeMockTestsAttemptAbandon.execute,
+    },
   ],
   [
-    "core.mock-tests@1.0.0:attempt.get-analysis",
-    { handlerVersion: "mock-tests.attempt.get-analysis.v1", execute: executeMockTestsAttemptGetAnalysis.execute },
+    "core.mock-tests@1.2.0:attempt.get-analysis",
+    {
+      handlerVersion: "mock-tests.attempt.get-analysis.v1",
+      execute: executeMockTestsAttemptGetAnalysis.execute,
+    },
   ],
   [
-    "core.mock-tests@1.0.0:assessment.get-weak-topics",
-    { handlerVersion: "mock-tests.assessment.get-weak-topics.v1", execute: executeMockTestsAssessmentGetWeakTopics.execute },
+    "core.mock-tests@1.2.0:assessment.get-weak-topics",
+    {
+      handlerVersion: "mock-tests.assessment.get-weak-topics.v1",
+      execute: executeMockTestsAssessmentGetWeakTopics.execute,
+    },
   ],
 ])
+
+for (const actionKey of [
+  "exam.list",
+  "subject.list",
+  "subject.get-context",
+  "exam.get-context",
+  "exam.get-weak-topics",
+  "subject.get-progress",
+] as const) {
+  handlers.set(`core.exam-prep@1.12.0:${actionKey}`, {
+    handlerVersion: `exam-prep.${actionKey}.v1`,
+    execute: createAgentReadExecutor(actionKey),
+  })
+}
+for (const actionKey of [
+  "assessment.list",
+  "question.list",
+  "attempt.list",
+] as const) {
+  handlers.set(`core.mock-tests@1.2.0:${actionKey}`, {
+    handlerVersion: `mock-tests.${actionKey}.v1`,
+    execute: createAgentReadExecutor(actionKey),
+  })
+}
+
+/** Discovery must never advertise a manifest action without a trusted runtime binding. */
+export function hasTrustedToolActionHandler(
+  toolKey: string,
+  actionKey: string
+) {
+  const manifest = getFirstPartyToolManifest(toolKey)
+  return (
+    !!manifest &&
+    handlers.has(`${toolKey}@${manifest.release.version}:${actionKey}`)
+  )
+}
 
 export async function executeToolAction(input: ExecuteToolActionInput) {
   const parsed = executeInputSchema.safeParse(input)
@@ -517,6 +619,7 @@ export async function executeToolActionForPrincipal(
         workspaceId: principal.workspaceId,
         userId: principal.actorId,
       },
+      workspace: { archivedAt: null },
     },
     select: { role: true },
   })
@@ -682,6 +785,7 @@ export async function executeToolActionForPrincipal(
       installationId: parsed.data.installationId,
       originInstallationId: parsed.data.installationId,
       blockTypeKeys: [
+        action.output.rootBlockTypeKey,
         ...action.output.createsBlockTypeKeys,
         ...action.output.writesBlockTypeKeys,
       ],
@@ -695,5 +799,40 @@ export async function executeToolActionForPrincipal(
     )
   }
 
-  return handler.execute(parsed.data, principal, handler.handlerVersion)
+  return executeLegacyAgentWithReplay(
+    prisma,
+    parsed.data,
+    principal,
+    handler.handlerVersion,
+    {
+      releaseId: installation.data.tool_release_id,
+      authorize: () => assertAgentActionAccess(prisma, parsed.data, principal),
+      authorizeResult: (result) =>
+        assertAgentResultBlockAccess(prisma, parsed.data, [
+          ...(result.rootBlockId ? [result.rootBlockId] : []),
+          ...result.createdBlockIds,
+        ]),
+      execute: async () => {
+        const result = await handler.execute(
+          parsed.data,
+          principal,
+          handler.handlerVersion
+        )
+        // Creation has no input block ID to recheck when mt1_/st1_ returns a
+        // cached result. Questions and attempts are not Block-backed entities.
+        if (
+          principal.invocationSource !== "web" &&
+          ["exam.create", "assessment.create", "assessment.clone"].includes(
+            parsed.data.actionKey
+          )
+        ) {
+          await assertAgentResultBlockAccess(prisma, parsed.data, [
+            ...(result.rootBlockId ? [result.rootBlockId] : []),
+            ...result.createdBlockIds,
+          ])
+        }
+        return result
+      },
+    }
+  )
 }

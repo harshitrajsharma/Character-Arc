@@ -4,6 +4,10 @@ import { notFound, redirect } from "next/navigation"
 
 import { requireVerifiedClaims } from "@/lib/auth/session"
 import { prisma } from "@/lib/prisma"
+import {
+  readActiveToolInstallation,
+  ToolInstallationUnavailableError,
+} from "./tool-installation-access"
 
 export const getWorkspaceIdentity = cache(async (slug: string) => {
   const claims = await requireVerifiedClaims(
@@ -51,79 +55,24 @@ export const getWorkspaceIdentity = cache(async (slug: string) => {
   }
 })
 
-export const requireActiveToolInstallation = cache(
+/** Shared action boundary: unavailable tools fail with a normal typed error. */
+export const getActiveToolInstallation = cache(
   async (workspaceSlug: string, toolKey: string) => {
     const workspace = await getWorkspaceIdentity(workspaceSlug)
-    let installation = await prisma.toolInstallation.findFirst({
-      where: {
-        workspaceId: workspace.id,
-        status: "ACTIVE",
-        toolDefinition: {
-          key: toolKey,
-        },
-      },
-      select: {
-        id: true,
-        toolDefinition: {
-          select: {
-            key: true,
-            name: true,
-          },
-        },
-      },
-    })
+    return readActiveToolInstallation(prisma, workspace.id, toolKey)
+  }
+)
 
-    // If tool is not installed yet and caller is the owner, auto-install first-party tool
-    if (!installation && workspace.role === "OWNER") {
-      const toolDef = await prisma.toolDefinition.findUnique({
-        where: { key: toolKey },
-        include: {
-          releases: {
-            where: { status: "PUBLISHED" },
-            orderBy: { createdAt: "desc" },
-            take: 1,
-          },
-        },
-      })
-
-      if (toolDef && toolDef.releases.length > 0) {
-        const newInst = await prisma.toolInstallation.upsert({
-          where: {
-            workspaceId_toolDefinitionId: {
-              workspaceId: workspace.id,
-              toolDefinitionId: toolDef.id,
-            },
-          },
-          create: {
-            workspaceId: workspace.id,
-            installedById: workspace.userId,
-            toolDefinitionId: toolDef.id,
-            toolReleaseId: toolDef.releases[0].id,
-            status: "ACTIVE",
-          },
-          update: {
-            status: "ACTIVE",
-            disabledAt: null,
-          },
-          select: {
-            id: true,
-            toolDefinition: {
-              select: {
-                key: true,
-                name: true,
-              },
-            },
-          },
-        })
-        installation = newInst
-      }
+/** Page boundary: offer catalog recovery after the same fail-closed authorized read. */
+export const requireActiveToolInstallation = cache(
+  async (workspaceSlug: string, toolKey: string) => {
+    try {
+      return await getActiveToolInstallation(workspaceSlug, toolKey)
+    } catch (error) {
+      if (error instanceof ToolInstallationUnavailableError)
+        redirect(error.recoveryHref)
+      throw error
     }
-
-    if (!installation) {
-      redirect(`/tools/${encodeURIComponent(toolKey)}`)
-    }
-
-    return installation
   }
 )
 
@@ -146,6 +95,21 @@ export const getAppShellData = cache(async () => {
           name: true,
           slug: true,
           kind: true,
+          blocks: {
+            where: {
+              status: "ACTIVE",
+              archivedAt: null,
+              blockType: { key: "exam-prep.exam" },
+              originToolInstallation: {
+                status: "ACTIVE",
+                toolDefinition: { key: "core.exam-prep" },
+              },
+              userStates: { none: { userId, status: "ARCHIVED" } },
+            },
+            select: { id: true, title: true },
+            orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+            take: 6,
+          },
           toolInstallations: {
             where: {
               status: "ACTIVE",
@@ -178,6 +142,7 @@ export const getAppShellData = cache(async () => {
     slug: m.workspace.slug,
     kind: m.workspace.kind,
     installations: m.workspace.toolInstallations,
+    exams: m.workspace.blocks,
   }))
 })
 

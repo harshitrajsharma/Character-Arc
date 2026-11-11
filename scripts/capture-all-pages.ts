@@ -1,10 +1,15 @@
+import { getBrowserTestConfig } from "./lib/browser-test-config"
+
 import { chromium } from "playwright"
 import path from "node:path"
 
-const BASE_URL = "http://127.0.0.1:3000"
-const USER_EMAIL = "sharmaharshitraj02@gmail.com"
-const USER_PASSWORD = "TestPassword123!"
-const WORKSPACE_SLUG = "personal-14e77ece-6df3-4d5f-bbc9-e90015c4250d"
+const {
+  baseUrl: BASE_URL,
+  email: USER_EMAIL,
+  password: USER_PASSWORD,
+  workspaceSlug: WORKSPACE_SLUG,
+} = getBrowserTestConfig()
+
 const SCREENSHOT_DIR = path.resolve(process.cwd(), "scratch/screenshots")
 
 async function capture(page: any, name: string) {
@@ -34,7 +39,9 @@ async function main() {
     await page.fill('input[name="email"]', USER_EMAIL)
     await page.fill('input[name="password"]', USER_PASSWORD)
     await page.click('button[type="submit"]:has-text("Sign in")')
-    await page.waitForURL((url: any) => !url.pathname.includes("/login"), { timeout: 35000 })
+    await page.waitForURL((url: any) => !url.pathname.includes("/login"), {
+      timeout: 35000,
+    })
     await page.waitForTimeout(2000)
 
     // 2. Dashboard
@@ -45,13 +52,17 @@ async function main() {
 
     // 3. Goals & Paths
     console.log("Navigating to /goals-paths...")
-    await page.goto(`${BASE_URL}/workspace/${WORKSPACE_SLUG}/goals-paths`, { waitUntil: "domcontentloaded" })
+    await page.goto(`${BASE_URL}/workspace/${WORKSPACE_SLUG}/goals-paths`, {
+      waitUntil: "domcontentloaded",
+    })
     await page.waitForTimeout(2000)
     await capture(page, "page-03-goals-paths")
 
     // 4. Exam Prep
     console.log("Navigating to /exam-prep...")
-    await page.goto(`${BASE_URL}/workspace/${WORKSPACE_SLUG}/exam-prep`, { waitUntil: "domcontentloaded" })
+    await page.goto(`${BASE_URL}/workspace/${WORKSPACE_SLUG}/exam-prep`, {
+      waitUntil: "domcontentloaded",
+    })
     await page.waitForTimeout(2000)
     await capture(page, "page-04-exam-prep")
 

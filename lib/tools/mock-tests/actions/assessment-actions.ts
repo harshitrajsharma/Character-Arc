@@ -7,6 +7,7 @@ import { createIdempotencyKey } from "@/lib/forms/idempotency-key"
 import { workspaceRoutes } from "@/lib/routes/workspace-tools"
 import { executeToolAction } from "@/lib/tools/execute-tool-action"
 import { prisma } from "@/lib/prisma"
+import { ToolActionExecutionError } from "@/lib/tools/errors"
 import { getMockTestsWriteContext } from "@/lib/tools/definitions/mock-tests/action-context"
 import {
   decimal82Schema,
@@ -16,7 +17,9 @@ import {
 
 function revalidateMockTests(workspaceSlug: string) {
   revalidatePath("/dashboard")
-  revalidatePath(workspaceRoutes.mockTests.home(workspaceSlug), "layout")
+  revalidatePath(workspaceRoutes.home(workspaceSlug))
+  revalidatePath(workspaceRoutes.examPrep.home(workspaceSlug), "layout")
+  revalidatePath(workspaceRoutes.mockTests.home(workspaceSlug))
 }
 
 const assessmentSectionSchema = z.object({
@@ -26,7 +29,9 @@ const assessmentSectionSchema = z.object({
 })
 
 const assessmentTaxonomySchema = z.object({
-  paperType: z.enum(["full_length", "multi_subject", "subject_wise", "topic_wise", "pyq"]).optional(),
+  paperType: z
+    .enum(["full_length", "multi_subject", "subject_wise", "topic_wise", "pyq"])
+    .optional(),
   subjectScope: z.enum(["single_subject", "multi_subject"]).optional(),
   subjects: z.array(z.string().trim().min(1).max(60)).max(30).optional(),
   examTag: z.string().trim().max(60).nullable().optional(),
@@ -132,7 +137,9 @@ export async function updateAssessmentAction(
       instructions: parsed.instructions ?? null,
       durationMinutes: parsed.durationMinutes ?? null,
       totalMarks: parsed.totalMarks ?? null,
-      examBlockId: parsed.examBlockId ?? null,
+      ...(parsed.examBlockId !== undefined
+        ? { examBlockId: parsed.examBlockId }
+        : {}),
       blueprint: parsed.blueprint ?? {},
       passingBenchmark: parsed.passingBenchmark ?? null,
       distinctionBenchmark: parsed.distinctionBenchmark ?? null,
@@ -216,9 +223,11 @@ const revisionActionSchema = z.object({
 export async function removeQuestionAction(
   input: z.input<typeof revisionActionSchema> & { questionId: string }
 ): Promise<{ assessmentId: string; revision: number; runId: string }> {
-  const parsed = revisionActionSchema.extend({
-    questionId: z.string().uuid(),
-  }).parse(input)
+  const parsed = revisionActionSchema
+    .extend({
+      questionId: z.string().uuid(),
+    })
+    .parse(input)
   const context = await getMockTestsWriteContext(parsed.workspaceSlug)
   const result = await executeToolAction({
     toolKey: "core.mock-tests",
@@ -286,7 +295,9 @@ export async function publishAssessmentAction(
     where: { id: parsed.assessmentId, workspaceId: context.workspaceId },
     select: { revision: true },
   })
-  const currentRevision = block ? Number(block.revision) : parsed.expectedRevision
+  const currentRevision = block
+    ? Number(block.revision)
+    : parsed.expectedRevision
 
   const result = await executeToolAction({
     toolKey: "core.mock-tests",
@@ -386,7 +397,7 @@ export async function updateAssessmentSharingAction(
     ...currentBlueprint,
     visibility: parsed.visibility,
     allowCloning:
-      parsed.allowCloning ?? (currentBlueprint.allowCloning !== false),
+      parsed.allowCloning ?? currentBlueprint.allowCloning !== false,
     ...(parsed.taxonomy !== undefined ? { taxonomy: parsed.taxonomy } : {}),
     ...(parsed.calculatorAllowed !== undefined
       ? { calculatorAllowed: parsed.calculatorAllowed }
@@ -425,3 +436,45 @@ export async function updateAssessmentSharingAction(
   }
 }
 
+const manageAssessmentSchema = revisionActionSchema.extend({
+  operation: z.enum(["rename", "delete"]),
+  title: z.string().trim().min(1).max(200).optional(),
+})
+
+export async function manageAssessmentAction(
+  input: z.input<typeof manageAssessmentSchema>
+) {
+  const parsed = manageAssessmentSchema.parse(input)
+  if (parsed.operation === "rename" && !parsed.title)
+    throw new Error("An assessment name is required.")
+  const context = await getMockTestsWriteContext(parsed.workspaceSlug)
+  try {
+    const result = await executeToolAction({
+      toolKey: "core.mock-tests",
+      actionKey: `assessment.${parsed.operation}`,
+      workspaceId: context.workspaceId,
+      installationId: context.installationId,
+      input: {
+        assessmentId: parsed.assessmentId,
+        expectedRevision: parsed.expectedRevision,
+        ...(parsed.operation === "rename" ? { title: parsed.title } : {}),
+      },
+      idempotencyKey: parsed.idempotencyKey ?? createIdempotencyKey(),
+    })
+    revalidateMockTests(parsed.workspaceSlug)
+    revalidatePath(
+      `/workspace/${encodeURIComponent(parsed.workspaceSlug)}/exam-prep`,
+      "layout"
+    )
+    const { assessment } = assessmentResultSchema.parse(result.data)
+    return {
+      ok: true as const,
+      assessmentId: assessment.id,
+      revision: assessment.revision ?? parsed.expectedRevision + 1,
+    }
+  } catch (error) {
+    if (error instanceof ToolActionExecutionError)
+      return { ok: false as const, error: error.message }
+    throw error
+  }
+}

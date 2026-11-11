@@ -37,8 +37,8 @@ export default function AppSegmentError({
             <RotateCcwIcon data-icon="inline-start" aria-hidden="true" />
             Try again
           </Button>
-          <Button variant="ghost" render={<Link href="/dashboard" />}>
-            Go to dashboard
+          <Button variant="ghost" render={<Link href="/workspace" />}>
+            Go to Workspace
           </Button>
         </div>
       </div>

@@ -1,7 +1,8 @@
 export const workspaceRoutes = {
   home: (slug: string) => `/workspace/${encodeURIComponent(slug)}`,
   settings: (slug: string) => `/workspace/${encodeURIComponent(slug)}/settings`,
-  mcpSettings: (slug: string) => `/workspace/${encodeURIComponent(slug)}/settings?tab=mcp`,
+  mcpSettings: (slug: string) =>
+    `/workspace/${encodeURIComponent(slug)}/settings?tab=mcp`,
   tools: {
     home: "/tools",
     detail: (toolSlug: string) => `/tools/${encodeURIComponent(toolSlug)}`,
@@ -68,6 +69,14 @@ export const workspaceRoutes = {
       `/workspace/${encodeURIComponent(slug)}/assessments/questions`,
     questionNew: (slug: string) =>
       `/workspace/${encodeURIComponent(slug)}/assessments/questions/new`,
+    assessmentQuestionNew: (
+      slug: string,
+      assessmentId: string,
+      section?: string | null
+    ) => {
+      const path = `/workspace/${encodeURIComponent(slug)}/assessments/${encodeURIComponent(assessmentId)}/questions/new`
+      return section ? `${path}?section=${encodeURIComponent(section)}` : path
+    },
     questionEdit: (slug: string, questionId: string) =>
       `/workspace/${encodeURIComponent(slug)}/assessments/questions/${encodeURIComponent(questionId)}/edit`,
   },
@@ -90,6 +99,3 @@ export function resolveToolDestination({
   if (!installed) return catalogRoute
   return workspaceRoutes.toolHome(workspaceSlug, toolKey) ?? catalogRoute
 }
-
-
-

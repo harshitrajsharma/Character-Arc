@@ -4,6 +4,11 @@ import type { Prisma, QuestionKind } from "@/generated/prisma/client"
 import { prisma } from "@/lib/prisma"
 import type { QuestionBankItem } from "@/lib/tools/definitions/mock-tests/repository"
 
+export type BuilderQuestionBankPageData = Omit<
+  QuestionBankPageData,
+  "total" | "stats"
+>
+
 type SearchParams = Record<string, string | string[] | undefined>
 
 export type QuestionBankPageData = {
@@ -66,11 +71,22 @@ export function parseQuestionBankSearchParams(raw: SearchParams) {
   }
 }
 
-/** The calling server route must verify workspace membership before reading. */
+/** The calling route/action must verify workspace membership before reading. */
+export function getQuestionBankPage(
+  workspaceId: string,
+  raw: SearchParams,
+  options: { allowedKinds?: QuestionKind[]; includeStats: false }
+): Promise<BuilderQuestionBankPageData>
+export function getQuestionBankPage(
+  workspaceId: string,
+  raw: SearchParams,
+  options?: { allowedKinds?: QuestionKind[]; includeStats?: true }
+): Promise<QuestionBankPageData>
 export async function getQuestionBankPage(
   workspaceId: string,
-  raw: SearchParams
-): Promise<QuestionBankPageData> {
+  raw: SearchParams,
+  options: { allowedKinds?: QuestionKind[]; includeStats?: boolean } = {}
+): Promise<QuestionBankPageData | BuilderQuestionBankPageData> {
   const {
     filters,
     page: requestedPage,
@@ -79,6 +95,7 @@ export async function getQuestionBankPage(
   const base: Prisma.QuestionWhereInput = {
     workspaceId,
     status: { in: ["DRAFT", "PUBLISHED"] },
+    ...(options.allowedKinds ? { kind: { in: options.allowedKinds } } : {}),
   }
   const where: Prisma.QuestionWhereInput = { ...base }
   if (filters.type !== "ALL") where.kind = filters.type as QuestionKind
@@ -97,17 +114,23 @@ export async function getQuestionBankPage(
       { targets: { some: { block: { title: contains } } } },
     ]
   }
-  const [total, filteredTotal, choice, numeric, used] = await Promise.all([
-    prisma.question.count({ where: base }),
+  const [filteredTotal, stats] = await Promise.all([
     prisma.question.count({ where }),
-    prisma.question.count({
-      where: {
-        ...base,
-        kind: { in: ["SINGLE_CHOICE", "MULTIPLE_CHOICE", "TRUE_FALSE"] },
-      },
-    }),
-    prisma.question.count({ where: { ...base, kind: "NUMERIC" } }),
-    prisma.question.count({ where: { ...base, assessments: { some: {} } } }),
+    options.includeStats === false
+      ? null
+      : Promise.all([
+          prisma.question.count({ where: base }),
+          prisma.question.count({
+            where: {
+              ...base,
+              kind: { in: ["SINGLE_CHOICE", "MULTIPLE_CHOICE", "TRUE_FALSE"] },
+            },
+          }),
+          prisma.question.count({ where: { ...base, kind: "NUMERIC" } }),
+          prisma.question.count({
+            where: { ...base, assessments: { some: {} } },
+          }),
+        ]),
   ])
   const totalPages = Math.max(1, Math.ceil(filteredTotal / pageSize))
   const page = Math.min(requestedPage, totalPages)
@@ -181,14 +204,8 @@ export async function getQuestionBankPage(
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   }))
-  return {
-    bank,
-    total,
-    filteredTotal,
-    page,
-    pageSize,
-    totalPages,
-    stats: { total, choice, numeric, used },
-    filters,
-  }
+  const result = { bank, filteredTotal, page, pageSize, totalPages, filters }
+  if (!stats) return result
+  const [total, choice, numeric, used] = stats
+  return { ...result, total, stats: { total, choice, numeric, used } }
 }

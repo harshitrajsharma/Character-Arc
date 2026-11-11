@@ -20,6 +20,7 @@ export type AssessmentTaxonomy = {
 export type AssessmentVisibility = "private" | "unlisted" | "public"
 
 export type MockTestListItem = {
+  revision: number
   id: string
   title: string
   status: MockTestStatus
@@ -123,12 +124,6 @@ export type QuestionBankItem = {
   updatedAt: string
 }
 
-export type TargetableBlock = {
-  blockId: string
-  title: string
-  blockTypeKey: string | null
-}
-
 export type WeakTopic = {
   blockId: string
   title: string | null
@@ -145,17 +140,6 @@ export type MockTestsOverview = {
   issue: "catalog_unavailable" | "data_unavailable" | null
 }
 
-export type AssessmentAttemptHistory = {
-  id: string
-  attemptNumber: number
-  status: "in_progress" | "submitted" | "evaluated" | "abandoned"
-  startedAt: string
-  submittedAt: string | null
-  durationSeconds: number | null
-  score: number | null
-  maxScore: number | null
-  accuracyRate: number | null
-}
 
 export type SectionDefinition = {
   key: string
@@ -325,6 +309,7 @@ export async function getMockTestsOverview(
       select: {
         id: true,
         title: true,
+        revision: true,
         createdAt: true,
         updatedAt: true,
         createdBy: {
@@ -409,6 +394,7 @@ export async function getMockTestsOverview(
     return {
       id: block.id,
       title: block.title,
+      revision: Number(block.revision),
       status: statusOf(block.assessmentDetails?.status ?? "DRAFT"),
       questionCount: block.assessmentDetails?._count.questions ?? 0,
       durationMinutes: block.assessmentDetails?.durationMinutes ?? null,
@@ -628,67 +614,6 @@ export const getAssessmentDetail = cache(
   }
 )
 
-export async function getAssessmentAttempts(
-  workspaceId: string,
-  assessmentId: string
-): Promise<AssessmentAttemptHistory[]> {
-  const claims = await requireVerifiedClaims(
-    `/workspace/${encodeURIComponent(workspaceId)}`
-  )
-  const parsed = z.uuid().safeParse(assessmentId)
-  if (!parsed.success) return []
-
-  const where = { workspaceId, assessmentId, userId: claims.sub }
-  const [rows, totalAttempts] = await Promise.all([
-    prisma.attempt.findMany({
-      where,
-      orderBy: { startedAt: "desc" },
-      take: 10,
-      select: {
-        id: true,
-        status: true,
-        startedAt: true,
-        submittedAt: true,
-        score: true,
-        maxScore: true,
-        responses: {
-          select: { isCorrect: true },
-        },
-      },
-    }),
-    prisma.attempt.count({ where }),
-  ])
-
-  return rows.map((row, index) => {
-    const score = toNumber(row.score)
-    const maxScore = toNumber(row.maxScore)
-    const correctCount = row.responses.filter((r) => r.isCorrect).length
-    const totalCount = row.responses.length
-    const accuracyRate =
-      totalCount > 0 ? Math.round((correctCount / totalCount) * 100) : null
-    const durationSeconds =
-      row.submittedAt && row.startedAt
-        ? Math.max(
-            0,
-            Math.round(
-              (row.submittedAt.getTime() - row.startedAt.getTime()) / 1000
-            )
-          )
-        : null
-
-    return {
-      id: row.id,
-      attemptNumber: totalAttempts - index,
-      status: row.status.toLowerCase() as AssessmentAttemptHistory["status"],
-      startedAt: row.startedAt.toISOString(),
-      submittedAt: row.submittedAt?.toISOString() ?? null,
-      durationSeconds,
-      score,
-      maxScore,
-      accuracyRate,
-    }
-  })
-}
 export const getAttemptForPlayer = cache(
   async (
     workspaceId: string,
@@ -839,7 +764,7 @@ export const getAttemptAnalysis = cache(
     if (!parsed.success) return null
 
     const attempt = await prisma.attempt.findFirst({
-      where: { id: attemptId, workspaceId, userId },
+      where: { id: attemptId, workspaceId, userId, status: "EVALUATED" },
       select: {
         id: true,
         assessmentId: true,
@@ -1152,42 +1077,14 @@ export const getQuestionDetail = cache(
   }
 )
 
-export const getTargetableBlocks = cache(
-  async (workspaceId: string): Promise<TargetableBlock[]> => {
-    const blockTypes = await prisma.blockType.findMany({
-      where: { key: { in: ["exam-prep.topic", "exam-prep.chapter"] } },
-      select: { id: true, key: true },
-    })
-    if (blockTypes.length === 0) return []
-
-    const rows = await prisma.block.findMany({
-      where: {
-        workspaceId,
-        blockTypeId: { in: blockTypes.map((type) => type.id) },
-        status: "ACTIVE",
-        archivedAt: null,
-      },
-      select: { id: true, title: true, blockTypeId: true },
-      orderBy: { updatedAt: "desc" },
-      take: 300,
-    })
-
-    const keyById = new Map(blockTypes.map((type) => [type.id, type.key]))
-    return rows.map((row) => ({
-      blockId: row.id,
-      title: row.title,
-      blockTypeKey: keyById.get(row.blockTypeId) ?? null,
-    }))
-  }
-)
-
 export async function getWeakTopics(
   workspaceId: string,
   userId: string,
-  limit = 20
+  limit = 20,
+  agentOnly = false
 ): Promise<WeakTopic[]> {
   const rows = await prisma.topicProgress.findMany({
-    where: { workspaceId, userId },
+    where: { workspaceId, userId, ...(agentOnly ? { block: { workspaceId, allowAgentAccess: true, status: "ACTIVE" as const, archivedAt: null, originToolInstallation: { workspaceId, status: "ACTIVE" as const } } } : {}) },
     orderBy: [{ proficiency: "asc" }, { confidence: "asc" }],
     take: Math.min(50, Math.max(1, limit)),
     select: {

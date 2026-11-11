@@ -43,13 +43,14 @@ export default async function AppLayout({
             memberships={memberships}
             collapsible="icon"
             variant="sidebar"
-            className="top-15! h-[calc(100svh-60px)]! z-40!"
+            className="top-15! z-40! h-[calc(100svh-60px)]!"
           />
-          <SidebarInset className="pb-20 sm:pb-0">{children}</SidebarInset>
+          <SidebarInset className="bg-transparent pb-20 md:pb-0">
+            {children}
+          </SidebarInset>
           <MobileBottomBar user={userInfo} memberships={memberships} />
         </SidebarProvider>
       </BreadcrumbProvider>
     </SettingsProvider>
   )
 }
-

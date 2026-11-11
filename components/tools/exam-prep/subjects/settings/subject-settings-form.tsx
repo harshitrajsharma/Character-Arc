@@ -1,4 +1,10 @@
 "use client"
+import {
+  SettingsNavigation,
+  SettingsBody,
+  SettingsPanel,
+  SettingsFooter,
+} from "@/components/settings/settings-layout"
 
 import { useActionState, useEffect, useState, type ChangeEvent } from "react"
 import Link from "next/link"
@@ -27,7 +33,6 @@ import {
 } from "@/lib/tools/exam-prep/progress/policy"
 import type { SubjectWithRelations } from "@/types/progressapp/domain"
 import { ProgressCalculatorExplainer } from "./progress-calculator-explainer"
-import { cn } from "@/lib/utils"
 
 const initialState: UpdateSubjectSettingsState = { status: "idle" }
 
@@ -139,48 +144,16 @@ export function SubjectSettingsForm({
       <input type="hidden" name="subjectId" value={subject.id} />
 
       {/* Body: Split Sidebar + Content */}
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden md:flex-row">
+      <SettingsBody>
         {/* Left Sidebar / Mobile Tabs */}
-        <aside className="flex w-full min-w-0 shrink-0 scrollbar-none justify-start overflow-x-auto border-b border-border/60 bg-muted/15 p-2.5 sm:p-3 md:w-56 md:flex-col md:justify-between md:border-r md:border-b-0 md:p-3.5">
-          <div className="flex shrink-0 gap-1 md:w-full md:flex-col">
-            <p className="mb-1 hidden px-2.5 text-[11px] font-semibold tracking-wider text-muted-foreground/70 uppercase md:block">
-              Target Groups
-            </p>
-            {sections.map((section) => {
-              const Icon = section.icon
-              const isActive = activeTab === section.key
-              return (
-                <button
-                  key={section.key}
-                  type="button"
-                  onClick={() => setActiveTab(section.key)}
-                  className={cn(
-                    "flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-left text-xs font-medium whitespace-nowrap transition-all outline-none sm:px-3 sm:py-2",
-                    isActive
-                      ? "bg-background font-semibold text-foreground shadow-xs ring-1 ring-border/60"
-                      : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-                  )}
-                >
-                  <Icon
-                    className="size-3.5 shrink-0 sm:size-4"
-                    aria-hidden="true"
-                  />
-                  <span>{section.label}</span>
-                </button>
-              )
-            })}
-          </div>
-
-          <div className="hidden border-t border-border/40 px-2 pt-3 text-[11px] text-muted-foreground md:block">
-            <span className="rounded-md border border-border/50 bg-muted px-1.5 py-0.5 font-mono text-[10px]">
-              Esc
-            </span>{" "}
-            to close
-          </div>
-        </aside>
+        <SettingsNavigation
+          groups={[{ group: "Target Groups", items: sections }]}
+          active={activeTab}
+          onChange={setActiveTab}
+        />
 
         {/* Right Content */}
-        <main className="min-w-0 flex-1 overflow-y-auto p-4 sm:p-6 md:p-8">
+        <SettingsPanel>
           {activeTab === "standard" && (
             <div className="max-w-2xl space-y-6">
               <div>
@@ -414,15 +387,15 @@ export function SubjectSettingsForm({
               <ProgressCalculatorExplainer policy={previewPolicy} />
             </div>
           )}
-        </main>
-      </div>
+        </SettingsPanel>
+      </SettingsBody>
 
       {/* Footer */}
-      <div
+      <SettingsFooter
         className={
           isSheet
-            ? "flex h-14 shrink-0 items-center justify-between border-t border-border/60 bg-muted/10 px-4 sm:px-6"
-            : "fixed inset-x-0 bottom-0 flex h-14 items-center justify-between border-t border-border/60 bg-background/95 px-6 backdrop-blur"
+            ? undefined
+            : "fixed inset-x-0 bottom-0 bg-background/95 backdrop-blur"
         }
       >
         <span className="hidden text-[11px] text-muted-foreground sm:inline">
@@ -471,7 +444,7 @@ export function SubjectSettingsForm({
             {isPending ? "Saving..." : "Save Targets"}
           </Button>
         </div>
-      </div>
+      </SettingsFooter>
     </form>
   )
 }

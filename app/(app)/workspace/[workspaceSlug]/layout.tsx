@@ -11,5 +11,5 @@ export default async function WorkspaceLayout({
   const { workspaceSlug } = await params
   await getWorkspaceIdentity(workspaceSlug)
 
-  return <div className="flex min-h-screen w-full flex-col">{children}</div>
+  return <div className="flex min-h-screen min-w-0 w-full flex-col">{children}</div>
 }

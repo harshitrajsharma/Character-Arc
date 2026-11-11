@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next"
-import { DM_Sans, Geist_Mono, Inter } from "next/font/google"
+import localFont from "next/font/local"
 
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
@@ -10,15 +10,32 @@ import { SwRegister } from "@/components/pwa/sw-register"
 import { PwaInstallPrompt } from "@/components/pwa/pwa-install-prompt"
 import { cn } from "@/lib/utils"
 
-const dmSansHeading = DM_Sans({
-  subsets: ["latin"],
+// Keep compilation independent of Google Fonts availability.
+const dmSansHeading = localFont({
+  src: "./fonts/dm-sans-latin-variable.woff2",
+  weight: "100 1000",
+  style: "normal",
+  display: "swap",
+  fallback: ["Arial", "sans-serif"],
   variable: "--font-heading",
 })
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-sans" })
+const inter = localFont({
+  src: "./fonts/inter-latin-variable.woff2",
+  weight: "100 900",
+  style: "normal",
+  display: "swap",
+  fallback: ["Arial", "sans-serif"],
+  variable: "--font-sans",
+})
 
-const fontMono = Geist_Mono({
-  subsets: ["latin"],
+const fontMono = localFont({
+  src: "./fonts/geist-mono-latin-variable.woff2",
+  weight: "100 900",
+  style: "normal",
+  display: "swap",
+  adjustFontFallback: false,
+  fallback: ["ui-monospace", "Consolas", "monospace"],
   variable: "--font-mono",
 })
 
@@ -51,7 +68,11 @@ export const metadata: Metadata = {
       { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
     ],
     apple: [
-      { url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+      {
+        url: "/icons/apple-touch-icon.png",
+        sizes: "180x180",
+        type: "image/png",
+      },
     ],
   },
 }

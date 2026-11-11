@@ -1,3 +1,4 @@
+import { getBrowserTestConfig, requireBrowserMutationOptIn } from "./lib/browser-test-config"
 import { chromium, type Browser, type BrowserContext, type Page, type CDPSession, type Locator } from "playwright"
 import fs from "node:fs"
 import path from "node:path"
@@ -7,10 +8,10 @@ import { execSync } from "node:child_process"
 // 1. CONSTANTS & CREDENTIALS
 // ============================================================================
 
-const BASE_URL = process.env.BASE_URL || "http://127.0.0.1:3000"
-const USER_EMAIL = process.env.USER_EMAIL || "sharmaharshitraj02@gmail.com"
-const USER_PASSWORD = process.env.USER_PASSWORD || "TestPassword123!"
-const WORKSPACE_SLUG = process.env.WORKSPACE_SLUG || "personal-14e77ece-6df3-4d5f-bbc9-e90015c4250d"
+const { baseUrl: BASE_URL, email: USER_EMAIL, password: USER_PASSWORD, workspaceSlug: WORKSPACE_SLUG } = getBrowserTestConfig()
+
+
+
 const IMMEDIATE_FEEDBACK_THRESHOLD_MS = 100
 
 // ============================================================================
@@ -1462,6 +1463,7 @@ export function parseCliArgs() {
 }
 
 async function main() {
+  requireBrowserMutationOptIn()
   const { mode, output, baseline, markdownOutput } = parseCliArgs()
 
   console.log(`==================================================================`)

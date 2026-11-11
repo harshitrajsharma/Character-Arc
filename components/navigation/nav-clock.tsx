@@ -44,13 +44,13 @@ export function NavClock({ className }: NavClockProps) {
         onClick={() => setIs24Hour((current) => !current)}
         aria-label={`Switch clock to ${nextFormat} format`}
         className={cn(
-          "flex min-h-11 items-center rounded-md px-1 font-mono text-sm text-muted-foreground tabular-nums transition-colors outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-brand-neon-line sm:min-h-9",
+          "flex min-h-11 items-center rounded-md px-1 font-mono text-sm text-muted-foreground tabular-nums transition-colors outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-brand-neon-line md:min-h-9",
           className
         )}
       >
         <time dateTime={now?.toISOString()}>
           {time}
-          <span className="ml-1.5">{period}</span>
+          {!is24Hour ? <span className="ml-1.5">{period}</span> : null}
         </time>
       </TooltipTrigger>
       <TooltipContent side="bottom">switch to {nextFormat} time</TooltipContent>

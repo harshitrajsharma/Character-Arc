@@ -1,6 +1,13 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react"
 import { useRouter } from "next/navigation"
 import {
   CalculatorIcon,
@@ -42,6 +49,7 @@ import {
 } from "@/lib/tools/mock-tests/actions/attempt-actions"
 import { RichContent } from "@/components/tools/mock-tests/editor/rich-content"
 import { workspaceRoutes } from "@/lib/routes/workspace-tools"
+import { withSubjectReturn } from "@/lib/tools/exam-prep/assessment-study-context"
 import {
   Tooltip,
   TooltipContent,
@@ -94,18 +102,18 @@ function ExamCountdown({
   startedAt: string | Date
   onTimeUp: () => void
 }) {
-  const [remainingSeconds, setRemainingSeconds] = useState<number | null>(() => {
-    if (!durationMinutes) return null
-    const end = new Date(startedAt).getTime() + durationMinutes * 60_000
-    return Math.max(0, Math.floor((end - Date.now()) / 1000))
-  })
+  const [remainingSeconds, setRemainingSeconds] = useState<number | null>(
+    () => {
+      if (!durationMinutes) return null
+      const end = new Date(startedAt).getTime() + durationMinutes * 60_000
+      return Math.max(0, Math.floor((end - Date.now()) / 1000))
+    }
+  )
 
   useEffect(() => {
     if (durationMinutes === null) return
     const interval = window.setInterval(() => {
-      const end =
-        new Date(startedAt).getTime() +
-        durationMinutes * 60_000
+      const end = new Date(startedAt).getTime() + durationMinutes * 60_000
       const remaining = Math.max(0, Math.floor((end - Date.now()) / 1000))
       setRemainingSeconds(remaining)
       if (remaining <= 0) {
@@ -121,8 +129,12 @@ function ExamCountdown({
 }
 
 const subscribeToMounted = () => () => {}
-function getMountedSnapshot() { return true }
-function getServerMountedSnapshot() { return false }
+function getMountedSnapshot() {
+  return true
+}
+function getServerMountedSnapshot() {
+  return false
+}
 
 function getCbtKindBadge(kind: string): { label: string; full: string } {
   if (kind === "SINGLE_CHOICE" || kind === "TRUE_FALSE") {
@@ -158,9 +170,13 @@ function findQuestionSection(
 export function AttemptPlayer({
   workspaceSlug,
   attempt,
+  displayAllowed = true,
+  returnTo,
 }: {
   workspaceSlug: string
   attempt: PlayerAttempt
+  displayAllowed?: boolean
+  returnTo?: string | null
 }) {
   const router = useRouter()
 
@@ -228,17 +244,31 @@ export function AttemptPlayer({
     if (sections.length === 0 || activeSection === "ALL" || !activeSectionDef) {
       return attempt.questions
     }
-    return attempt.questions.filter((q) => matchesSection(q.section, activeSectionDef))
+    return attempt.questions.filter((q) =>
+      matchesSection(q.section, activeSectionDef)
+    )
   }, [activeSection, activeSectionDef, attempt.questions, sections.length])
 
-  const [paletteFilter, setPaletteFilter] = useState<"section" | "all">("section")
+  const [paletteFilter, setPaletteFilter] = useState<"section" | "all">(
+    "section"
+  )
 
   const displayedPaletteQuestions = useMemo(() => {
-    if (paletteFilter === "all" || activeSection === "ALL" || sections.length <= 1) {
+    if (
+      paletteFilter === "all" ||
+      activeSection === "ALL" ||
+      sections.length <= 1
+    ) {
       return attempt.questions
     }
     return activeSectionQuestions
-  }, [paletteFilter, activeSection, sections.length, attempt.questions, activeSectionQuestions])
+  }, [
+    paletteFilter,
+    activeSection,
+    sections.length,
+    attempt.questions,
+    activeSectionQuestions,
+  ])
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false)
   const [isInstructionsOpen, setIsInstructionsOpen] = useState(false)
   const [isQuestionPaperOpen, setIsQuestionPaperOpen] = useState(false)
@@ -258,7 +288,6 @@ export function AttemptPlayer({
   useEffect(() => {
     answersRef.current = answers
   }, [answers])
-
 
   // Palette stats calculated for the active section (or all if "ALL" / no sections)
   const paletteStats = useMemo(() => {
@@ -291,7 +320,13 @@ export function AttemptPlayer({
       }
     })
 
-    return { answered, notAnswered, markedForReview, answeredAndMarked, notVisited }
+    return {
+      answered,
+      notAnswered,
+      markedForReview,
+      answeredAndMarked,
+      notVisited,
+    }
   }, [answers, activeSectionQuestions])
 
   // Total stats across the entire assessment for submit confirmation
@@ -325,7 +360,13 @@ export function AttemptPlayer({
       }
     })
 
-    return { answered, notAnswered, markedForReview, answeredAndMarked, notVisited }
+    return {
+      answered,
+      notAnswered,
+      markedForReview,
+      answeredAndMarked,
+      notVisited,
+    }
   }, [answers, attempt.questions])
 
   function spendTime(questionId: string, now: number) {
@@ -336,7 +377,11 @@ export function AttemptPlayer({
     questionStartedAt.current[questionId] = now
   }
 
-  async function runSave(questionId: string, merged: AnswerState, isRetry = false) {
+  async function runSave(
+    questionId: string,
+    merged: AnswerState,
+    isRetry = false
+  ) {
     const saveId = ++latestSaveId.current
     setSaveStatus("saving")
     try {
@@ -365,7 +410,8 @@ export function AttemptPlayer({
       if (!saveErrorNotified.current) {
         saveErrorNotified.current = true
         toast.error("Answers may not be saved", {
-          description: "Your latest change could not reach the server. It will retry on your next change.",
+          description:
+            "Your latest change could not reach the server. It will retry on your next change.",
         })
       }
     }
@@ -373,7 +419,11 @@ export function AttemptPlayer({
 
   function persistAnswer(
     questionId: string,
-    patch: { selectedKeys?: string[]; answerText?: string | null; isMarkedForReview?: boolean },
+    patch: {
+      selectedKeys?: string[]
+      answerText?: string | null
+      isMarkedForReview?: boolean
+    },
     now: number
   ) {
     spendTime(questionId, now)
@@ -385,8 +435,12 @@ export function AttemptPlayer({
     }
     const merged: AnswerState = {
       selectedKeys: patch.selectedKeys ?? prev.selectedKeys,
-      answerText: patch.answerText !== undefined ? patch.answerText : prev.answerText,
-      isMarkedForReview: patch.isMarkedForReview !== undefined ? patch.isMarkedForReview : prev.isMarkedForReview,
+      answerText:
+        patch.answerText !== undefined ? patch.answerText : prev.answerText,
+      isMarkedForReview:
+        patch.isMarkedForReview !== undefined
+          ? patch.isMarkedForReview
+          : prev.isMarkedForReview,
       visited: true,
     }
     setAnswers((currentAnswers) => ({
@@ -516,7 +570,10 @@ export function AttemptPlayer({
         idempotencyKey: createIdempotencyKey(),
       })
       router.push(
-        workspaceRoutes.mockTests.analysis(workspaceSlug, result.attemptId)
+        withSubjectReturn(
+          workspaceRoutes.mockTests.analysis(workspaceSlug, result.attemptId),
+          returnTo
+        )
       )
     } catch (error) {
       submitStarted.current = false
@@ -525,7 +582,7 @@ export function AttemptPlayer({
         error instanceof Error ? error.message : "Failed to submit attempt."
       toast.error("Submit failed", { description: message })
     }
-  }, [attempt.attemptId, router, workspaceSlug])
+  }, [attempt.attemptId, router, workspaceSlug, returnTo])
 
   function handleSubmit(now: number) {
     if (currentQuestion) spendTime(currentQuestion.id, now)
@@ -551,7 +608,10 @@ export function AttemptPlayer({
         idempotencyKey: createIdempotencyKey(),
       })
       toast.info("Attempt abandoned.")
-      router.push(workspaceRoutes.mockTests.detail(workspaceSlug, attempt.assessmentId))
+      router.push(
+        returnTo ??
+          workspaceRoutes.mockTests.detail(workspaceSlug, attempt.assessmentId)
+      )
     } catch (error) {
       setAbandoning(false)
       const message =
@@ -560,10 +620,18 @@ export function AttemptPlayer({
     }
   }
 
-  // Keyboard navigation shortcuts
+  // Bind current action closures after each render; remove the previous listener.
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      if (showSubmitModal || abandonOpen || isCalculatorOpen || isInstructionsOpen || isQuestionPaperOpen) return
+      if (
+        !displayAllowed ||
+        showSubmitModal ||
+        abandonOpen ||
+        isCalculatorOpen ||
+        isInstructionsOpen ||
+        isQuestionPaperOpen
+      )
+        return
       const target = e.target as HTMLElement | null
       const isInput = Boolean(
         target &&
@@ -610,7 +678,7 @@ export function AttemptPlayer({
             e.preventDefault()
             toggleOption(opt.key, Date.now())
           }
-        } else if (e.key === "Enter" && !target?.closest('button, select, a')) {
+        } else if (e.key === "Enter" && !target?.closest("button, select, a")) {
           e.preventDefault()
           handleSaveAndNext(Date.now())
         }
@@ -619,14 +687,11 @@ export function AttemptPlayer({
 
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [currentQuestion, current, answers, showSubmitModal, abandonOpen, isCalculatorOpen, isInstructionsOpen, isQuestionPaperOpen])
-
-
-
+  })
 
   if (!currentQuestion) {
     return (
-      <div className="flex flex-col items-center justify-center h-full p-8 text-center text-sm text-muted-foreground">
+      <div className="flex h-full flex-col items-center justify-center p-8 text-center text-sm text-muted-foreground">
         This test has no questions.
       </div>
     )
@@ -640,47 +705,48 @@ export function AttemptPlayer({
   }
 
   return (
-    <div className="flex flex-col h-full w-full bg-white text-slate-900 select-none overflow-hidden font-sans text-xs">
+    <div className="flex h-full w-full flex-col overflow-hidden bg-white font-sans text-xs text-slate-900 select-none">
       {/* ── TIER 1: INSTITUTION / ASSESSMENT BRANDING (h-8, white, center-aligned) ───────── */}
-      <div className="shrink-0 h-8 px-4 flex items-center justify-between border-b border-slate-300 bg-white text-xs font-sans">
-        <div className="w-24 hidden sm:flex items-center text-slate-400">
+      <div className="flex h-8 shrink-0 items-center justify-between border-b border-slate-300 bg-white px-4 font-sans text-xs">
+        <div className="hidden w-24 items-center text-slate-400 sm:flex">
           <FileTextIcon className="size-3.5" />
         </div>
-        <div className="flex-1 text-center leading-none py-0.5">
-          <span className="text-[#800000] font-black text-sm uppercase tracking-wide block">
+        <div className="flex-1 py-0.5 text-center leading-none">
+          <span className="block text-sm font-black tracking-wide text-[#800000] uppercase">
             Mock Test Assessment
           </span>
-          <span className="text-[#0284c7] font-bold text-[11px] block mt-0.5">
+          <span className="mt-0.5 block text-[11px] font-bold text-[#0284c7]">
             Organizer : {attempt.organizerName || "Online Examination Portal"}
           </span>
         </div>
-        <div className="w-24 hidden sm:flex items-center justify-end text-slate-400">
+        <div className="hidden w-24 items-center justify-end text-slate-400 sm:flex">
           <InfoIcon className="size-3.5" />
         </div>
       </div>
 
       {/* ── TIER 2: ASSESSMENT TITLE & TOOLBAR RIBBON (h-9, dark slate) ─────────────────── */}
-      <div className="shrink-0 h-9 px-4 flex items-center justify-between bg-[#1e293b] text-white border-b border-slate-700">
-        <div className="flex items-center gap-2 truncate max-w-lg">
-          <span className="font-bold text-[#fef08a] text-xs truncate">
+      <div className="flex h-9 shrink-0 items-center justify-between border-b border-slate-700 bg-[#1e293b] px-4 text-white">
+        <div className="flex max-w-lg items-center gap-2 truncate">
+          <span className="truncate text-xs font-bold text-[#fef08a]">
             {attempt.assessmentTitle}
           </span>
           {saveStatus === "saving" ? (
-            <span className="inline-flex items-center gap-1 text-[10px] text-slate-300 font-normal">
-              <Loader2Icon className="size-2.5 animate-spin text-blue-400" /> Saving...
+            <span className="inline-flex items-center gap-1 text-[10px] font-normal text-slate-300">
+              <Loader2Icon className="size-2.5 animate-spin text-blue-400" />{" "}
+              Saving...
             </span>
           ) : saveStatus === "saved" ? (
-            <span className="inline-flex items-center gap-1 text-[10px] text-emerald-400 font-normal">
+            <span className="inline-flex items-center gap-1 text-[10px] font-normal text-emerald-400">
               <CheckCircle2Icon className="size-2.5" /> Saved
             </span>
           ) : null}
         </div>
 
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex shrink-0 items-center gap-1.5">
           <button
             type="button"
             onClick={() => setIsInstructionsOpen(true)}
-            className="rounded-none bg-[#0284c7] hover:bg-[#0369a1] text-white px-2 py-0.5 text-[11px] font-semibold transition-colors flex items-center gap-1 shadow-none border border-slate-600"
+            className="flex items-center gap-1 rounded-none border border-slate-600 bg-[#0284c7] px-2 py-0.5 text-[11px] font-semibold text-white shadow-none transition-colors hover:bg-[#0369a1]"
           >
             <InfoIcon className="size-3" />
             Instructions
@@ -688,7 +754,7 @@ export function AttemptPlayer({
           <button
             type="button"
             onClick={() => setIsQuestionPaperOpen(true)}
-            className="rounded-none bg-[#16a34a] hover:bg-[#15803d] text-white px-2 py-0.5 text-[11px] font-semibold transition-colors flex items-center gap-1 shadow-none border border-slate-600"
+            className="flex items-center gap-1 rounded-none border border-slate-600 bg-[#16a34a] px-2 py-0.5 text-[11px] font-semibold text-white shadow-none transition-colors hover:bg-[#15803d]"
           >
             <FileTextIcon className="size-3" />
             Question Paper
@@ -697,7 +763,7 @@ export function AttemptPlayer({
             <button
               type="button"
               onClick={() => setIsCalculatorOpen((prev) => !prev)}
-              className="rounded-none bg-slate-700 hover:bg-slate-600 text-white px-2 py-0.5 text-[11px] font-semibold transition-colors flex items-center gap-1 shadow-none border border-slate-600"
+              className="flex items-center gap-1 rounded-none border border-slate-600 bg-slate-700 px-2 py-0.5 text-[11px] font-semibold text-white shadow-none transition-colors hover:bg-slate-600"
             >
               <CalculatorIcon className="size-3" />
               Calculator
@@ -707,12 +773,14 @@ export function AttemptPlayer({
       </div>
 
       {/* ── TIER 3: SECTIONS ROW & TIMER (h-9, white, 1px bottom border) ──────────────────── */}
-      <div className="shrink-0 h-9 px-4 flex items-center justify-between border-b border-slate-300 bg-white text-xs font-sans">
+      <div className="flex h-9 shrink-0 items-center justify-between border-b border-slate-300 bg-white px-4 font-sans text-xs">
         <div className="flex items-center gap-2 truncate">
-          <span className="font-bold text-slate-800 text-xs shrink-0">Sections</span>
+          <span className="shrink-0 text-xs font-bold text-slate-800">
+            Sections
+          </span>
           {sections.length > 0 ? (
             <TooltipProvider delay={100}>
-              <div className="flex items-center gap-1.5 overflow-x-auto cbt-scrollbar py-0.5">
+              <div className="cbt-scrollbar flex items-center gap-1.5 overflow-x-auto py-0.5">
                 {sections.map((sec) => {
                   const isActive = activeSection === sec.key
                   const count = attempt.questions.filter((q) =>
@@ -725,10 +793,10 @@ export function AttemptPlayer({
                       type="button"
                       onClick={() => handleSelectSection(sec.key, Date.now())}
                       className={cn(
-                        "px-3 py-0.5 rounded-none text-xs transition-colors flex items-center gap-1.5 shrink-0 select-none shadow-none cursor-pointer",
+                        "flex shrink-0 cursor-pointer items-center gap-1.5 rounded-none px-3 py-0.5 text-xs shadow-none transition-colors select-none",
                         isActive
-                          ? "bg-[#0284c7] text-white font-bold"
-                          : "bg-slate-100 text-slate-700 border border-slate-300 hover:bg-slate-200 font-medium"
+                          ? "bg-[#0284c7] font-bold text-white"
+                          : "border border-slate-300 bg-slate-100 font-medium text-slate-700 hover:bg-slate-200"
                       )}
                     >
                       <span>
@@ -738,8 +806,10 @@ export function AttemptPlayer({
                         <span
                           title={sec.description}
                           className={cn(
-                            "inline-flex items-center p-0.5 rounded-xs transition-colors",
-                            isActive ? "text-white/90 hover:text-white" : "text-slate-500 hover:text-slate-800"
+                            "inline-flex items-center rounded-xs p-0.5 transition-colors",
+                            isActive
+                              ? "text-white/90 hover:text-white"
+                              : "text-slate-500 hover:text-slate-800"
                           )}
                           onClick={(e) => {
                             e.stopPropagation()
@@ -758,10 +828,12 @@ export function AttemptPlayer({
                         <TooltipContent
                           side="bottom"
                           align="start"
-                          className="max-w-xs text-xs p-2.5 bg-slate-900 text-white rounded-none border border-slate-700 shadow-lg space-y-1 z-50"
+                          className="z-50 max-w-xs space-y-1 rounded-none border border-slate-700 bg-slate-900 p-2.5 text-xs text-white shadow-lg"
                         >
-                          <div className="font-bold text-amber-300">{sec.title} Instructions</div>
-                          <div className="text-slate-200 text-[11px] leading-relaxed whitespace-pre-wrap">
+                          <div className="font-bold text-amber-300">
+                            {sec.title} Instructions
+                          </div>
+                          <div className="text-[11px] leading-relaxed whitespace-pre-wrap text-slate-200">
                             {sec.description}
                           </div>
                         </TooltipContent>
@@ -776,10 +848,10 @@ export function AttemptPlayer({
                     type="button"
                     onClick={() => handleSelectSection("ALL", Date.now())}
                     className={cn(
-                      "px-3 py-0.5 rounded-none text-xs transition-colors flex items-center gap-1 shrink-0 select-none shadow-none cursor-pointer",
+                      "flex shrink-0 cursor-pointer items-center gap-1 rounded-none px-3 py-0.5 text-xs shadow-none transition-colors select-none",
                       activeSection === "ALL"
-                        ? "bg-[#0284c7] text-white font-bold"
-                        : "bg-slate-100 text-slate-700 border border-slate-300 hover:bg-slate-200 font-medium"
+                        ? "bg-[#0284c7] font-bold text-white"
+                        : "border border-slate-300 bg-slate-100 font-medium text-slate-700 hover:bg-slate-200"
                     )}
                   >
                     <span>All ({attempt.questions.length})</span>
@@ -788,14 +860,14 @@ export function AttemptPlayer({
               </div>
             </TooltipProvider>
           ) : (
-            <div className="bg-[#0284c7] text-white px-3 py-0.5 font-bold text-xs flex items-center gap-1 shrink-0">
+            <div className="flex shrink-0 items-center gap-1 bg-[#0284c7] px-3 py-0.5 text-xs font-bold text-white">
               <span>All Questions ({attempt.questions.length})</span>
             </div>
           )}
         </div>
 
         {/* Time Left & Calculator Icon */}
-        <div className="flex items-center gap-1.5 text-xs sm:text-sm font-bold text-slate-900 font-mono">
+        <div className="flex items-center gap-1.5 font-mono text-xs font-bold text-slate-900 sm:text-sm">
           <span>Time Left :</span>
           {mounted ? (
             <ExamCountdown
@@ -818,7 +890,7 @@ export function AttemptPlayer({
               type="button"
               onClick={() => setIsCalculatorOpen(true)}
               title="Open Virtual Calculator"
-              className="p-0.5 border border-slate-300 bg-amber-50 hover:bg-amber-100 text-amber-700 transition-colors ml-1"
+              className="ml-1 border border-slate-300 bg-amber-50 p-0.5 text-amber-700 transition-colors hover:bg-amber-100"
             >
               <CalculatorIcon className="size-4" />
             </button>
@@ -827,11 +899,11 @@ export function AttemptPlayer({
       </div>
 
       {/* ── MAIN BODY: LEFT WORKSPACE + RIGHT PALETTE ────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col md:flex-row overflow-hidden m-0 gap-0">
+      <div className="m-0 flex flex-1 flex-col gap-0 overflow-hidden md:flex-row">
         {/* ── ZONE B: LEFT PANE: ACTIVE QUESTION WORKSPACE ──────────────────────────────────── */}
-        <main className="flex-1 flex flex-col h-full border-r border-slate-300 bg-white overflow-hidden min-w-0">
+        <main className="flex h-full min-w-0 flex-1 flex-col overflow-hidden border-r border-slate-300 bg-white">
           {/* 1. Question Metadata Ribbon (Question Type & Marks) */}
-          <div className="shrink-0 h-8 px-4 flex items-center justify-between border-b border-slate-300 bg-[#f8fafc] text-xs font-sans select-none">
+          <div className="flex h-8 shrink-0 items-center justify-between border-b border-slate-300 bg-[#f8fafc] px-4 font-sans text-xs select-none">
             <div className="flex items-center gap-1.5 truncate">
               <span className="text-slate-600">Question Type :</span>
               <span className="font-bold text-slate-900">
@@ -839,40 +911,52 @@ export function AttemptPlayer({
               </span>
               {currentQuestion.section ? (
                 <>
-                  <span className="text-slate-300 mx-1">|</span>
+                  <span className="mx-1 text-slate-300">|</span>
                   <span className="text-slate-600">Section :</span>
                   <span className="font-bold text-blue-700">
-                    {findQuestionSection(currentQuestion.section, sections)?.title ?? currentQuestion.section}
+                    {findQuestionSection(currentQuestion.section, sections)
+                      ?.title ?? currentQuestion.section}
                   </span>
                 </>
               ) : null}
             </div>
 
-            <div className="flex items-center gap-2 text-xs font-sans">
+            <div className="flex items-center gap-2 font-sans text-xs">
               <span className="text-slate-600">
-                Marks for correct answer <strong className="text-[#15803d] font-mono font-bold">+{currentQuestion.marks.toFixed(2)}</strong>
+                Marks for correct answer{" "}
+                <strong className="font-mono font-bold text-[#15803d]">
+                  +{currentQuestion.marks.toFixed(2)}
+                </strong>
               </span>
               <span className="text-slate-300">|</span>
               <span className="text-slate-600">
-                Negative Marks <strong className="text-[#dc2626] font-mono font-bold">{currentQuestion.negativeMarks < 0 ? currentQuestion.negativeMarks.toFixed(2) : "0.00"}</strong>
+                Negative Marks{" "}
+                <strong className="font-mono font-bold text-[#dc2626]">
+                  {currentQuestion.negativeMarks < 0
+                    ? currentQuestion.negativeMarks.toFixed(2)
+                    : "0.00"}
+                </strong>
               </span>
             </div>
           </div>
 
           {/* 2. Question Number Bar */}
-          <div className="shrink-0 h-8 px-4 flex items-center border-b border-slate-200 bg-white text-xs font-bold text-slate-900 select-none">
+          <div className="flex h-8 shrink-0 items-center border-b border-slate-200 bg-white px-4 text-xs font-bold text-slate-900 select-none">
             Question Number. {current + 1}
           </div>
 
           {/* 3. Question Canvas (Scrollable) */}
-          <div className="flex-1 overflow-y-auto p-6 cbt-scrollbar-light bg-white">
+          <div className="cbt-scrollbar-light flex-1 overflow-y-auto bg-white p-6">
             <div className="max-w-4xl space-y-6">
               {/* Question Statement with KaTeX & Code - guaranteed pitch-black text */}
               <div
                 style={{ color: "#020617" }}
-                className="text-slate-950 leading-relaxed text-sm sm:text-base font-sans [&_*]:!text-slate-950 [&_.rich-text]:!text-slate-950 [&_.katex]:!text-slate-950 [&_.katex-html]:!text-slate-950 select-text"
+                className="font-sans text-sm leading-relaxed text-slate-950 select-text sm:text-base [&_*]:!text-slate-950 [&_.katex]:!text-slate-950 [&_.katex-html]:!text-slate-950 [&_.rich-text]:!text-slate-950"
               >
-                <RichContent html={currentQuestion.stem} style={CBT_RICH_STYLE} />
+                <RichContent
+                  html={currentQuestion.stem}
+                  style={CBT_RICH_STYLE}
+                />
               </div>
 
               {/* Options / Answer Input Area */}
@@ -893,7 +977,7 @@ export function AttemptPlayer({
                           key={opt.key}
                           onClick={() => toggleOption(opt.key, Date.now())}
                           className={cn(
-                            "flex items-start gap-3 p-3 border transition-colors cursor-pointer text-sm sm:text-base rounded-none select-none",
+                            "flex cursor-pointer items-start gap-3 rounded-none border p-3 text-sm transition-colors select-none sm:text-base",
                             isSelected
                               ? "border-blue-600 bg-blue-50/80 text-slate-950"
                               : "border-slate-300 bg-white text-slate-900 hover:bg-slate-50"
@@ -901,23 +985,30 @@ export function AttemptPlayer({
                         >
                           <div
                             className={cn(
-                              "size-5 shrink-0 flex items-center justify-center text-xs font-bold mt-0.5 border rounded-none transition-colors",
+                              "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-none border text-xs font-bold transition-colors",
                               isSelected
                                 ? "border-blue-600 bg-blue-600 text-white"
                                 : "border-slate-400 bg-white text-slate-700"
                             )}
                           >
                             {isSelected ? (
-                              isSingle ? opt.key : <CheckIcon className="size-3 stroke-[3]" />
+                              isSingle ? (
+                                opt.key
+                              ) : (
+                                <CheckIcon className="size-3 stroke-[3]" />
+                              )
                             ) : (
                               opt.key
                             )}
                           </div>
                           <div
                             style={{ color: "#020617" }}
-                            className="flex-1 rich-text text-slate-950 leading-relaxed [&_*]:!text-slate-950"
+                            className="rich-text flex-1 leading-relaxed text-slate-950 [&_*]:!text-slate-950"
                           >
-                            <RichContent html={opt.content} style={CBT_RICH_STYLE} />
+                            <RichContent
+                              html={opt.content}
+                              style={CBT_RICH_STYLE}
+                            />
                           </div>
                         </div>
                       )
@@ -925,15 +1016,17 @@ export function AttemptPlayer({
                   </div>
 
                   {/* TCS iON Horizontal Quick Select Checkbox Ribbon */}
-                  <div className="flex flex-wrap items-center gap-4 pt-3 border-t border-slate-200 text-sm font-bold text-slate-900 select-none">
-                    <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Select:</span>
+                  <div className="flex flex-wrap items-center gap-4 border-t border-slate-200 pt-3 text-sm font-bold text-slate-900 select-none">
+                    <span className="text-xs font-semibold tracking-wider text-slate-500 uppercase">
+                      Select:
+                    </span>
                     {currentQuestion.options.map((opt) => {
                       const isSelected = answer.selectedKeys.includes(opt.key)
                       return (
                         <label
                           key={opt.key}
                           onClick={() => toggleOption(opt.key, Date.now())}
-                          className="flex items-center gap-1.5 cursor-pointer py-1 px-1.5 hover:bg-slate-100 rounded-none"
+                          className="flex cursor-pointer items-center gap-1.5 rounded-none px-1.5 py-1 hover:bg-slate-100"
                         >
                           <input
                             type={
@@ -943,9 +1036,11 @@ export function AttemptPlayer({
                             }
                             checked={isSelected}
                             onChange={() => {}} // handled by parent label onClick
-                            className="size-4 accent-blue-600 cursor-pointer"
+                            className="size-4 cursor-pointer accent-blue-600"
                           />
-                          <span className="text-sm font-bold text-slate-900">{opt.key}</span>
+                          <span className="text-sm font-bold text-slate-900">
+                            {opt.key}
+                          </span>
                         </label>
                       )
                     })}
@@ -953,50 +1048,79 @@ export function AttemptPlayer({
                 </div>
               ) : (
                 /* Numerical Answer Type (NAT) Input + Keypad */
-                <div className="space-y-4 max-w-lg border border-slate-300 bg-white p-5 rounded-none shadow-none">
+                <div className="max-w-lg space-y-4 rounded-none border border-slate-300 bg-white p-5 shadow-none">
                   <div className="space-y-2">
-                    <label htmlFor="nat-input" className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+                    <label
+                      htmlFor="nat-input"
+                      className="block text-xs font-bold tracking-wider text-slate-700 uppercase"
+                    >
                       Enter your numerical answer below:
                     </label>
                     <input
                       id="nat-input"
                       type="text"
                       value={answer.answerText ?? ""}
-                      onChange={(e) => handleAnswerTextChange(e.target.value, Date.now())}
+                      onChange={(e) =>
+                        handleAnswerTextChange(e.target.value, Date.now())
+                      }
                       placeholder="e.g. 42 or -3.14"
-                      className="w-full rounded-none border border-slate-300 bg-white px-4 py-2.5 font-mono text-xl font-bold text-slate-900 placeholder:text-slate-400 shadow-none focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600"
+                      className="w-full rounded-none border border-slate-300 bg-white px-4 py-2.5 font-mono text-xl font-bold text-slate-900 shadow-none placeholder:text-slate-400 focus:border-blue-600 focus:ring-1 focus:ring-blue-600 focus:outline-none"
                     />
-                    <span className="text-[11px] text-slate-500 block">
-                      You can use your physical keyboard or the on-screen keypad below.
+                    <span className="block text-[11px] text-slate-500">
+                      You can use your physical keyboard or the on-screen keypad
+                      below.
                     </span>
                   </div>
 
                   {/* Flat Onscreen Virtual Keypad for NAT */}
-                  <div className="pt-2 border-t border-slate-200">
-                    <span className="text-[11px] font-semibold text-slate-600 block mb-2">On-screen Keypad:</span>
+                  <div className="border-t border-slate-200 pt-2">
+                    <span className="mb-2 block text-[11px] font-semibold text-slate-600">
+                      On-screen Keypad:
+                    </span>
                     <div className="grid grid-cols-4 gap-1.5 font-mono text-sm">
-                      {["7", "8", "9", "Backspace", "4", "5", "6", "Clear", "1", "2", "3", "-", "0", ".", "+/-"].map((k) => (
+                      {[
+                        "7",
+                        "8",
+                        "9",
+                        "Backspace",
+                        "4",
+                        "5",
+                        "6",
+                        "Clear",
+                        "1",
+                        "2",
+                        "3",
+                        "-",
+                        "0",
+                        ".",
+                        "+/-",
+                      ].map((k) => (
                         <button
                           key={k}
                           type="button"
                           onClick={() => {
                             const cur = answer.answerText ?? ""
                             if (k === "Backspace") {
-                              handleAnswerTextChange(cur.slice(0, -1), Date.now())
+                              handleAnswerTextChange(
+                                cur.slice(0, -1),
+                                Date.now()
+                              )
                             } else if (k === "Clear") {
                               handleAnswerTextChange("", Date.now())
                             } else if (k === "+/-") {
-                              if (cur.startsWith("-")) handleAnswerTextChange(cur.slice(1), Date.now())
-                              else if (cur) handleAnswerTextChange("-" + cur, Date.now())
+                              if (cur.startsWith("-"))
+                                handleAnswerTextChange(cur.slice(1), Date.now())
+                              else if (cur)
+                                handleAnswerTextChange("-" + cur, Date.now())
                             } else {
                               handleAnswerTextChange(cur + k, Date.now())
                             }
                           }}
                           className={cn(
-                            "h-10 rounded-none border font-bold transition-colors flex items-center justify-center shadow-none",
+                            "flex h-10 items-center justify-center rounded-none border font-bold shadow-none transition-colors",
                             k === "Clear" || k === "Backspace"
-                              ? "bg-red-50 text-red-700 border-red-200 hover:bg-red-100"
-                              : "bg-white text-slate-800 border-slate-300 hover:bg-slate-100"
+                              ? "border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
+                              : "border-slate-300 bg-white text-slate-800 hover:bg-slate-100"
                           )}
                         >
                           {k === "Backspace" ? "⌫" : k}
@@ -1010,14 +1134,14 @@ export function AttemptPlayer({
           </div>
 
           {/* 4. Sticky Action Footer Bar (matches screenshot) */}
-          <footer className="shrink-0 h-12 px-4 flex items-center justify-between border-t border-slate-300 bg-white select-none font-sans">
+          <footer className="flex h-12 shrink-0 items-center justify-between border-t border-slate-300 bg-white px-4 font-sans select-none">
             {/* Left Actions */}
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => handleMarkForReviewAndNext(Date.now())}
                 disabled={submitting || abandoning}
-                className="rounded-none border border-slate-400 bg-white hover:bg-slate-100 text-slate-900 px-3.5 py-1.5 font-bold text-xs uppercase tracking-wider transition-colors shadow-none disabled:opacity-50"
+                className="rounded-none border border-slate-400 bg-white px-3.5 py-1.5 text-xs font-bold tracking-wider text-slate-900 uppercase shadow-none transition-colors hover:bg-slate-100 disabled:opacity-50"
               >
                 Mark for Review &amp; Next
               </button>
@@ -1026,7 +1150,7 @@ export function AttemptPlayer({
                 type="button"
                 onClick={() => handleClearResponse(Date.now())}
                 disabled={submitting || abandoning}
-                className="rounded-none border border-slate-400 bg-white hover:bg-slate-100 text-slate-900 px-3.5 py-1.5 font-bold text-xs uppercase tracking-wider transition-colors flex items-center gap-1.5 shadow-none disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-none border border-slate-400 bg-white px-3.5 py-1.5 text-xs font-bold tracking-wider text-slate-900 uppercase shadow-none transition-colors hover:bg-slate-100 disabled:opacity-50"
               >
                 Clear Response
               </button>
@@ -1038,7 +1162,7 @@ export function AttemptPlayer({
                 type="button"
                 onClick={() => handlePrevious(Date.now())}
                 disabled={current === 0 || submitting || abandoning}
-                className="rounded-none border border-slate-400 bg-white hover:bg-slate-100 text-slate-900 px-4 py-1.5 font-bold text-xs uppercase tracking-wider transition-colors shadow-none disabled:opacity-40"
+                className="rounded-none border border-slate-400 bg-white px-4 py-1.5 text-xs font-bold tracking-wider text-slate-900 uppercase shadow-none transition-colors hover:bg-slate-100 disabled:opacity-40"
               >
                 Previous
               </button>
@@ -1047,7 +1171,7 @@ export function AttemptPlayer({
                 type="button"
                 onClick={() => handleSaveAndNext(Date.now())}
                 disabled={submitting || abandoning}
-                className="rounded-none border border-[#0284c7] bg-[#0284c7] hover:bg-[#0369a1] text-white px-5 py-1.5 font-bold text-xs uppercase tracking-wider transition-colors shadow-none disabled:opacity-50"
+                className="rounded-none border border-[#0284c7] bg-[#0284c7] px-5 py-1.5 text-xs font-bold tracking-wider text-white uppercase shadow-none transition-colors hover:bg-[#0369a1] disabled:opacity-50"
               >
                 Save &amp; Next
               </button>
@@ -1056,10 +1180,10 @@ export function AttemptPlayer({
                 type="button"
                 onClick={() => handleSubmit(Date.now())}
                 disabled={submitting || abandoning}
-                className="rounded-none border border-[#38bdf8] bg-[#38bdf8] hover:bg-[#0ea5e9] text-white px-5 py-1.5 font-bold text-xs uppercase tracking-wider transition-colors shadow-none disabled:opacity-50"
+                className="rounded-none border border-[#38bdf8] bg-[#38bdf8] px-5 py-1.5 text-xs font-bold tracking-wider text-white uppercase shadow-none transition-colors hover:bg-[#0ea5e9] disabled:opacity-50"
               >
                 {submitting ? (
-                  <Loader2Icon className="animate-spin size-3.5" />
+                  <Loader2Icon className="size-3.5 animate-spin" />
                 ) : null}
                 Submit
               </button>
@@ -1068,83 +1192,100 @@ export function AttemptPlayer({
         </main>
 
         {/* ── ZONE C: RIGHT PANE: QUESTION PALETTE & TEST TELEMETRY (w-80 / 320px) ─────────── */}
-        <aside className="w-full md:w-80 lg:w-[320px] shrink-0 flex flex-col h-full bg-[#f8fafc] border-t md:border-t-0 md:border-l border-slate-300 overflow-hidden font-sans text-xs select-none">
+        <aside className="flex h-full w-full shrink-0 flex-col overflow-hidden border-t border-slate-300 bg-[#f8fafc] font-sans text-xs select-none md:w-80 md:border-t-0 md:border-l lg:w-[320px]">
           {/* 1. Candidate Profile Box (From screenshot) */}
-          <div className="p-3 border-b border-slate-300 bg-white flex items-center gap-3">
-            <div className="size-11 rounded-full border border-slate-300 bg-[#e0f2fe] flex items-center justify-center shrink-0 overflow-hidden">
-              <svg className="size-9 text-[#0284c7] translate-y-1" fill="currentColor" viewBox="0 0 24 24">
+          <div className="flex items-center gap-3 border-b border-slate-300 bg-white p-3">
+            <div className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-300 bg-[#e0f2fe]">
+              <svg
+                className="size-9 translate-y-1 text-[#0284c7]"
+                fill="currentColor"
+                viewBox="0 0 24 24"
+              >
                 <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
               </svg>
             </div>
             <div className="min-w-0">
-              <span className="text-[10px] text-slate-500 block uppercase tracking-wider font-semibold">Candidate</span>
-              <span className="text-sm font-bold text-slate-900 block truncate leading-tight">
+              <span className="block text-[10px] font-semibold tracking-wider text-slate-500 uppercase">
+                Candidate
+              </span>
+              <span className="block truncate text-sm leading-tight font-bold text-slate-900">
                 {attempt.candidateName || "Candidate"}
               </span>
             </div>
           </div>
 
           {/* 2. Official TCS iON Shaped Legend */}
-          <div className="p-3 border-b border-slate-300 bg-white space-y-2">
-            <div className="font-bold italic text-slate-800 text-xs">Legend</div>
+          <div className="space-y-2 border-b border-slate-300 bg-white p-3">
+            <div className="text-xs font-bold text-slate-800 italic">
+              Legend
+            </div>
             <div className="grid grid-cols-2 gap-x-2 gap-y-2 text-xs">
               {/* 1 Answered (Green tag) */}
               <div className="flex items-center gap-2">
-                <span className="size-6 bg-[#16a34a] text-white font-bold font-mono text-xs flex items-center justify-center [clip-path:polygon(0%_0%,100%_0%,100%_75%,50%_100%,0%_75%)] shrink-0">
+                <span className="flex size-6 shrink-0 items-center justify-center bg-[#16a34a] font-mono text-xs font-bold text-white [clip-path:polygon(0%_0%,100%_0%,100%_75%,50%_100%,0%_75%)]">
                   {paletteStats.answered}
                 </span>
-                <span className="text-[11px] text-slate-800 font-medium truncate">Answered</span>
+                <span className="truncate text-[11px] font-medium text-slate-800">
+                  Answered
+                </span>
               </div>
 
               {/* 2 Not Answered (Red tag) */}
               <div className="flex items-center gap-2">
-                <span className="size-6 bg-[#dc2626] text-white font-bold font-mono text-xs flex items-center justify-center [clip-path:polygon(0%_0%,100%_0%,100%_75%,50%_100%,0%_75%)] shrink-0">
+                <span className="flex size-6 shrink-0 items-center justify-center bg-[#dc2626] font-mono text-xs font-bold text-white [clip-path:polygon(0%_0%,100%_0%,100%_75%,50%_100%,0%_75%)]">
                   {paletteStats.notAnswered}
                 </span>
-                <span className="text-[11px] text-slate-800 font-medium truncate">Not Answered</span>
+                <span className="truncate text-[11px] font-medium text-slate-800">
+                  Not Answered
+                </span>
               </div>
 
               {/* 6 Not Visited (Gray square) */}
               <div className="flex items-center gap-2">
-                <span className="size-6 bg-[#94a3b8] text-white font-bold font-mono text-xs flex items-center justify-center rounded-sm shrink-0">
+                <span className="flex size-6 shrink-0 items-center justify-center rounded-sm bg-[#94a3b8] font-mono text-xs font-bold text-white">
                   {paletteStats.notVisited}
                 </span>
-                <span className="text-[11px] text-slate-800 font-medium truncate">Not Visited</span>
+                <span className="truncate text-[11px] font-medium text-slate-800">
+                  Not Visited
+                </span>
               </div>
 
               {/* 0 Marked for Review (Purple circle) */}
               <div className="flex items-center gap-2">
-                <span className="size-6 bg-[#7c3aed] text-white font-bold font-mono text-xs flex items-center justify-center rounded-full shrink-0">
+                <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-[#7c3aed] font-mono text-xs font-bold text-white">
                   {paletteStats.markedForReview}
                 </span>
-                <span className="text-[11px] text-slate-800 font-medium truncate">Marked for Review</span>
+                <span className="truncate text-[11px] font-medium text-slate-800">
+                  Marked for Review
+                </span>
               </div>
 
               {/* Answered and Marked for Review (Purple circle with green check) */}
-              <div className="col-span-2 flex items-start gap-2 pt-1 border-t border-slate-100">
-                <span className="relative size-6 shrink-0 bg-[#7c3aed] text-white font-bold font-mono text-xs flex items-center justify-center rounded-full after:content-[''] after:absolute after:bottom-0 after:right-0 after:size-2 after:bg-emerald-500 after:rounded-full">
+              <div className="col-span-2 flex items-start gap-2 border-t border-slate-100 pt-1">
+                <span className="relative flex size-6 shrink-0 items-center justify-center rounded-full bg-[#7c3aed] font-mono text-xs font-bold text-white after:absolute after:right-0 after:bottom-0 after:size-2 after:rounded-full after:bg-emerald-500 after:content-['']">
                   {paletteStats.answeredAndMarked}
                 </span>
-                <span className="text-[10px] text-slate-800 font-medium leading-tight">
-                  Answered and Marked for Review (will be considered for evaluation)
+                <span className="text-[10px] leading-tight font-medium text-slate-800">
+                  Answered and Marked for Review (will be considered for
+                  evaluation)
                 </span>
               </div>
             </div>
           </div>
 
           {/* 3. Section Banner Header */}
-          <div className="bg-[#0284c7] text-white px-3 py-1.5 text-xs font-bold flex items-center justify-between font-sans">
+          <div className="flex items-center justify-between bg-[#0284c7] px-3 py-1.5 font-sans text-xs font-bold text-white">
             <span className="truncate">
               {activeSection === "ALL"
                 ? "All Sections"
                 : `${activeSectionDef?.title ?? activeSection} Section`}
             </span>
-            <span className="text-[10px] font-mono opacity-90 shrink-0 ml-2">
+            <span className="ml-2 shrink-0 font-mono text-[10px] opacity-90">
               {activeSectionQuestions.length} Questions
             </span>
           </div>
 
-          <div className="bg-[#f1f5f9] text-slate-800 px-3 py-1 text-xs font-bold border-b border-slate-300 flex items-center justify-between">
+          <div className="flex items-center justify-between border-b border-slate-300 bg-[#f1f5f9] px-3 py-1 text-xs font-bold text-slate-800">
             <span>Choose a Question</span>
             {sections.length > 1 ? (
               <div className="flex items-center gap-1 font-sans text-[10px] font-normal">
@@ -1152,10 +1293,10 @@ export function AttemptPlayer({
                   type="button"
                   onClick={() => setPaletteFilter("section")}
                   className={cn(
-                    "px-1.5 py-0.5 font-bold transition-colors cursor-pointer",
+                    "cursor-pointer px-1.5 py-0.5 font-bold transition-colors",
                     paletteFilter === "section" && activeSection !== "ALL"
                       ? "bg-[#0284c7] text-white"
-                      : "bg-white text-slate-600 hover:bg-slate-200 border border-slate-300"
+                      : "border border-slate-300 bg-white text-slate-600 hover:bg-slate-200"
                   )}
                 >
                   Section ({activeSectionQuestions.length})
@@ -1164,10 +1305,10 @@ export function AttemptPlayer({
                   type="button"
                   onClick={() => setPaletteFilter("all")}
                   className={cn(
-                    "px-1.5 py-0.5 font-bold transition-colors cursor-pointer",
+                    "cursor-pointer px-1.5 py-0.5 font-bold transition-colors",
                     paletteFilter === "all" || activeSection === "ALL"
                       ? "bg-[#0284c7] text-white"
-                      : "bg-white text-slate-600 hover:bg-slate-200 border border-slate-300"
+                      : "border border-slate-300 bg-white text-slate-600 hover:bg-slate-200"
                   )}
                 >
                   All ({attempt.questions.length})
@@ -1177,10 +1318,12 @@ export function AttemptPlayer({
           </div>
 
           {/* 4. Question Palette Grid with TCS iON Shaped Chips */}
-          <div className="p-3 flex-1 overflow-y-auto cbt-scrollbar-light space-y-2 bg-white">
+          <div className="cbt-scrollbar-light flex-1 space-y-2 overflow-y-auto bg-white p-3">
             <div className="grid grid-cols-5 gap-2 pt-1">
               {displayedPaletteQuestions.map((q) => {
-                const actualIdx = attempt.questions.findIndex((item) => item.id === q.id)
+                const actualIdx = attempt.questions.findIndex(
+                  (item) => item.id === q.id
+                )
                 const isCur = actualIdx === current
                 const st = answers[q.id]
                 const hasAns =
@@ -1200,9 +1343,11 @@ export function AttemptPlayer({
                 } else if (isMrk) {
                   shapeClass = "bg-[#7c3aed] text-white rounded-full"
                 } else if (hasAns) {
-                  shapeClass = "bg-[#16a34a] text-white [clip-path:polygon(0%_0%,100%_0%,100%_75%,50%_100%,0%_75%)]"
+                  shapeClass =
+                    "bg-[#16a34a] text-white [clip-path:polygon(0%_0%,100%_0%,100%_75%,50%_100%,0%_75%)]"
                 } else if (isVis) {
-                  shapeClass = "bg-[#dc2626] text-white [clip-path:polygon(0%_0%,100%_0%,100%_75%,50%_100%,0%_75%)]"
+                  shapeClass =
+                    "bg-[#dc2626] text-white [clip-path:polygon(0%_0%,100%_0%,100%_75%,50%_100%,0%_75%)]"
                 }
 
                 const belongsToActiveSec = activeSectionDef
@@ -1216,9 +1361,10 @@ export function AttemptPlayer({
                     onClick={() => goToQuestion(actualIdx, Date.now())}
                     title={`Question ${actualIdx + 1}${q.section ? ` (${findQuestionSection(q.section, sections)?.title ?? q.section})` : ""}`}
                     className={cn(
-                      "relative flex size-9 items-center justify-center font-mono text-xs font-bold transition-all select-none shadow-none cursor-pointer",
+                      "relative flex size-9 cursor-pointer items-center justify-center font-mono text-xs font-bold shadow-none transition-all select-none",
                       shapeClass,
-                      isCur && "ring-2 ring-blue-600 ring-offset-2 ring-offset-white z-10 font-black scale-110",
+                      isCur &&
+                        "z-10 scale-110 font-black ring-2 ring-blue-600 ring-offset-2 ring-offset-white",
                       (paletteFilter === "all" || activeSection === "ALL") &&
                         sections.length > 1 &&
                         !belongsToActiveSec &&
@@ -1227,7 +1373,7 @@ export function AttemptPlayer({
                   >
                     {actualIdx + 1}
                     {isAnsAndMarked ? (
-                      <span className="absolute bottom-0 right-0 size-2 bg-emerald-500 rounded-full border border-white" />
+                      <span className="absolute right-0 bottom-0 size-2 rounded-full border border-white bg-emerald-500" />
                     ) : null}
                   </button>
                 )
@@ -1237,168 +1383,212 @@ export function AttemptPlayer({
         </aside>
       </div>
 
-      {/* CBT VIRTUAL CALCULATOR (Floating / Draggable) */}
-      {attempt.calculatorAllowed && isCalculatorOpen ? (
-        <VirtualCalculator isOpen={isCalculatorOpen} onClose={() => setIsCalculatorOpen(false)} />
-      ) : null}
+      {/* Unmount portals immediately on small screens, without a clickable exit animation. */}
+      {displayAllowed ? (
+        <>
+          {/* CBT VIRTUAL CALCULATOR (Floating / Draggable) */}
+          {attempt.calculatorAllowed && isCalculatorOpen ? (
+            <VirtualCalculator
+              isOpen={isCalculatorOpen}
+              onClose={() => setIsCalculatorOpen(false)}
+            />
+          ) : null}
 
-      {/* CBT INSTRUCTIONS DIALOG */}
-      <InstructionsDialog
-        isOpen={isInstructionsOpen}
-        onClose={() => setIsInstructionsOpen(false)}
-        durationMinutes={attempt.durationMinutes}
-        totalQuestions={attempt.questions.length}
-        instructionsText={attempt.instructions}
-        calculatorAllowed={attempt.calculatorAllowed}
-        hasNegativeMarking={attempt.questions.some((q) => q.negativeMarks < 0)}
-      />
+          {/* CBT INSTRUCTIONS DIALOG */}
+          <InstructionsDialog
+            isOpen={isInstructionsOpen}
+            onClose={() => setIsInstructionsOpen(false)}
+            durationMinutes={attempt.durationMinutes}
+            totalQuestions={attempt.questions.length}
+            instructionsText={attempt.instructions}
+            calculatorAllowed={attempt.calculatorAllowed}
+            hasNegativeMarking={attempt.questions.some(
+              (q) => q.negativeMarks < 0
+            )}
+          />
 
-      {/* CBT QUESTION PAPER MODAL */}
-      <QuestionPaperDialog
-        isOpen={isQuestionPaperOpen}
-        onClose={() => setIsQuestionPaperOpen(false)}
-        attempt={attempt}
-        onSelectQuestion={(idx) => goToQuestion(idx, Date.now())}
-      />
+          {/* CBT QUESTION PAPER MODAL */}
+          <QuestionPaperDialog
+            isOpen={isQuestionPaperOpen}
+            onClose={() => setIsQuestionPaperOpen(false)}
+            attempt={attempt}
+            onSelectQuestion={(idx) => goToQuestion(idx, Date.now())}
+          />
 
-      {/* SUBMIT CONFIRMATION DIALOG */}
-      <Dialog
-        open={showSubmitModal}
-        onOpenChange={(open) => {
-          if (!submitting) setShowSubmitModal(open)
-        }}
-      >
-        <DialogContent className="max-w-md rounded-none border border-slate-300 bg-white text-slate-900 p-6 shadow-xl font-sans space-y-4">
-          <DialogHeader className="border-b border-slate-200 pb-3">
-            <DialogTitle className="text-sm font-bold tracking-tight text-slate-900 flex items-center gap-2">
-              <SendIcon className="size-4 text-blue-600" /> Confirm Exam Submission
-            </DialogTitle>
-            <DialogDescription className="text-xs text-slate-600">
-              Are you sure you want to submit your test? Once submitted, your answers will be evaluated immediately.
-            </DialogDescription>
-          </DialogHeader>
+          {/* SUBMIT CONFIRMATION DIALOG */}
+          <Dialog
+            open={showSubmitModal}
+            onOpenChange={(open) => {
+              if (!submitting) setShowSubmitModal(open)
+            }}
+          >
+            <DialogContent className="max-w-md space-y-4 rounded-none border border-slate-300 bg-white p-6 font-sans text-slate-900 shadow-xl">
+              <DialogHeader className="border-b border-slate-200 pb-3">
+                <DialogTitle className="flex items-center gap-2 text-sm font-bold tracking-tight text-slate-900">
+                  <SendIcon className="size-4 text-blue-600" /> Confirm Exam
+                  Submission
+                </DialogTitle>
+                <DialogDescription className="text-xs text-slate-600">
+                  Are you sure you want to submit your test? Once submitted,
+                  your answers will be evaluated immediately.
+                </DialogDescription>
+              </DialogHeader>
 
-          {/* Exam Evaluation Rule Notice */}
-          <div className="border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900 flex items-start gap-2">
-            <InfoIcon className="size-4 shrink-0 text-blue-600 mt-0.5" />
-            <span>
-              <strong>Evaluation Note:</strong> Questions marked for review with a selected answer <strong>will be evaluated</strong> towards your final score.
-            </span>
-          </div>
+              {/* Exam Evaluation Rule Notice */}
+              <div className="flex items-start gap-2 border border-blue-200 bg-blue-50 p-3 text-xs text-blue-900">
+                <InfoIcon className="mt-0.5 size-4 shrink-0 text-blue-600" />
+                <span>
+                  <strong>Evaluation Note:</strong> Questions marked for review
+                  with a selected answer <strong>will be evaluated</strong>{" "}
+                  towards your final score.
+                </span>
+              </div>
 
-          <div className="border border-slate-200 bg-[#f8fafc] divide-y divide-slate-200 text-xs">
-            <div className="flex justify-between items-center p-2.5">
-              <span className="text-slate-600">Total Questions:</span>
-              <span className="font-mono font-bold text-slate-900">{attempt.questions.length}</span>
+              <div className="divide-y divide-slate-200 border border-slate-200 bg-[#f8fafc] text-xs">
+                <div className="flex items-center justify-between p-2.5">
+                  <span className="text-slate-600">Total Questions:</span>
+                  <span className="font-mono font-bold text-slate-900">
+                    {attempt.questions.length}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between p-2.5">
+                  <span className="font-semibold text-emerald-700">
+                    Answered:
+                  </span>
+                  <span className="font-mono font-bold text-emerald-700">
+                    {totalStats.answered + totalStats.answeredAndMarked}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between p-2.5">
+                  <span className="font-semibold text-red-700">
+                    Not Answered:
+                  </span>
+                  <span className="font-mono font-bold text-red-700">
+                    {totalStats.notAnswered}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between p-2.5">
+                  <span className="font-semibold text-indigo-700">
+                    Marked for Review:
+                  </span>
+                  <span className="font-mono font-bold text-indigo-700">
+                    {totalStats.markedForReview}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between p-2.5">
+                  <span className="text-slate-600">Not Visited:</span>
+                  <span className="font-mono font-bold text-slate-700">
+                    {totalStats.notVisited}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 border-t border-slate-200 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={submitting}
+                  onClick={() => !submitting && setShowSubmitModal(false)}
+                  className="rounded-none border border-slate-300 bg-white text-xs font-semibold text-slate-700 shadow-none hover:bg-slate-100 hover:text-slate-900"
+                >
+                  Resume Test
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleConfirmSubmit}
+                  disabled={submitting}
+                  className="flex items-center gap-1.5 rounded-none border border-blue-600 bg-blue-600 text-xs font-bold text-white shadow-none hover:bg-blue-700"
+                >
+                  {submitting ? (
+                    <Loader2Icon className="size-3.5 animate-spin" />
+                  ) : null}
+                  {submitting ? "Submitting Exam..." : "Submit Test"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Full-Screen Grading Overlay Modal */}
+          {submitting ? (
+            <div
+              role="status"
+              aria-live="polite"
+              className="fixed inset-0 z-50 flex animate-in flex-col items-center justify-center bg-slate-900/85 text-white backdrop-blur-sm duration-200 fade-in"
+            >
+              <div className="flex max-w-sm flex-col items-center space-y-4 p-6 text-center">
+                <div className="flex size-16 items-center justify-center rounded-full border border-blue-500/40 bg-blue-600/20">
+                  <Loader2Icon
+                    className="size-8 animate-spin text-blue-400"
+                    aria-hidden="true"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <h3 className="text-lg font-bold tracking-tight text-white">
+                    Grading Exam Paper
+                  </h3>
+                  <p className="text-xs leading-relaxed text-slate-300">
+                    Evaluating your answers against the official answer key and
+                    calculating performance metrics...
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 font-mono text-[11px] text-slate-400">
+                  <span className="size-2 animate-pulse rounded-full bg-emerald-400" />
+                  Generating diagnostic scorecard
+                </div>
+              </div>
             </div>
-            <div className="flex justify-between items-center p-2.5">
-              <span className="text-emerald-700 font-semibold">Answered:</span>
-              <span className="font-mono font-bold text-emerald-700">
-                {totalStats.answered + totalStats.answeredAndMarked}
-              </span>
-            </div>
-            <div className="flex justify-between items-center p-2.5">
-              <span className="text-red-700 font-semibold">Not Answered:</span>
-              <span className="font-mono font-bold text-red-700">{totalStats.notAnswered}</span>
-            </div>
-            <div className="flex justify-between items-center p-2.5">
-              <span className="text-indigo-700 font-semibold">Marked for Review:</span>
-              <span className="font-mono font-bold text-indigo-700">{totalStats.markedForReview}</span>
-            </div>
-            <div className="flex justify-between items-center p-2.5">
-              <span className="text-slate-600">Not Visited:</span>
-              <span className="font-mono font-bold text-slate-700">{totalStats.notVisited}</span>
-            </div>
-          </div>
+          ) : null}
 
-          <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200">
-            <Button
-              type="button"
-              variant="outline"
+          {/* ABANDON ATTEMPT CONFIRMATION */}
+          <AlertDialog
+            open={abandonOpen}
+            onOpenChange={(open) => {
+              if (!abandoning) setAbandonOpen(open)
+            }}
+          >
+            <AlertDialogContent
               size="sm"
-              disabled={submitting}
-              onClick={() => !submitting && setShowSubmitModal(false)}
-              className="rounded-none border border-slate-300 bg-white text-slate-700 hover:text-slate-900 hover:bg-slate-100 text-xs font-semibold shadow-none"
+              className="max-w-sm rounded-none border border-slate-300 bg-white font-sans text-slate-900 shadow-xl"
             >
-              Resume Test
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              onClick={handleConfirmSubmit}
-              disabled={submitting}
-              className="rounded-none border border-blue-600 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-none flex items-center gap-1.5"
-            >
-              {submitting ? <Loader2Icon className="animate-spin size-3.5" /> : null}
-              {submitting ? "Submitting Exam..." : "Submit Test"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Full-Screen Grading Overlay Modal */}
-      {submitting ? (
-        <div
-          role="status"
-          aria-live="polite"
-          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-900/85 backdrop-blur-sm text-white animate-in fade-in duration-200"
-        >
-          <div className="flex flex-col items-center max-w-sm p-6 text-center space-y-4">
-            <div className="size-16 rounded-full bg-blue-600/20 border border-blue-500/40 flex items-center justify-center">
-              <Loader2Icon className="size-8 animate-spin text-blue-400" aria-hidden="true" />
-            </div>
-            <div className="space-y-1.5">
-              <h3 className="text-lg font-bold tracking-tight text-white">Grading Exam Paper</h3>
-              <p className="text-xs text-slate-300 leading-relaxed">
-                Evaluating your answers against the official answer key and calculating performance metrics...
-              </p>
-            </div>
-            <div className="flex items-center gap-2 text-[11px] font-mono text-slate-400">
-              <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
-              Generating diagnostic scorecard
-            </div>
-          </div>
-        </div>
+              <AlertDialogHeader>
+                <AlertDialogMedia className="rounded-none bg-red-100 text-red-700">
+                  <XIcon />
+                </AlertDialogMedia>
+                <AlertDialogTitle className="text-sm font-bold text-slate-900">
+                  Abandon This Attempt?
+                </AlertDialogTitle>
+                <AlertDialogDescription className="text-xs text-slate-600">
+                  This attempt will be marked abandoned. Your answers will not
+                  be graded and no score will be generated.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter className="border-t border-slate-200 pt-3">
+                <AlertDialogCancel
+                  disabled={abandoning}
+                  className="rounded-none border border-slate-300 bg-white text-xs text-slate-700 shadow-none hover:bg-slate-100 hover:text-slate-900"
+                >
+                  Keep Testing
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  variant="destructive"
+                  onClick={handleConfirmAbandon}
+                  disabled={abandoning}
+                  className="rounded-none border border-red-600 bg-red-600 text-xs font-bold text-white shadow-none hover:bg-red-700"
+                >
+                  {abandoning ? (
+                    <Loader2Icon className="size-3.5 animate-spin" />
+                  ) : (
+                    <XIcon className="size-3.5" />
+                  )}
+                  Abandon Attempt
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </>
       ) : null}
-
-      {/* ABANDON ATTEMPT CONFIRMATION */}
-      <AlertDialog
-        open={abandonOpen}
-        onOpenChange={(open) => {
-          if (!abandoning) setAbandonOpen(open)
-        }}
-      >
-        <AlertDialogContent size="sm" className="max-w-sm rounded-none border border-slate-300 bg-white text-slate-900 font-sans shadow-xl">
-          <AlertDialogHeader>
-            <AlertDialogMedia className="rounded-none bg-red-100 text-red-700">
-              <XIcon />
-            </AlertDialogMedia>
-            <AlertDialogTitle className="text-sm font-bold text-slate-900">
-              Abandon This Attempt?
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-xs text-slate-600">
-              This attempt will be marked abandoned. Your answers will not be graded and no score will be generated.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="border-t border-slate-200 pt-3">
-            <AlertDialogCancel
-              disabled={abandoning}
-              className="rounded-none border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-900 text-xs shadow-none"
-            >
-              Keep Testing
-            </AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              onClick={handleConfirmAbandon}
-              disabled={abandoning}
-              className="rounded-none border border-red-600 bg-red-600 hover:bg-red-700 text-white font-bold text-xs shadow-none"
-            >
-              {abandoning ? <Loader2Icon className="animate-spin size-3.5" /> : <XIcon className="size-3.5" />}
-              Abandon Attempt
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   )
 }

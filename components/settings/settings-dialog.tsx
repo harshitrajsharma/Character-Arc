@@ -1,26 +1,29 @@
 "use client"
+import {
+  SettingsDialogContent,
+  SettingsHeader,
+  SettingsNavigation,
+  SettingsBody,
+  SettingsPanel,
+} from "@/components/settings/settings-layout"
+import { McpSettingsPanel } from "@/components/settings/mcp-settings-panel"
 
 import * as React from "react"
 import Link from "next/link"
 import { useTheme } from "next-themes"
 import {
-  AlertTriangleIcon,
   BotIcon,
   CheckIcon,
   ChevronRightIcon,
   CopyIcon,
-  KeyRoundIcon,
   LaptopIcon,
   MoonIcon,
-  PlusIcon,
   Settings2Icon,
   SparklesIcon,
   SunIcon,
-  Trash2Icon,
   UserIcon,
   UsersIcon,
   WrenchIcon,
-  ZapIcon,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -36,6 +39,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -59,7 +63,6 @@ type TokenItem = {
   id: string
   name: string
   keyPrefix: string
-  token?: string
   createdAt: string
   lastUsedAt: string | null
 }
@@ -84,13 +87,17 @@ export type SettingsDialogProps = {
     description: string | null
     kind: string
     createdAt: string
+    canManageMcpKeys?: boolean
   }
   members: WorkspaceMemberItem[]
   initialTokens: TokenItem[]
+  mcpTokensUnavailable?: boolean
+  onReload?: () => void
   manifests: ToolManifest[]
   catalogItems: ToolCatalogItem[]
   origin: string
   isLoading?: boolean
+  settingsUnavailable?: boolean
 }
 
 type NavCategory = {
@@ -111,21 +118,26 @@ export function SettingsDialog({
   workspace,
   members,
   initialTokens,
+  mcpTokensUnavailable = false,
+  onReload,
   catalogItems,
   origin,
   isLoading = false,
+  settingsUnavailable = false,
 }: SettingsDialogProps) {
   const [activeSection, setActiveSection] =
     React.useState<SettingsSectionKey>(defaultSection)
   const [tokens, setTokens] = React.useState<TokenItem[]>(initialTokens)
 
-  const [prevInitialTokens, setPrevInitialTokens] = React.useState(initialTokens)
+  const [prevInitialTokens, setPrevInitialTokens] =
+    React.useState(initialTokens)
   if (prevInitialTokens !== initialTokens) {
     setPrevInitialTokens(initialTokens)
     setTokens(initialTokens)
   }
 
-  const [prevDefaultSection, setPrevDefaultSection] = React.useState(defaultSection)
+  const [prevDefaultSection, setPrevDefaultSection] =
+    React.useState(defaultSection)
   if (prevDefaultSection !== defaultSection) {
     setPrevDefaultSection(defaultSection)
     setActiveSection(defaultSection)
@@ -140,11 +152,8 @@ export function SettingsDialog({
   const [isPending, startTransition] = React.useTransition()
   const { theme, setTheme } = useTheme()
 
-  const primaryToken = tokens[0]?.token || tokens[0]?.keyPrefix || latestKey || null
-  const baseMcpEndpointUrl = `${origin}/api/mcp`
-  const mcpEndpointUrl = primaryToken
-    ? `${baseMcpEndpointUrl}?apiKey=${primaryToken}`
-    : baseMcpEndpointUrl
+  const mcpEndpointUrl = `${origin}/api/mcp`
+  const canManageKeys = workspace.canManageMcpKeys === true
   const installedTools = catalogItems.filter(
     (item) => item.installationStatus === "active"
   )
@@ -188,13 +197,17 @@ export function SettingsDialog({
     },
   ]
 
-  
-
-  function copyToClipboard(value: string, label: string) {
-    navigator.clipboard.writeText(value)
-    setCopiedField(label)
-    toast.success(`${label} copied to clipboard`)
-    window.setTimeout(() => setCopiedField(null), 1600)
+  async function copyToClipboard(value: string, label: string) {
+    try {
+      await navigator.clipboard.writeText(value)
+      setCopiedField(label)
+      toast.success(`${label} copied to clipboard`)
+      window.setTimeout(() => setCopiedField(null), 1600)
+    } catch {
+      toast.error(
+        "Clipboard is unavailable. Select and copy the field manually."
+      )
+    }
   }
 
   function handleCreateToken() {
@@ -212,7 +225,6 @@ export function SettingsDialog({
             id: token.id,
             name: token.name,
             keyPrefix: token.keyPrefix,
-            token: token.rawSecret,
             createdAt: token.createdAt,
             lastUsedAt: null,
           },
@@ -242,6 +254,7 @@ export function SettingsDialog({
           current.filter((token) => token.id !== tokenToRevoke.id)
         )
         setTokenToRevoke(null)
+        setLatestKey(null)
         toast.success("Agent key revoked.")
       } catch (error) {
         toast.error(
@@ -254,84 +267,40 @@ export function SettingsDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent
-          showCloseButton
-          className="flex h-[min(700px,calc(100dvh-2rem))] w-[calc(100vw-2rem)] max-w-4xl flex-col gap-0 overflow-hidden rounded-4xl bg-popover/60 p-0 shadow-2xl ring-1 ring-foreground/5 backdrop-blur-2xl sm:max-w-4xl dark:ring-foreground/10"
-        >
-          {/* Header */}
-          <div className="flex h-14 shrink-0 items-center justify-between border-b border-border/60 bg-muted/20 px-6">
-            <div className="flex items-center gap-3">
-              <span className="flex size-8 items-center justify-center rounded-xl bg-primary/10 text-primary shadow-xs">
-                <Settings2Icon className="size-4" aria-hidden="true" />
-              </span>
-              <div className="flex items-center gap-2">
-                <DialogTitle className="font-heading text-base font-semibold text-foreground">
-                  Settings
-                </DialogTitle>
-                <span className="text-muted-foreground/40">/</span>
-                <span className="max-w-[200px] truncate text-xs font-medium text-muted-foreground">
-                  {workspace.name}
-                </span>
-              </div>
-            </div>
-          </div>
-
+        <SettingsDialogContent showCloseButton>
+          <SettingsHeader
+            title="Settings"
+            context={workspace.name}
+            icon={Settings2Icon}
+          />
           {/* Body Layout: Sidebar + Main Content */}
-          <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+          <SettingsBody>
             {/* Sidebar Navigation */}
-            <aside className="flex w-full shrink-0 justify-between overflow-x-auto border-b border-border/60 bg-muted/15 p-3 md:w-56 md:flex-col md:border-r md:border-b-0 md:p-3.5">
-              <div className="flex w-full gap-4 md:flex-col">
-                {navCategories.map((cat) => (
-                  <div key={cat.group} className="w-full space-y-1">
-                    <p className="hidden px-2.5 text-[11px] font-semibold tracking-wider text-muted-foreground/70 uppercase md:block">
-                      {cat.group}
-                    </p>
-                    <div className="flex gap-1 md:flex-col">
-                      {cat.items.map((item) => {
-                        const Icon = item.icon
-                        const isActive = activeSection === item.key
-                        return (
-                          <button
-                            key={item.key}
-                            type="button"
-                            onClick={() => setActiveSection(item.key)}
-                            className={cn(
-                              "flex items-center justify-between gap-2 rounded-xl px-3 py-2 text-left text-xs font-medium whitespace-nowrap transition-all outline-none",
-                              isActive
-                                ? "bg-background font-semibold text-foreground shadow-xs ring-1 ring-border/60"
-                                : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-                            )}
-                          >
-                            <div className="flex items-center gap-2.5">
-                              <Icon className="size-4 shrink-0" />
-                              <span>{item.label}</span>
-                            </div>
-                            {item.badge !== undefined && (
-                              <Badge
-                                variant={isActive ? "default" : "secondary"}
-                                className="h-4.5 rounded-full px-1.5 text-[10px]"
-                              >
-                                {item.badge}
-                              </Badge>
-                            )}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <div className="hidden border-t border-border/40 px-2 pt-3 text-[11px] text-muted-foreground md:block">
-                <span className="rounded-md border border-border/50 bg-muted px-1.5 py-0.5 font-mono text-[10px]">
-                  Esc
-                </span>{" "}
-                to close
-              </div>
-            </aside>
+            <SettingsNavigation
+              groups={navCategories}
+              active={activeSection}
+              onChange={setActiveSection}
+            />
 
             {/* Content Area */}
-            <main className="flex-1 overflow-y-auto p-6 md:p-8">
+            <SettingsPanel>
+              {settingsUnavailable && activeSection !== "mcp" ? (
+                <Alert className="mb-5">
+                  <AlertTitle>Could not load settings</AlertTitle>
+                  <AlertDescription>
+                    Your saved settings are unavailable right now. Try loading
+                    them again.
+                    <Button
+                      variant="outline"
+                      className="mt-3 min-h-11 self-start"
+                      disabled={isLoading}
+                      onClick={onReload}
+                    >
+                      Retry
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              ) : null}
               {activeSection === "profile" && (
                 <div className="max-w-2xl space-y-6">
                   <div>
@@ -601,7 +570,11 @@ export function SettingsDialog({
                               Joined{" "}
                               {new Date(member.joinedAt).toLocaleDateString(
                                 "en-US",
-                                { month: "short", day: "numeric", year: "numeric" }
+                                {
+                                  month: "short",
+                                  day: "numeric",
+                                  year: "numeric",
+                                }
                               )}
                             </p>
                           </div>
@@ -619,235 +592,21 @@ export function SettingsDialog({
               )}
 
               {activeSection === "mcp" && (
-                <div className="max-w-2xl space-y-6">
-                  {/* Header */}
-                  <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
-                    <div>
-                      <h2 className="font-heading text-lg font-semibold text-foreground">
-                        AI Agents & MCP Gateway
-                      </h2>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        Connect Claude, Cursor, ChatGPT, and custom assistants directly to your workspace tools and memory.
-                      </p>
-                    </div>
-                    <Button
-                      size="sm"
-                      className="shrink-0 gap-1.5 rounded-full shadow-2xs"
-                      onClick={() => {
-                        setIsCreateKeyOpen(true)
-                      }}
-                    >
-                      <PlusIcon className="size-3.5" />
-                      <span>New Key</span>
-                    </Button>
-                  </div>
-
-                  {/* Top Endpoints Card */}
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between px-1">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Unified MCP Connection Gateway
-                      </p>
-                      {primaryToken && (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
-                          <span className="size-1.5 rounded-full bg-emerald-500" />
-                          Includes Active Key
-                        </span>
-                      )}
-                    </div>
-
-                    {!primaryToken && (
-                      <div className="flex items-start gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-xs text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200">
-                        <AlertTriangleIcon className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
-                        <div className="flex-1 space-y-1">
-                          <p className="font-semibold">Agent Key Required</p>
-                          <p className="text-muted-foreground">
-                            Generate an Agent Key below to obtain your authenticated MCP connection URL for Cursor, Claude Desktop, Windsurf, or Cline.
-                          </p>
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-7 shrink-0 gap-1 rounded-full border-amber-500/30 bg-amber-500/10 px-2.5 text-[11px] font-medium text-amber-900 hover:bg-amber-500/20 dark:text-amber-200"
-                          onClick={() => setIsCreateKeyOpen(true)}
-                        >
-                          <PlusIcon className="size-3" />
-                          <span>Generate Key</span>
-                        </Button>
-                      </div>
-                    )}
-
-                    <div className="overflow-hidden rounded-2xl border border-border/60 bg-muted/20 text-sm">
-                      {/* Unified Dual-Mode MCP Gateway */}
-                      <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="min-w-0 flex-1 space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="flex size-6 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                              <ZapIcon className="size-3.5" />
-                            </span>
-                            <span className="font-semibold text-foreground">
-                              MCP Endpoint (Dual-Mode HTTP & SSE)
-                            </span>
-                            <Badge variant="secondary" className="rounded-full px-2 py-0 text-[10px] font-medium">
-                              Universal
-                            </Badge>
-                          </div>
-                          <p className="truncate font-mono text-xs text-muted-foreground">
-                            {mcpEndpointUrl}
-                          </p>
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-8 shrink-0 gap-1.5 rounded-full px-3 text-xs"
-                          disabled={!primaryToken}
-                          onClick={() =>
-                            copyToClipboard(mcpEndpointUrl, "MCP Endpoint")
-                          }
-                        >
-                          {copiedField === "MCP Endpoint" ? (
-                            <CheckIcon className="size-3.5 text-emerald-500" />
-                          ) : (
-                            <CopyIcon className="size-3.5" />
-                          )}
-                          <span>Copy URL</span>
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Active Keys List */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between px-1">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Active Agent Keys ({tokens.length})
-                      </p>
-                    </div>
-
-                    <div className="divide-y divide-border/50 overflow-hidden rounded-2xl border border-border/60 bg-muted/20 text-sm">
-                      {isLoading && tokens.length === 0 ? (
-                        <div className="space-y-3 p-4">
-                          <div className="h-16 animate-pulse rounded-xl bg-muted/40" />
-                          <div className="h-16 animate-pulse rounded-xl bg-muted/40" />
-                        </div>
-                      ) : tokens.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center p-8 text-center">
-                          <span className="flex size-10 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
-                            <KeyRoundIcon className="size-5" />
-                          </span>
-                          <p className="mt-3 text-sm font-medium text-foreground">
-                            No agent keys generated yet
-                          </p>
-                          <p className="mt-0.5 text-xs text-muted-foreground">
-                            Generate a key to connect your AI assistant to this workspace.
-                          </p>
-                          <Button
-                            size="sm"
-                            className="mt-4 gap-1.5 rounded-full"
-                            onClick={() => setIsCreateKeyOpen(true)}
-                          >
-                            <PlusIcon className="size-3.5" />
-                            <span>Generate First Key</span>
-                          </Button>
-                        </div>
-                      ) : (
-                        tokens.map((token) => {
-                          const tokenSecret = token.token || token.keyPrefix
-                          const tokenMcpUrl = `${origin}/api/mcp?apiKey=${tokenSecret}`
-
-                          return (
-                            <div
-                              key={token.id}
-                              className="flex flex-col gap-3 p-4 sm:p-5"
-                            >
-                              {/* Header Row: Name, Created Date, Revoke */}
-                              <div className="flex items-center justify-between gap-3">
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <span className="flex size-6 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                                    <KeyRoundIcon className="size-3.5" />
-                                  </span>
-                                  <p className="truncate text-sm font-semibold text-foreground">
-                                    {token.name}
-                                  </p>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                  <span
-                                    className="text-[11px] text-muted-foreground"
-                                    suppressHydrationWarning
-                                  >
-                                    Created{" "}
-                                    {new Date(token.createdAt).toLocaleDateString(
-                                      "en-US",
-                                      { month: "short", day: "numeric", year: "numeric" }
-                                    )}
-                                  </span>
-                                  <Button
-                                    size="icon-sm"
-                                    variant="ghost"
-                                    className="rounded-full text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                    onClick={() => setTokenToRevoke(token)}
-                                    aria-label={`Revoke ${token.name}`}
-                                  >
-                                    <Trash2Icon className="size-4" />
-                                  </Button>
-                                </div>
-                              </div>
-
-                              {/* Full Unmasked Key Box */}
-                              <div className="flex items-center gap-2 rounded-xl border border-border/60 bg-background/80 p-2.5 font-mono text-xs">
-                                <span className="flex-1 select-all truncate font-medium text-foreground">
-                                  {tokenSecret}
-                                </span>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-7 shrink-0 gap-1 rounded-full px-2.5 text-[11px]"
-                                  onClick={() =>
-                                    copyToClipboard(
-                                      tokenSecret,
-                                      `API Key (${token.name})`
-                                    )
-                                  }
-                                >
-                                  {copiedField === `API Key (${token.name})` ? (
-                                    <CheckIcon className="size-3 text-emerald-500" />
-                                  ) : (
-                                    <CopyIcon className="size-3" />
-                                  )}
-                                  <span>Copy Key</span>
-                                </Button>
-                              </div>
-
-                              {/* Direct Endpoint 1-Click Copy Button */}
-                              <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                                <Button
-                                  size="sm"
-                                  variant="secondary"
-                                  className="h-7 gap-1.5 rounded-full px-3 text-[11px] font-medium"
-                                  onClick={() =>
-                                    copyToClipboard(
-                                      tokenMcpUrl,
-                                      `MCP Endpoint (${token.name})`
-                                    )
-                                  }
-                                >
-                                  {copiedField === `MCP Endpoint (${token.name})` ? (
-                                    <CheckIcon className="size-3 text-emerald-500" />
-                                  ) : (
-                                    <ZapIcon className="size-3 text-primary" />
-                                  )}
-                                  <span>Copy MCP URL</span>
-                                </Button>
-                              </div>
-                            </div>
-                          )
-                        })
-                      )}
-                    </div>
-                  </div>
-                </div>
+                <McpSettingsPanel
+                  endpoint={mcpEndpointUrl}
+                  canManageKeys={canManageKeys}
+                  tokens={tokens}
+                  latestKey={latestKey}
+                  pending={isPending}
+                  loading={isLoading}
+                  unavailable={mcpTokensUnavailable}
+                  onReload={onReload}
+                  onCreate={() => setIsCreateKeyOpen(true)}
+                  onRevoke={setTokenToRevoke}
+                  onCopy={copyToClipboard}
+                  onDismissKey={() => setLatestKey(null)}
+                />
               )}
-
               {activeSection === "tools" && (
                 <div className="max-w-2xl space-y-6">
                   <div>
@@ -910,9 +669,9 @@ export function SettingsDialog({
                   </div>
                 </div>
               )}
-            </main>
-          </div>
-        </DialogContent>
+            </SettingsPanel>
+          </SettingsBody>
+        </SettingsDialogContent>
       </Dialog>
 
       {/* Generate API Key Modal */}
@@ -921,7 +680,8 @@ export function SettingsDialog({
           <DialogHeader>
             <DialogTitle>Generate Agent Key</DialogTitle>
             <DialogDescription>
-              Name this key to identify which AI tool or assistant is connecting.
+              Name this key to identify which AI tool or assistant is
+              connecting.
             </DialogDescription>
           </DialogHeader>
 
@@ -939,6 +699,7 @@ export function SettingsDialog({
                   id="agent-key-input"
                   placeholder="e.g. Cursor Workstation, Claude Desktop, LibreChat"
                   value={keyName}
+                  maxLength={80}
                   onChange={(e) => setKeyName(e.target.value)}
                   className="h-10 rounded-xl"
                   autoFocus
@@ -956,7 +717,7 @@ export function SettingsDialog({
               </Button>
               <Button
                 type="submit"
-                disabled={isPending}
+                disabled={isPending || !canManageKeys}
                 className="rounded-full"
               >
                 {isPending ? "Generating..." : "Generate Key"}

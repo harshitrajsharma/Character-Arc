@@ -8,9 +8,38 @@ Automated testing practices and headless browser guidelines live in [e2e-testing
 
 Historical updates and architecture decisions are recorded in [PROJECT_LOGS.md](./PROJECT_LOGS.md).
 
+The November release connects [subject Tests and Assessments](./subject-assessment-integration.md),
+replaces Today with [Workspace home and navigation](./workspace-home-navigation.md),
+and defines the [MCP production contract](./mcp-production-readiness.md).
+[Installation lifecycle](./tool-installation-lifecycle.md) explains initial
+provisioning, explicit grants and fail-closed reads. Release verification and
+deployment boundaries are tracked in [release readiness](./release-readiness-2026-11.md).
+
+Private-page cache isolation, legacy cache migration and offline behavior are
+documented in [PWA cache security](./pwa-cache-security.md).
+
+Question-display inventory, builder workflow findings and the proposed reusable presentation contract live in [question-presentation-plan.md](./question-presentation-plan.md).
+
+Application-wide component consolidation, justified separations, obsolete-file candidates and browser coverage are recorded in [component-reuse-audit.md](./component-reuse-audit.md).
+
+Add questions sheet purpose, loading/cache behavior, responsive findings and staged improvement plan: [builder-question-picker-ux-plan.md](./builder-question-picker-ux-plan.md).
+
+Real assessment creation and question-attachment journey, confirmed workflow defects and implemented contextual-authoring fixes: [assessment-authoring-workflow-audit.md](./assessment-authoring-workflow-audit.md). Verification uses only the requested Linear Algebra assessment; the original audit is preserved alongside current behavior.
+
+Assessment detail page purpose, implemented segmented structure, responsive evidence and review decisions: [assessment-detail-ux-plan.md](./assessment-detail-ux-plan.md).
+
+Recent-score chart purpose, selected-result interaction and redesign verification: [score-trend-ux-plan.md](./score-trend-ux-plan.md).
+
 Frontend color decisions are governed by the agent-facing
 [CSS color context](./css-color-context.md). Read it before choosing, adding, or
 changing colors.
+
+Application font families, local asset provenance and loading policy are
+documented in [Typography](./typography.md).
+
+The anonymous landing page's product story, example-workspace interaction,
+server rendering and responsive verification are documented in
+[Landing page design](./landing-page-design.md).
 
 ## Working Name
 
@@ -752,3 +781,12 @@ Student demo version:
 Question-editor image storage setup and access rules: [question-image-storage.md](./question-image-storage.md).
 
 App-wide Supabase image roadmap: [app-image-handling-plan.md](./app-image-handling-plan.md).
+
+Assessment library purpose, card hierarchy and mobile behavior:
+[assessment-dashboard-ux.md](./assessment-dashboard-ux.md).
+
+Assessment creation audit, implemented form structure and verification notes:
+[assessment-creation-ux-plan.md](./assessment-creation-ux-plan.md).
+
+Assessment builder audit, implemented workflow and responsive verification:
+[assessment-builder-ux-plan.md](./assessment-builder-ux-plan.md).

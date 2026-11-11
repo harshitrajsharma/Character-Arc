@@ -5,6 +5,7 @@ import { SetNavbarBreadcrumbs } from "@/components/navigation/breadcrumb-context
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { MockTestsDashboard } from "@/components/tools/mock-tests/mock-tests-dashboard"
 import { getMockTestsOverview } from "@/lib/tools/definitions/mock-tests/repository"
+import { getAttemptHistoryAction } from "@/lib/tools/mock-tests/actions/attempt-history-actions"
 import {
   getWorkspaceIdentity,
   requireActiveToolInstallation,
@@ -18,29 +19,34 @@ export default async function MockTestsPage({
   searchParams,
 }: {
   params: Promise<{ workspaceSlug: string }>
-  searchParams: Promise<{ tab?: string }>
+  searchParams: Promise<{ tab?: string; attemptPage?: string }>
 }) {
   const { workspaceSlug } = await params
-  const { tab } = await searchParams
+  const { tab, attemptPage } = await searchParams
   const workspace = await getWorkspaceIdentity(workspaceSlug)
   const installation = await requireActiveToolInstallation(
     workspaceSlug,
     "core.mock-tests"
   )
 
-  const overview = await getMockTestsOverview(
-    workspace.id,
-    workspaceSlug,
-    installation.id
-  )
+  const [overview, attemptHistory] = await Promise.all([
+    getMockTestsOverview(workspace.id, workspaceSlug, installation.id),
+    getAttemptHistoryAction({
+      workspaceSlug,
+      page: tab === "attempts" ? attemptPage : 1,
+    }),
+  ])
 
   const canWrite = workspace.role !== "VIEWER"
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 pt-20 pb-12 sm:pb-16 md:px-6 xl:px-10 space-y-6">
+    <main className="mx-auto w-full max-w-6xl space-y-6 px-4 pt-20 pb-28 sm:pb-16 md:px-6 xl:px-10">
       <SetNavbarBreadcrumbs
         segments={[
-          { label: "Workspace", href: `/workspace/${encodeURIComponent(workspaceSlug)}` },
+          {
+            label: "Workspace",
+            href: `/workspace/${encodeURIComponent(workspaceSlug)}`,
+          },
           { label: "Assessments" },
         ]}
         backHref={`/workspace/${encodeURIComponent(workspaceSlug)}`}
@@ -62,8 +68,8 @@ export default async function MockTestsPage({
         assessments={overview.assessments}
         communityAssessments={overview.communityAssessments}
         recentAttempts={overview.recentAttempts}
+        attemptHistory={attemptHistory}
         canWrite={canWrite}
-        initialTab={tab === "community" ? "community" : "workspace"}
       />
     </main>
   )

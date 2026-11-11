@@ -1,4 +1,7 @@
-import Link from "next/link"
+import {
+  parseIsoLocalDate as getExamStart,
+  parseTimestamp as getOfficialStart,
+} from "@/lib/dates/local-date"
 import {
   Fragment,
   type ReactNode,
@@ -45,37 +48,6 @@ type CountdownView = "clock" | "weeks"
 const DAY_MS = 24 * 60 * 60 * 1_000
 const COUNTDOWN_VIEW_STORAGE_KEY = "character-arc:exam-prep:countdown-view"
 const COUNTDOWN_VIEW_CHANGE_EVENT = "character-arc:exam-prep:countdown-view"
-
-function getExamStart(examDate: string): Date | null {
-  const parts = examDate.split("-").map(Number)
-
-  if (
-    parts.length !== 3 ||
-    parts.some((part) => !Number.isInteger(part)) ||
-    parts[0] < 1 ||
-    parts[1] < 1 ||
-    parts[1] > 12 ||
-    parts[2] < 1 ||
-    parts[2] > 31
-  ) {
-    return null
-  }
-
-  const [year, month, day] = parts
-  const target = new Date(year, month - 1, day)
-
-  return target.getFullYear() === year &&
-    target.getMonth() === month - 1 &&
-    target.getDate() === day
-    ? target
-    : null
-}
-
-function getOfficialStart(officialStartAt: string | null): Date | null {
-  if (!officialStartAt) return null
-  const date = new Date(officialStartAt)
-  return Number.isNaN(date.getTime()) ? null : date
-}
 
 function getTimeLeft(target: Date): TimeLeft {
   const difference = target.getTime() - Date.now()
@@ -228,7 +200,7 @@ function CountdownDisplay({
   value,
   view,
   onOpenSettings,
-  settingsHref,
+  settingsHref: _settingsHref,
 }: {
   value: ReactNode
   view: CountdownView

@@ -7,7 +7,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server"
 export async function GET(request: NextRequest) {
   const tokenHash = request.nextUrl.searchParams.get("token_hash")
   const type = request.nextUrl.searchParams.get("type") as EmailOtpType | null
-  const fallback = type === "recovery" ? "/update-password" : "/dashboard"
+  const fallback = type === "recovery" ? "/update-password" : "/workspace"
   const next = safeNextPath(
     request.nextUrl.searchParams.get("next") ?? fallback
   )

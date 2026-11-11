@@ -1,134 +1,159 @@
 "use client"
+import {
+  AttemptStatusBadge,
+  AttemptResultSummary,
+  AttemptAction,
+} from "../attempt-presentation"
+import {
+  formatAttemptDate as formatDate,
+  formatAttemptTime as formatTime,
+} from "@/lib/dates/attempt-date"
 
-import Link from "next/link"
-import { ArrowRightIcon, PlayIcon, TrendingUpIcon } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
-import { formatNumber } from "@/lib/tools/mock-tests/kind-labels"
+import { HistoryIcon } from "lucide-react"
+import type { RecentAttemptItem } from "@/lib/tools/definitions/mock-tests/repository"
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty"
 import { workspaceRoutes } from "@/lib/routes/workspace-tools"
+import { AttemptHistoryPagination } from "./attempt-history-pagination"
 import type { RecentAttemptsTableProps } from "./types"
-
-function formatDate(iso: string | null) {
-  if (!iso) return "In progress"
-  const date = new Date(iso)
-  if (Number.isNaN(date.getTime())) return iso
-  return new Intl.DateTimeFormat("en-US", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(date)
-}
 
 export function RecentAttemptsTable({
   workspaceSlug,
-  recentAttempts,
+  history,
+  canWrite = false,
 }: RecentAttemptsTableProps) {
-  if (recentAttempts.length === 0) return null
-
+  const recentAttempts = history.items
+  const groups = recentAttempts.reduce<
+    Array<{ date: string; items: RecentAttemptItem[] }>
+  >((result, attempt) => {
+    const date = formatDate(attempt.startedAt)
+    const previous = result[result.length - 1]
+    if (previous?.date === date) previous.items.push(attempt)
+    else result.push({ date, items: [attempt] })
+    return result
+  }, [])
   return (
-    <div className="space-y-3 pt-6 border-t border-border/60">
-      <div className="flex items-center justify-between">
-        <h3 className="font-heading text-base font-bold text-foreground flex items-center gap-2">
-          <TrendingUpIcon className="size-4 text-foreground" />
-          Recent Attempt History
-        </h3>
-        <span className="text-xs text-muted-foreground font-mono">
-          {recentAttempts.length} recorded
-        </span>
-      </div>
-
-      <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-2xs">
-        <div className="hidden border-b border-border bg-muted/40 px-5 py-2.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground sm:grid sm:grid-cols-[1.5fr_110px_130px_130px] sm:items-center sm:gap-4 font-mono">
-          <span>Test Paper</span>
-          <span>Status</span>
-          <span className="text-right">Score</span>
-          <span className="text-right">Action</span>
+    <section
+      aria-labelledby="attempt-history-heading"
+      className="flex min-w-0 flex-col gap-4"
+    >
+      <div className="flex flex-col gap-1">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2
+            id="attempt-history-heading"
+            tabIndex={-1}
+            className="scroll-mt-24 font-heading text-lg font-semibold outline-none"
+          >
+            Attempt history
+          </h2>
+          <span className="text-xs text-muted-foreground tabular-nums">
+            {history.total} {history.total === 1 ? "attempt" : "attempts"}
+          </span>
         </div>
-
-        <div className="divide-y divide-border/60">
-          {recentAttempts.map((attempt) => {
-            const isFinished =
-              attempt.status === "evaluated" || attempt.status === "submitted"
-
-            return (
-              <div
-                key={attempt.id}
-                className="grid gap-2 p-4 text-xs sm:grid-cols-[1.5fr_110px_130px_130px] sm:items-center sm:gap-4 hover:bg-muted/20 transition-colors"
-              >
-                <div className="min-w-0 space-y-0.5">
-                  <p className="font-bold text-foreground truncate font-heading text-sm">
-                    {attempt.assessmentTitle}
-                  </p>
-                  <p className="text-[11px] text-muted-foreground font-mono">
-                    {formatDate(attempt.submittedAt ?? attempt.startedAt)}
-                  </p>
-                </div>
-
-                <div>
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      "text-[10px] font-bold rounded-full px-2.5 py-0.5",
-                      isFinished
-                        ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
-                        : "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400"
-                    )}
-                  >
-                    {attempt.status === "evaluated"
-                      ? "Evaluated"
-                      : attempt.status === "in_progress"
-                      ? "In Progress"
-                      : attempt.status}
-                  </Badge>
-                </div>
-
-                <div className="font-mono font-bold text-foreground sm:text-right text-xs sm:text-sm">
-                  {attempt.score !== null ? `${formatNumber(attempt.score)}` : "—"}
-                  {attempt.maxScore !== null
-                    ? ` / ${formatNumber(attempt.maxScore)}`
-                    : ""}
-                  {attempt.percentage !== null ? (
-                    <span className="ml-1.5 text-[11px] text-muted-foreground font-medium">
-                      ({Math.round(attempt.percentage)}%)
-                    </span>
-                  ) : null}
-                </div>
-
-                <div className="sm:text-right">
-                  {isFinished ? (
-                    <Button
-                      variant="outline"
-                      size="xs"
-                      className="h-8 rounded-full text-xs font-semibold gap-1 border-border hover:bg-muted/50 text-foreground cursor-pointer"
-                      render={
-                        <Link
-                          href={workspaceRoutes.mockTests.analysis(
-                            workspaceSlug,
-                            attempt.id
-                          )}
-                        />
-                      }
-                    >
-                      View Analysis
-                      <ArrowRightIcon className="size-3" />
-                    </Button>
-                  ) : (
-                    <Button
-                      size="xs"
-                      className="h-8 rounded-full text-xs font-bold bg-foreground text-background hover:bg-foreground/90 gap-1 shadow-xs cursor-pointer"
-                      render={<Link href={`/assessments/${encodeURIComponent(attempt.id)}`} />}
-                    >
-                      <PlayIcon className="size-3 fill-current" />
-                      Resume
-                    </Button>
-                  )}
-                </div>
-              </div>
-            )
-          })}
-        </div>
+        <p className="text-sm text-muted-foreground">
+          {history.total
+            ? "Newest first. All your attempts in this workspace."
+            : "Your test results and unfinished attempts will appear here."}
+        </p>
       </div>
-    </div>
+      {recentAttempts.length === 0 ? (
+        <Empty className="rounded-lg">
+          <EmptyHeader>
+            <EmptyMedia variant="icon">
+              <HistoryIcon aria-hidden="true" />
+            </EmptyMedia>
+            <EmptyTitle>No attempts yet</EmptyTitle>
+            <EmptyDescription>
+              Choose a published paper from My papers or Community to take your
+              first test.
+            </EmptyDescription>
+          </EmptyHeader>
+        </Empty>
+      ) : (
+        <div className="flex min-w-0 flex-col gap-5">
+          {groups.map((group) => (
+            <section
+              key={group.date}
+              aria-label={`Attempts on ${group.date}`}
+              className="flex min-w-0 flex-col gap-2"
+            >
+              <h3 className="text-xs font-medium text-muted-foreground">
+                {group.date}
+              </h3>
+              <ul className="min-w-0 divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
+                {group.items.map((attempt) => {
+                  const canReview = attempt.status === "evaluated"
+                  const canResume = attempt.status === "in_progress" && canWrite
+                  return (
+                    <li
+                      key={attempt.id}
+                      data-attempt-id={attempt.id}
+                      data-started-at={attempt.startedAt}
+                      className="flex min-w-0 flex-col gap-3 p-4 transition-colors focus-within:bg-muted/30 hover:bg-muted/30 sm:grid sm:grid-cols-[minmax(0,1fr)_240px] sm:items-center sm:gap-6"
+                    >
+                      <div className="flex min-w-0 flex-1 flex-col gap-2">
+                        <p
+                          className="line-clamp-2 text-sm font-semibold break-words"
+                          title={attempt.assessmentTitle}
+                        >
+                          {attempt.assessmentTitle}
+                        </p>
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-muted-foreground">
+                          <AttemptStatusBadge status={attempt.status} />
+                          <time
+                            dateTime={attempt.startedAt}
+                            title={`${formatDate(attempt.startedAt)}, ${formatTime(attempt.startedAt)} (IST)`}
+                          >
+                            Started {formatTime(attempt.startedAt)}
+                          </time>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between gap-3 sm:grid sm:grid-cols-[minmax(0,1fr)_100px] sm:items-center sm:gap-5">
+                        <div className="flex flex-col gap-0.5 text-sm tabular-nums sm:text-right">
+                          <AttemptResultSummary
+                            status={attempt.status}
+                            score={attempt.score}
+                            maxScore={attempt.maxScore}
+                            percentage={attempt.percentage}
+                          />
+                        </div>
+                        {canReview ? (
+                          <AttemptAction
+                            href={workspaceRoutes.mockTests.analysis(
+                              workspaceSlug,
+                              attempt.id
+                            )}
+                            action="review"
+                            accessibleLabel={`Review ${attempt.assessmentTitle}, ${formatDate(attempt.startedAt)} at ${formatTime(attempt.startedAt)}`}
+                          />
+                        ) : canResume ? (
+                          <AttemptAction
+                            href={workspaceRoutes.mockTests.attempt(
+                              workspaceSlug,
+                              attempt.id
+                            )}
+                            action="resume"
+                            accessibleLabel={`Resume ${attempt.assessmentTitle}`}
+                          />
+                        ) : null}
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+            </section>
+          ))}
+        </div>
+      )}
+      <AttemptHistoryPagination
+        history={history}
+        workspaceSlug={workspaceSlug}
+      />
+    </section>
   )
 }

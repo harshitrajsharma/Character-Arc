@@ -31,4 +31,3 @@ describe("MCP Tool Formatting & Translation", () => {
     expect(examCreateTool?.inputSchema.type).toBe("object")
   })
 })
-

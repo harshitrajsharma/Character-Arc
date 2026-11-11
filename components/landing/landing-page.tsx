@@ -9,8 +9,14 @@ import { LandingToolsStrip } from "@/components/landing/landing-tools-strip"
 export function LandingPage() {
   return (
     <div className="flex min-h-svh flex-col bg-background text-foreground">
+      <a
+        href="#main-content"
+        className="sr-only fixed top-3 left-3 z-50 rounded-full bg-primary px-4 py-3 text-sm font-medium text-primary-foreground focus:not-sr-only"
+      >
+        Skip to content
+      </a>
       <LandingNav />
-      <main className="flex-1">
+      <main id="main-content" className="min-w-0 flex-1">
         <LandingHero />
         <LandingHowItWorks />
         <LandingToolsStrip />

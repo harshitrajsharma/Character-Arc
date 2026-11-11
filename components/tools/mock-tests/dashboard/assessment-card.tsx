@@ -1,22 +1,29 @@
 "use client"
 
+import { useId } from "react"
 import Link from "next/link"
 import {
-  CalculatorIcon,
-  ClockIcon,
+  ArchiveIcon,
+  CheckCircle2Icon,
   CopyIcon,
-  ExternalLinkIcon,
+  Loader2Icon,
   FilePenLineIcon,
-  FileTextIcon,
   GlobeIcon,
   LinkIcon,
+  LockKeyholeIcon,
   PlayIcon,
-  Share2Icon,
-  SparklesIcon,
-  TargetIcon,
-  TrophyIcon,
 } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Button, buttonVariants } from "@/components/ui/button"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/utils"
 import { workspaceRoutes } from "@/lib/routes/workspace-tools"
 import type {
@@ -24,32 +31,26 @@ import type {
   MockTestListItem,
 } from "@/lib/tools/definitions/mock-tests/repository"
 import { StartAttemptButton } from "../start-attempt-button"
+import { AssessmentManagementActions } from "./assessment-management-actions"
 import type { AssessmentCardProps } from "./types"
 
-const PAPER_TYPE_CONFIG: Record<
-  string,
-  { label: string; badgeClass: string }
-> = {
-  full_length: {
-    label: "Full-Length",
-    badgeClass: "border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-300",
-  },
-  multi_subject: {
-    label: "Multi-Subject",
-    badgeClass: "border-teal-500/25 bg-teal-500/10 text-teal-700 dark:text-teal-300",
-  },
-  subject_wise: {
-    label: "Subject Test",
-    badgeClass: "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
-  },
-  topic_wise: {
-    label: "Topic Drill",
-    badgeClass: "border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-300",
-  },
-  pyq: {
-    label: "PYQ",
-    badgeClass: "border-cyan-500/25 bg-cyan-500/10 text-cyan-700 dark:text-cyan-300",
-  },
+const PAPER_TYPES: Record<string, string> = {
+  full_length: "Full-length",
+  multi_subject: "Multi-subject",
+  subject_wise: "Subject test",
+  topic_wise: "Topic drill",
+  pyq: "PYQ",
+}
+
+function formatUpdated(iso: string) {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return null
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "Asia/Kolkata",
+  }).format(date)
 }
 
 export function AssessmentCard({
@@ -58,330 +59,313 @@ export function AssessmentCard({
   item,
   canWrite = false,
   isCloning = false,
-  onShare,
   onClone,
+  activeAttemptId,
+  layout = "grid",
 }: AssessmentCardProps) {
-  const isWorkspace = mode === "workspace"
-  const workspaceItem = isWorkspace ? (item as MockTestListItem) : null
-  const communityItem = !isWorkspace ? (item as CommunityMockTestItem) : null
-
-  const paperTypeCfg = item.taxonomy?.paperType
-    ? PAPER_TYPE_CONFIG[item.taxonomy.paperType]
+  const titleId = useId()
+  const workspaceItem = mode === "workspace" ? (item as MockTestListItem) : null
+  const communityItem =
+    mode === "community" ? (item as CommunityMockTestItem) : null
+  const draft = workspaceItem?.status === "draft"
+  const archived = workspaceItem?.status === "archived"
+  const published = !draft && !archived
+  const canManage = !!workspaceItem && canWrite && !archived
+  const canEditDraft = draft && canManage
+  const canTake =
+    !!workspaceItem && canWrite && published && item.questionCount > 0
+  const canResume =
+    !!workspaceItem && canWrite && published && !!activeAttemptId
+  const canClone = !!communityItem?.allowCloning && canWrite && !!onClone
+  const detailHref = workspaceItem
+    ? canEditDraft
+      ? workspaceRoutes.mockTests.edit(workspaceSlug, item.id)
+      : workspaceRoutes.mockTests.detail(workspaceSlug, item.id)
+    : `/assessments/share/${item.id}`
+  const StatusIcon = archived
+    ? ArchiveIcon
+    : draft
+      ? FilePenLineIcon
+      : CheckCircle2Icon
+  const visibility =
+    workspaceItem?.visibility ?? (communityItem ? "public" : "private")
+  const VisibilityIcon =
+    visibility === "public"
+      ? GlobeIcon
+      : visibility === "unlisted"
+        ? LinkIcon
+        : LockKeyholeIcon
+  const visibilityLabel =
+    visibility === "public"
+      ? "Public"
+      : visibility === "unlisted"
+        ? "Link only"
+        : "Private"
+  const subjects = item.taxonomy?.subjects ?? []
+  const context = [
+    item.taxonomy?.examTag,
+    subjects.length ? subjects.join(", ") : null,
+  ]
+    .filter(Boolean)
+    .join(" / ")
+  const updated = workspaceItem ? formatUpdated(workspaceItem.updatedAt) : null
+  const publishedDate = communityItem?.publishedAt
+    ? formatUpdated(communityItem.publishedAt)
     : null
+  const publisher = communityItem
+    ? `By ${communityItem.authorName}${communityItem.workspaceName !== communityItem.authorName ? ` · ${communityItem.workspaceName}` : ""}`
+    : null
+  const description =
+    context ||
+    (communityItem ? communityItem.summary : "Exam and subjects not specified")
+  const footerNote = archived
+    ? "Archived assessment"
+    : draft && item.questionCount === 0
+      ? "Add questions to build your paper"
+      : updated
+        ? `Updated ${updated}`
+        : communityItem
+          ? `By ${communityItem.authorName}`
+          : "Assessment overview"
 
-  const visibility = workspaceItem?.visibility ?? "public"
+  const metadata = communityItem ? (
+    <div
+      aria-label="Community paper activity"
+      className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 text-xs"
+    >
+      {PAPER_TYPES[item.taxonomy?.paperType ?? ""] ? (
+        <span className="font-medium text-brand-violet-ink">
+          {PAPER_TYPES[item.taxonomy?.paperType ?? ""]}
+        </span>
+      ) : null}
+      <span className="text-muted-foreground tabular-nums">
+        {communityItem.attemptsCount === 0
+          ? "No attempts yet"
+          : `${communityItem.attemptsCount.toLocaleString("en-IN")} ${communityItem.attemptsCount === 1 ? "attempt" : "attempts"}`}
+      </span>
+    </div>
+  ) : (
+    <div
+      role="group"
+      aria-label="Assessment type, status, and visibility"
+      className={cn(
+        "flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2",
+        layout === "list" ? "justify-start" : "justify-between"
+      )}
+    >
+      <span
+        className="min-w-0 truncate text-xs font-medium text-brand-violet-ink"
+        title={PAPER_TYPES[item.taxonomy?.paperType ?? ""] ?? "Assessment"}
+      >
+        {PAPER_TYPES[item.taxonomy?.paperType ?? ""] ?? "Assessment"}
+      </span>
+      <div className="flex shrink-0 items-center gap-1.5">
+        <Badge
+          variant="secondary"
+          className={cn(
+            published && workspaceItem && "bg-success-soft text-success-ink"
+          )}
+        >
+          <StatusIcon aria-hidden="true" />
+          {archived
+            ? "Archived"
+            : draft
+              ? "Draft"
+              : communityItem
+                ? "Community"
+                : "Published"}
+        </Badge>
+        <span className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+          <VisibilityIcon className="size-3" aria-hidden="true" />
+          {visibilityLabel}
+        </span>
+      </div>
+    </div>
+  )
 
   return (
-    <div className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-border/70 bg-card shadow-2xs hover:shadow-xs hover:border-foreground/30 transition-all divide-y divide-border/50">
-      {/* ── Segment 1: Classification & Consolidated Status Header ── */}
-      <div className="flex items-center justify-between gap-2 px-4 sm:px-5 py-2.5 bg-muted/20 text-xs">
-        {/* Left: Paper Type pill (subtle accent tint) + Exam tag (mono uppercase) */}
-        <div className="flex items-center gap-1.5 min-w-0">
-          <span
-            className={cn(
-              "text-[10px] font-semibold rounded-full px-2.5 py-0.5 border inline-flex items-center shrink-0",
-              paperTypeCfg?.badgeClass ??
-                "border-border/60 bg-muted/60 text-muted-foreground"
-            )}
-          >
-            {paperTypeCfg?.label ?? "Mock Test"}
-          </span>
+    <Card
+      role="group"
+      aria-labelledby={titleId}
+      data-assessment-card
+      data-assessment-mode={mode}
+      className={cn(
+        "group/assessment relative h-full min-w-0 gap-0 overflow-visible rounded-lg border border-border py-0 shadow-none ring-0 transition-colors hover:border-foreground/25",
+        layout === "list" &&
+          "md:grid md:grid-cols-[minmax(0,1fr)_256px] md:items-center lg:grid-cols-[minmax(0,1fr)_256px_180px]"
+      )}
+    >
+      <CardHeader
+        className={cn(
+          "flex min-w-0 flex-1 flex-col gap-2 rounded-none px-4 py-4",
+          canManage && "pr-16 md:pr-4"
+        )}
+      >
+        <div className="flex w-full min-w-0 flex-col gap-2">
+          <CardTitle>
+            <h3 id={titleId}>
+              <Link
+                href={detailHref}
+                title={item.title}
+                data-card-link
+                className="block leading-6 after:absolute after:inset-0 after:z-10 after:rounded-lg hover:underline focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring focus-visible:after:ring-offset-2 focus-visible:after:ring-offset-background"
+              >
+                <span className="line-clamp-2 break-words">{item.title}</span>
+              </Link>
+            </h3>
+          </CardTitle>
+          {description ? (
+            <CardDescription
+              className="line-clamp-2 text-xs break-words"
+              title={description}
+            >
+              {description}
+            </CardDescription>
+          ) : null}
+        </div>
+        {layout === "list" ? metadata : null}
+      </CardHeader>
+      {workspaceItem && canManage ? (
+        <AssessmentManagementActions
+          workspaceSlug={workspaceSlug}
+          item={workspaceItem}
+        />
+      ) : null}
 
-          {item.taxonomy?.examTag ? (
-            <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-full border border-border/40 shrink-0 whitespace-nowrap">
-              {item.taxonomy.examTag}
+      <Separator className={cn(layout === "list" && "md:hidden")} />
+      <CardContent
+        className={cn(
+          "flex items-center bg-muted/20 px-4 py-3",
+          layout === "list" && "md:bg-transparent md:px-0 md:pr-4"
+        )}
+      >
+        <dl className="grid w-full grid-cols-3 gap-2">
+          {[
+            { label: "Questions", value: item.questionCount },
+            {
+              label: "Duration",
+              value: item.durationMinutes
+                ? `${item.durationMinutes} min`
+                : "Untimed",
+            },
+            { label: "Marks", value: item.totalMarks ?? "Not set" },
+          ].map(({ label, value }) => (
+            <div key={label} className="flex min-w-0 flex-col gap-1">
+              <dt className="text-xs text-muted-foreground">{label}</dt>
+              <dd className="text-sm font-semibold whitespace-nowrap tabular-nums">
+                {value}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </CardContent>
+      <Separator className={cn(layout === "list" && "md:hidden")} />
+
+      <CardFooter
+        className={cn(
+          "flex flex-col items-stretch justify-end gap-3 rounded-b-lg p-4",
+          layout === "list" &&
+            "md:col-span-2 md:border-t md:border-border md:py-2 lg:col-span-1 lg:border-t-0 lg:py-4",
+          layout === "list" && canManage && "lg:pt-8"
+        )}
+      >
+        {layout === "grid" ? metadata : null}
+
+        <div
+          className={cn(
+            "flex min-h-11 items-center justify-between gap-2",
+            communityItem && layout === "grid" && "flex-wrap",
+            layout === "list" && "lg:flex-col lg:items-end lg:gap-2"
+          )}
+        >
+          {communityItem ? (
+            <div
+              className={cn(
+                "flex min-w-0 flex-col gap-1",
+                layout === "grid" && "flex-1 basis-36",
+                layout === "list" && "lg:text-right"
+              )}
+            >
+              <p
+                className="truncate text-xs font-medium text-foreground"
+                title={publisher ?? undefined}
+              >
+                {publisher}
+              </p>
+              {publishedDate ? (
+                <p className="text-xs whitespace-nowrap text-muted-foreground">
+                  Published {publishedDate}
+                </p>
+              ) : null}
+            </div>
+          ) : (
+            <p
+              className="min-w-0 truncate text-xs text-muted-foreground"
+              title={footerNote}
+            >
+              {footerNote}
+            </p>
+          )}
+          {canEditDraft ? (
+            <Link
+              href={workspaceRoutes.mockTests.edit(workspaceSlug, item.id)}
+              className={cn(
+                buttonVariants({ variant: "default", size: "sm" }),
+                "relative z-20 h-11"
+              )}
+            >
+              <FilePenLineIcon data-icon="inline-start" aria-hidden="true" />
+              Edit test
+            </Link>
+          ) : canResume ? (
+            <Link
+              href={workspaceRoutes.mockTests.attempt(
+                workspaceSlug,
+                activeAttemptId!
+              )}
+              className={cn(
+                buttonVariants({ variant: "default", size: "sm" }),
+                "relative z-20 h-11"
+              )}
+            >
+              <PlayIcon data-icon="inline-start" aria-hidden="true" />
+              Resume
+            </Link>
+          ) : canTake ? (
+            <StartAttemptButton
+              workspaceSlug={workspaceSlug}
+              assessmentId={item.id}
+              variant="default"
+              size="sm"
+              label="Take test"
+              className="relative z-20 h-11"
+            />
+          ) : null}
+          {communityItem && canClone && onClone ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="relative z-20 ml-auto h-11 shrink-0"
+              disabled={isCloning}
+              aria-label={`Copy ${item.title} to workspace`}
+              title={isCloning ? "Copying to workspace…" : "Copy to workspace"}
+              onClick={() => onClone(communityItem.id, communityItem.title)}
+            >
+              {isCloning ? (
+                <Loader2Icon className="animate-spin" aria-hidden="true" />
+              ) : (
+                <CopyIcon aria-hidden="true" />
+              )}
+              {isCloning ? "Copying…" : "Copy paper"}
+            </Button>
+          ) : null}
+          {communityItem && !communityItem.allowCloning ? (
+            <span className="shrink-0 text-xs text-muted-foreground">
+              Copying disabled
             </span>
           ) : null}
         </div>
-
-        {/* Right: Consolidated Status Beacon + Calculator micro-pill (Only when allowed) */}
-        <div className="flex items-center gap-1.5 shrink-0">
-          {isWorkspace && workspaceItem ? (
-            workspaceItem.status === "published" ? (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold border border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
-                <span className="relative flex size-1.5">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex size-1.5 rounded-full bg-emerald-500" />
-                </span>
-                Published
-                {visibility === "public" ? (
-                  <GlobeIcon className="size-2.5 opacity-80" />
-                ) : visibility === "unlisted" ? (
-                  <LinkIcon className="size-2.5 opacity-80" />
-                ) : null}
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium border border-border/70 bg-muted/60 text-muted-foreground">
-                <span className="size-1.5 rounded-full bg-muted-foreground/60" />
-                Draft
-              </span>
-            )
-          ) : (
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold border border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
-              <GlobeIcon className="size-2.5" />
-              Public
-            </span>
-          )}
-
-          {/* Calculator micro-pill ONLY when allowed (zero negative clutter) */}
-          {item.calculatorAllowed !== false && (
-            <span
-              className="inline-flex items-center justify-center size-5 rounded-full text-cyan-700 dark:text-cyan-400 border border-cyan-500/25 bg-cyan-500/10 shrink-0"
-              title="Scientific Calculator Allowed"
-            >
-              <CalculatorIcon className="size-2.5" />
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* ── Segment 2: Paper Identity & Clean Subject Micro-Chips ── */}
-      <div className="p-4 sm:p-5 space-y-2.5 bg-card flex-1">
-        <Link
-          href={
-            isWorkspace
-              ? workspaceRoutes.mockTests.detail(workspaceSlug, item.id)
-              : `/assessments/share/${item.id}`
-          }
-          className="font-heading text-base font-bold text-foreground hover:text-primary transition-colors line-clamp-2 leading-snug block"
-        >
-          {item.title}
-        </Link>
-
-        {communityItem?.summary && (
-          <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
-            {communityItem.summary}
-          </p>
-        )}
-
-        {item.taxonomy?.subjects && item.taxonomy.subjects.length > 0 ? (
-          <div className="flex flex-wrap gap-1 pt-0.5">
-            {item.taxonomy.subjects.slice(0, 3).map((sub, idx) => (
-              <span
-                key={idx}
-                className="text-[10px] font-medium text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-md border border-border/50 hover:bg-muted transition-colors"
-              >
-                {sub}
-              </span>
-            ))}
-            {item.taxonomy.subjects.length > 3 && (
-              <span className="text-[10px] text-muted-foreground/70 px-1 py-0.5 font-mono">
-                +{item.taxonomy.subjects.length - 3} more
-              </span>
-            )}
-          </div>
-        ) : null}
-      </div>
-
-      {/* ── Segment 3: Structured Telemetry Matrix & Personal Best ── */}
-      <div className="px-4 sm:px-5 py-3 bg-muted/10 space-y-3 text-xs">
-        {/* 3-Column Structured Telemetry Matrix */}
-        <div className="grid grid-cols-3 divide-x divide-border/50 rounded-xl border border-border/60 bg-muted/30 py-2 px-1 text-center">
-          <div className="flex flex-col items-center justify-center gap-0.5 px-1">
-            <span className="flex items-center gap-1 text-[10px] text-muted-foreground uppercase font-medium">
-              <FileTextIcon className="size-3 text-muted-foreground/70" />
-              Items
-            </span>
-            <span className="font-mono text-xs font-bold text-foreground">
-              {item.questionCount}{" "}
-              <span className="text-[10px] font-normal text-muted-foreground">Qs</span>
-            </span>
-          </div>
-
-          <div className="flex flex-col items-center justify-center gap-0.5 px-1">
-            <span className="flex items-center gap-1 text-[10px] text-muted-foreground uppercase font-medium">
-              <ClockIcon className="size-3 text-muted-foreground/70" />
-              Time
-            </span>
-            <span className="font-mono text-xs font-bold text-foreground">
-              {item.durationMinutes ? `${item.durationMinutes}m` : "Untimed"}
-            </span>
-          </div>
-
-          <div className="flex flex-col items-center justify-center gap-0.5 px-1">
-            <span className="flex items-center gap-1 text-[10px] text-muted-foreground uppercase font-medium">
-              <TargetIcon className="size-3 text-muted-foreground/70" />
-              Marks
-            </span>
-            <span className="font-mono text-xs font-bold text-foreground">
-              {item.totalMarks ?? "—"}
-            </span>
-          </div>
-        </div>
-
-        {/* Workspace: Personal Best Progress / Unattempted Indicator */}
-        {isWorkspace && workspaceItem ? (
-          workspaceItem.myBestPercentage !== null ? (
-            <div className="space-y-1.5 pt-0.5">
-              <div className="flex items-center justify-between text-[11px]">
-                <span className="text-muted-foreground font-medium flex items-center gap-1.5">
-                  <TrophyIcon className="size-3.5 text-amber-500" />
-                  Personal Best
-                </span>
-                <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                  {Math.round(workspaceItem.myBestPercentage)}%
-                </span>
-              </div>
-              <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
-                <div
-                  className="bg-emerald-500 h-full rounded-full transition-all duration-500"
-                  style={{
-                    width: `${Math.min(100, Math.max(0, workspaceItem.myBestPercentage))}%`,
-                  }}
-                />
-              </div>
-            </div>
-          ) : (
-            <div className="flex items-center justify-between text-[11px] pt-0.5">
-              <span className="text-muted-foreground flex items-center gap-1.5">
-                <SparklesIcon className="size-3.5 text-sky-500" />
-                <span className="font-medium text-foreground/80">Ready to attempt</span>
-              </span>
-              <span className="font-mono text-[10px] text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-full border border-border/50">
-                {workspaceItem.attemptsCount > 0
-                  ? `${workspaceItem.attemptsCount} attempt${workspaceItem.attemptsCount === 1 ? "" : "s"}`
-                  : "0 attempts"}
-              </span>
-            </div>
-          )
-        ) : communityItem ? (
-          <div className="flex items-center justify-between pt-1 border-t border-border/40 text-[11px] text-muted-foreground">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <div className="size-5 rounded-full bg-muted flex items-center justify-center text-muted-foreground shrink-0 overflow-hidden text-[9px] font-bold border border-border/50 font-mono">
-                {communityItem.authorAvatarUrl ? (
-                  <img
-                    src={communityItem.authorAvatarUrl}
-                    alt={communityItem.authorName}
-                    className="size-full object-cover"
-                  />
-                ) : (
-                  communityItem.authorName.slice(0, 2).toUpperCase()
-                )}
-              </div>
-              <span className="truncate font-medium text-foreground">
-                {communityItem.authorName}
-              </span>
-            </div>
-
-            <div className="flex items-center gap-1.5 shrink-0 font-mono text-[10px]">
-              <span className="bg-muted/60 px-2 py-0.5 rounded-full border border-border/40 text-muted-foreground">
-                {communityItem.attemptsCount} {communityItem.attemptsCount === 1 ? "attempt" : "attempts"}
-              </span>
-              {communityItem.avgScorePercentage !== null && (
-                <span className="text-emerald-700 dark:text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/25 px-2 py-0.5 rounded-full">
-                  ★ {communityItem.avgScorePercentage}% avg
-                </span>
-              )}
-            </div>
-          </div>
-        ) : null}
-      </div>
-
-      {/* ── Segment 4: Balanced Action Ribbon ── */}
-      <div className="flex items-center justify-between gap-2 px-4 sm:px-5 py-2.5 bg-muted/20 text-xs">
-        {isWorkspace && workspaceItem ? (
-          <>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-xs text-muted-foreground hover:text-foreground h-8 px-2.5 rounded-lg"
-                render={
-                  <Link
-                    href={workspaceRoutes.mockTests.detail(
-                      workspaceSlug,
-                      workspaceItem.id
-                    )}
-                  />
-                }
-              >
-                Details
-              </Button>
-
-              {canWrite && onShare && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onShare(workspaceItem)}
-                  className="text-xs text-muted-foreground hover:text-foreground h-8 px-2.5 rounded-lg gap-1.5 cursor-pointer"
-                >
-                  <Share2Icon className="size-3.5" />
-                  Share
-                </Button>
-              )}
-            </div>
-
-            <div className="flex items-center gap-1.5">
-              {workspaceItem.status === "published" ? (
-                <StartAttemptButton
-                  workspaceSlug={workspaceSlug}
-                  assessmentId={workspaceItem.id}
-                  size="sm"
-                  label="Start Test"
-                  className="h-8 rounded-lg px-3.5 text-xs font-semibold bg-foreground text-background hover:bg-foreground/90 shadow-2xs transition-all cursor-pointer"
-                />
-              ) : canWrite ? (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 rounded-lg px-3 text-xs font-medium gap-1.5 border-border hover:bg-muted text-foreground shadow-2xs cursor-pointer"
-                  render={
-                    <Link
-                      href={workspaceRoutes.mockTests.edit(
-                        workspaceSlug,
-                        workspaceItem.id
-                      )}
-                    />
-                  }
-                >
-                  <FilePenLineIcon className="size-3.5" />
-                  Edit Paper
-                </Button>
-              ) : (
-                <span className="text-[10px] text-muted-foreground font-medium px-2 py-0.5 rounded-md border border-border/50 bg-muted/40">
-                  Draft Only
-                </span>
-              )}
-            </div>
-          </>
-        ) : communityItem ? (
-          <>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-xs text-muted-foreground hover:text-foreground h-8 px-2.5 rounded-lg gap-1 shrink-0"
-              render={<Link href={`/assessments/share/${communityItem.id}`} />}
-            >
-              Details
-              <ExternalLinkIcon className="size-3 text-muted-foreground/80" />
-            </Button>
-
-            <div className="flex items-center gap-1.5 shrink-0">
-              {communityItem.allowCloning && onClone && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={isCloning}
-                  onClick={() => onClone(communityItem.id, communityItem.title)}
-                  className="h-8 rounded-lg px-2.5 text-xs font-medium gap-1.5 border-border hover:bg-muted text-foreground shadow-2xs cursor-pointer"
-                >
-                  <CopyIcon className="size-3.5" />
-                  {isCloning ? "Cloning..." : "Clone"}
-                </Button>
-              )}
-
-              <Button
-                size="sm"
-                className="h-8 rounded-lg px-3 text-xs font-semibold bg-foreground text-background hover:bg-foreground/90 shadow-2xs gap-1.5 cursor-pointer"
-                render={<Link href={`/assessments/share/${communityItem.id}`} />}
-              >
-                <PlayIcon className="size-3.5 fill-current" />
-                Take Test
-              </Button>
-            </div>
-          </>
-        ) : null}
-      </div>
-    </div>
+      </CardFooter>
+    </Card>
   )
 }

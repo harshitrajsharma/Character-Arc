@@ -299,7 +299,7 @@ export function PwaInstallPrompt({
     <>
       <div
         className={cn(
-          "fixed bottom-20 right-4 z-50 flex max-w-sm items-center justify-between gap-3 rounded-2xl border border-brand-neon-line bg-card/95 p-3.5 shadow-xl backdrop-blur-md transition-all sm:bottom-6 sm:right-6",
+          "fixed right-4 bottom-20 z-50 flex max-w-sm items-center justify-between gap-3 rounded-2xl border border-brand-neon-line bg-card/95 p-3.5 shadow-xl backdrop-blur-md transition-all sm:right-6 md:bottom-6",
           className
         )}
       >

@@ -344,6 +344,49 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklch, var(--muted-foreground) 55%, transparent) transparent;
+  }
+
+  /* Native scrolling stays intact; transparent tracks blend into each surface. */
+  @supports selector(::-webkit-scrollbar) {
+    * {
+      scrollbar-width: auto;
+      scrollbar-color: auto;
+    }
+
+    *::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+
+    *::-webkit-scrollbar-track,
+    *::-webkit-scrollbar-corner {
+      background: transparent;
+    }
+
+    *::-webkit-scrollbar-thumb {
+      border: 2px solid transparent;
+      border-radius: 999px;
+      background: color-mix(in oklch, var(--muted-foreground) 55%, transparent);
+      background-clip: padding-box;
+    }
+
+    *::-webkit-scrollbar-thumb:hover {
+      background-color: color-mix(in oklch, var(--muted-foreground) 75%, transparent);
+    }
+  }
+
+  @media (forced-colors: active) {
+    * {
+      scrollbar-color: auto;
+      scrollbar-width: auto;
+    }
+
+    *::-webkit-scrollbar-thumb {
+      background: CanvasText;
+      border-color: Canvas;
+    }
   }
 
   body {
@@ -769,26 +812,6 @@
     border-bottom: 1px solid var(--border);
   }
 
-  /* ── CBT Flat Cyber-Terminal Scrollbar (Dark fallback) ──────────────── */
-  .cbt-scrollbar::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-  .cbt-scrollbar::-webkit-scrollbar-track {
-    background: #0a0d1a;
-  }
-  .cbt-scrollbar::-webkit-scrollbar-thumb {
-    background: #222c54;
-    border-radius: 0;
-  }
-  .cbt-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: #6b8eff;
-  }
-  .cbt-scrollbar {
-    scrollbar-width: thin;
-    scrollbar-color: #222c54 #0a0d1a;
-  }
-
   /* ── CBT Dedicated Exam Room Pure Light-Mode Overrides ── */
   .cbt-exam-root,
   [data-cbt-theme="light"] {
@@ -815,23 +838,4 @@
     color: #020617 !important;
   }
 
-  /* ── Light-mode Institutional CBT Scrollbar ── */
-  .cbt-scrollbar-light::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-  .cbt-scrollbar-light::-webkit-scrollbar-track {
-    background: #f1f5f9;
-  }
-  .cbt-scrollbar-light::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 0;
-  }
-  .cbt-scrollbar-light::-webkit-scrollbar-thumb:hover {
-    background: #94a3b8;
-  }
-  .cbt-scrollbar-light {
-    scrollbar-width: thin;
-    scrollbar-color: #cbd5e1 #f1f5f9;
-  }
 }

@@ -6,6 +6,10 @@ config({ quiet: true })
 
 export default defineConfig({
   schema: "prisma/schema.prisma",
+  migrations: {
+    path: "prisma/migrations",
+    seed: "bun run db:sync-registry",
+  },
   datasource: {
     url: process.env.DIRECT_URL || env("DATABASE_URL"),
   },

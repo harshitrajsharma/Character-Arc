@@ -1,8 +1,8 @@
 import type { Metadata } from "next"
+import { redirect } from "next/navigation"
 
 import { SetNavbarBreadcrumbs } from "@/components/navigation/breadcrumb-context"
 import { QuestionForm } from "@/components/tools/mock-tests/question-form"
-import { getTargetableBlocks } from "@/lib/tools/definitions/mock-tests/repository"
 import { workspaceRoutes } from "@/lib/routes/workspace-tools"
 import {
   getWorkspaceIdentity,
@@ -16,14 +16,20 @@ export default async function NewQuestionPage({
   searchParams,
 }: {
   params: Promise<{ workspaceSlug: string }>
-  searchParams: Promise<{ fromAssessmentId?: string }>
+  searchParams: Promise<{ fromAssessmentId?: string; section?: string }>
 }) {
   const { workspaceSlug } = await params
-  const { fromAssessmentId } = await searchParams
+  const { fromAssessmentId, section } = await searchParams
   const workspace = await getWorkspaceIdentity(workspaceSlug)
   await requireActiveToolInstallation(workspaceSlug, "core.mock-tests")
-
-  const targetableBlocks = await getTargetableBlocks(workspace.id)
+  if (fromAssessmentId)
+    redirect(
+      workspaceRoutes.mockTests.assessmentQuestionNew(
+        workspaceSlug,
+        fromAssessmentId,
+        section
+      )
+    )
 
   return (
     <main className="mx-auto w-full max-w-7xl min-w-0 px-4 pt-20 pb-28 sm:px-6 sm:pt-24 sm:pb-12 xl:px-10">
@@ -47,9 +53,10 @@ export default async function NewQuestionPage({
         backLabel="Back to Question Bank"
       />
       <QuestionForm
+        key={`${workspace.userId}:new`}
         workspaceSlug={workspaceSlug}
+        viewerId={workspace.userId}
         fromAssessmentId={fromAssessmentId}
-        targetableBlocks={targetableBlocks}
       />
     </main>
   )

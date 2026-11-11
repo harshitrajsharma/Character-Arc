@@ -25,6 +25,7 @@ import {
 } from "./exam-prep-scheduled-test-handlers"
 import { getExamDashboardData } from "@/lib/tools/definitions/exam-prep/dashboard-queries"
 import { generateExamSubjectRecommendations } from "@/lib/tools/exam-prep/recommendations"
+import { filterAgentVisibleSubjects } from "@/lib/tools/agent-visible-study"
 
 // Shared helper to generate hashes
 function hashInput(input: unknown): string {
@@ -2760,13 +2761,25 @@ export async function executeExamPrepGetSubjectRecommendations(
     )
   }
 
+  let visibleAgentBlocks: Set<string> | null = null
+  if (principal.invocationSource !== "web") {
+    const [blockCount, recordCount] = await Promise.all([
+      prisma.block.count({ where: { workspaceId: input.workspaceId, originToolInstallationId: input.installationId, status: "ACTIVE", archivedAt: null } }),
+      prisma.testRecord.count({ where: { workspaceId: input.workspaceId, userId: actorId } }),
+    ])
+    if (blockCount > 2000 || recordCount > 2000) throw new ToolActionExecutionError("This workspace exceeds the agent recommendation budget. Use bounded exam/subject discovery and subject.get-progress instead.", "NOT_AVAILABLE")
+    const visible = await prisma.block.findMany({ where: { workspaceId: input.workspaceId, originToolInstallationId: input.installationId, status: "ACTIVE", archivedAt: null, allowAgentAccess: true }, select: { id: true }, take: 2001 })
+    if (visible.length > 2000) throw new ToolActionExecutionError("Use bounded subject discovery for this workspace.", "NOT_AVAILABLE")
+    visibleAgentBlocks = new Set(visible.map((block) => block.id))
+  }
   const generatedAt = new Date()
-  const subjects = await getExamDashboardData(
+  const rawSubjects = await getExamDashboardData(
     exam.id,
     input.workspaceId,
     input.installationId,
     actorId
   )
+  const subjects = visibleAgentBlocks ? filterAgentVisibleSubjects(rawSubjects, visibleAgentBlocks) : rawSubjects
   const recommendationOutput = generateExamSubjectRecommendations({
     subjects,
     now: generatedAt,

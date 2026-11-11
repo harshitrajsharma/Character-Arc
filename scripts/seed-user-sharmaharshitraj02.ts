@@ -30,7 +30,10 @@ async function loadPrincipalToolExecutor(): Promise<PrincipalToolExecutor> {
 }
 
 async function main() {
-  const userEmail = "sharmaharshitraj02@gmail.com"
+  if (process.env.SEED_ALLOW_MUTATIONS !== "1" || !process.env.SEED_USER_EMAIL?.trim()) {
+    throw new Error("Set SEED_USER_EMAIL and SEED_ALLOW_MUTATIONS=1 only for an authorized demo account.")
+  }
+  const userEmail = process.env.SEED_USER_EMAIL?.trim()
   const users = await prisma.$queryRawUnsafe<Array<{ id: string; email: string }>>(
     "SELECT id, email FROM auth.users WHERE email = $1",
     userEmail

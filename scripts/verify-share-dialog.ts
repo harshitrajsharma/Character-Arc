@@ -1,11 +1,16 @@
+import { getBrowserTestConfig } from "./lib/browser-test-config"
+
 import { chromium } from "playwright"
 import path from "node:path"
 import fs from "node:fs"
 
-const BASE_URL = "http://127.0.0.1:3000"
-const USER_EMAIL = "sharmaharshitraj02@gmail.com"
-const USER_PASSWORD = "TestPassword123!"
-const WORKSPACE_SLUG = "personal-14e77ece-6df3-4d5f-bbc9-e90015c4250d"
+const {
+  baseUrl: BASE_URL,
+  email: USER_EMAIL,
+  password: USER_PASSWORD,
+  workspaceSlug: WORKSPACE_SLUG,
+} = getBrowserTestConfig()
+
 const SCREENSHOT_DIR = path.resolve(process.cwd(), "scratch/screenshots")
 
 async function run() {
@@ -35,7 +40,9 @@ async function run() {
     await page.fill('input[name="email"]', USER_EMAIL)
     await page.fill('input[name="password"]', USER_PASSWORD)
     await page.click('button[type="submit"]:has-text("Sign in")')
-    await page.waitForURL((url) => !url.pathname.includes("/login"), { timeout: 30000 })
+    await page.waitForURL((url) => !url.pathname.includes("/login"), {
+      timeout: 30000,
+    })
     console.log(`Signed in! Current URL: ${page.url()}`)
     await page.waitForTimeout(1500)
 
@@ -55,7 +62,9 @@ async function run() {
     const dialog = page.locator('[data-slot="dialog-content"]')
     await dialog.waitFor({ state: "visible", timeout: 5000 })
     const box1 = await dialog.boundingBox()
-    console.log(`Initial Dialog bounding box: width=${box1?.width}px, height=${box1?.height}px`)
+    console.log(
+      `Initial Dialog bounding box: width=${box1?.width}px, height=${box1?.height}px`
+    )
 
     // Capture screenshot 1 (Public / default)
     const shotPath1 = path.join(SCREENSHOT_DIR, "share-dialog-public.png")
@@ -67,7 +76,9 @@ async function run() {
     await page.locator('button:has-text("Private")').click()
     await page.waitForTimeout(500)
     const box2 = await dialog.boundingBox()
-    console.log(`Private Dialog bounding box: width=${box2?.width}px, height=${box2?.height}px`)
+    console.log(
+      `Private Dialog bounding box: width=${box2?.width}px, height=${box2?.height}px`
+    )
 
     const shotPath2 = path.join(SCREENSHOT_DIR, "share-dialog-private.png")
     await page.screenshot({ path: shotPath2 })
@@ -77,11 +88,17 @@ async function run() {
     if (box1 && box2) {
       const heightDiff = Math.abs(box1.height - box2.height)
       const widthDiff = Math.abs(box1.width - box2.width)
-      console.log(`Dimension difference: widthDiff=${widthDiff}px, heightDiff=${heightDiff}px`)
+      console.log(
+        `Dimension difference: widthDiff=${widthDiff}px, heightDiff=${heightDiff}px`
+      )
       if (heightDiff > 2 || widthDiff > 2) {
-        throw new Error(`Dialog size jumped! widthDiff=${widthDiff}, heightDiff=${heightDiff}`)
+        throw new Error(
+          `Dialog size jumped! widthDiff=${widthDiff}, heightDiff=${heightDiff}`
+        )
       }
-      console.log("SUCCESS: Dialog size remained strictly fixed with ZERO jumping!")
+      console.log(
+        "SUCCESS: Dialog size remained strictly fixed with ZERO jumping!"
+      )
     }
 
     // 6. Toggle to "Shared via Link"
@@ -89,7 +106,9 @@ async function run() {
     await page.locator('button:has-text("Shared via Link")').click()
     await page.waitForTimeout(500)
     const box3 = await dialog.boundingBox()
-    console.log(`Shared via Link bounding box: width=${box3?.width}px, height=${box3?.height}px`)
+    console.log(
+      `Shared via Link bounding box: width=${box3?.width}px, height=${box3?.height}px`
+    )
 
     console.log("=== SHARE DIALOG FIXED-SIZE VERIFICATION COMPLETE! ===")
   } catch (err) {

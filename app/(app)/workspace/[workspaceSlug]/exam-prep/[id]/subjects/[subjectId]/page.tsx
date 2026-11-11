@@ -16,7 +16,7 @@ import {
 import type { NavigationTarget } from "@/components/tools/exam-prep/subjects/recommendations"
 import type { SubjectWithRelations } from "@/types/progressapp/domain"
 import { formatDateInTimeZone } from "@/lib/dates/local-date"
-import { getSubjectLinkedAssessments } from "@/lib/tools/exam-prep/linked-assessments"
+import { getSubjectAssessmentData } from "@/lib/tools/exam-prep/linked-assessments"
 
 type SubjectPageParams = Promise<{
   workspaceSlug: string
@@ -139,12 +139,17 @@ export default async function SubjectPage({
     notFound()
   }
 
+  subjectWithRelations.canManageAssessments = workspace.role !== "VIEWER"
+  subjectWithRelations.assessmentViewerId = workspace.userId
   try {
-    subjectWithRelations.linkedAssessments = await getSubjectLinkedAssessments(
+    const linked = await getSubjectAssessmentData(
       workspaceSlug,
       examId,
       subjectWithRelations
     )
+    subjectWithRelations.linkedAssessments = linked.assessments
+    subjectWithRelations.assessmentToolAvailable = linked.available
+    subjectWithRelations.linkedAssessmentsHasMore = linked.hasMore
   } catch (error) {
     console.error("Could not load linked subject assessments", error)
     subjectWithRelations.linkedAssessmentsIssue =
@@ -164,9 +169,18 @@ export default async function SubjectPage({
     <main className="mx-auto w-full max-w-6xl px-4 pt-16 pb-8 sm:pb-10 md:px-6 md:pt-24 xl:px-10">
       <SetNavbarBreadcrumbs
         segments={[
-          { label: "Workspace", href: `/workspace/${encodeURIComponent(workspaceSlug)}` },
-          { label: "Exam Prep", href: workspaceRoutes.examPrep.home(workspaceSlug) },
-          { label: exam?.title || "Exam", href: workspaceRoutes.examPrep.exam(workspaceSlug, examId) },
+          {
+            label: "Workspace",
+            href: `/workspace/${encodeURIComponent(workspaceSlug)}`,
+          },
+          {
+            label: "Exam Prep",
+            href: workspaceRoutes.examPrep.home(workspaceSlug),
+          },
+          {
+            label: exam?.title || "Exam",
+            href: workspaceRoutes.examPrep.exam(workspaceSlug, examId),
+          },
           { label: subjectWithRelations.name },
         ]}
         backHref={workspaceRoutes.examPrep.exam(workspaceSlug, examId)}

@@ -40,20 +40,14 @@ const toolActionSchema = z.object({
   name: z.string().min(1).max(80),
   description: z.string().min(1).max(240),
   execution: z.enum(["deterministic", "ai_assisted"]),
+  readOnly: z.boolean().optional(),
   requiredPermissions: z.array(registryKeySchema).min(1),
   inputSchema: jsonObjectSchema,
-  output: z
-    .object({
-      rootBlockTypeKey: registryKeySchema,
-      createsBlockTypeKeys: z.array(registryKeySchema).default([]),
-      writesBlockTypeKeys: z.array(registryKeySchema).default([]),
-    })
-    .refine(
-      (output) =>
-        output.createsBlockTypeKeys.length > 0 ||
-        output.writesBlockTypeKeys.length > 0,
-      "An action must create or write at least one block type."
-    ),
+  output: z.object({
+    rootBlockTypeKey: registryKeySchema,
+    createsBlockTypeKeys: z.array(registryKeySchema).default([]),
+    writesBlockTypeKeys: z.array(registryKeySchema).default([]),
+  }),
 })
 
 export const toolManifestSchema = z
@@ -148,6 +142,24 @@ export const toolManifestSchema = z
     })
 
     manifest.actions.forEach((action, actionIndex) => {
+      const hasWrites =
+        action.output.createsBlockTypeKeys.length > 0 ||
+        action.output.writesBlockTypeKeys.length > 0
+      if (
+        action.readOnly
+          ? hasWrites ||
+            action.requiredPermissions.some(
+              (permission) => !permission.startsWith("blocks.read")
+            )
+          : !hasWrites
+      ) {
+        context.addIssue({
+          code: "custom",
+          message:
+            "Read-only actions require read permissions and no write effects; other actions must declare a write effect.",
+          path: ["actions", actionIndex, "output"],
+        })
+      }
       const outputKeys = [
         action.output.rootBlockTypeKey,
         ...action.output.createsBlockTypeKeys,

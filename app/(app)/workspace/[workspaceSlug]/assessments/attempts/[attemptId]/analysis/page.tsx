@@ -27,6 +27,8 @@ import { AnalysisReviewList } from "@/components/tools/mock-tests/analysis-revie
 import { AnalysisScorecard } from "@/components/tools/mock-tests/analysis-scorecard"
 import { WeakTopicsRemediation } from "@/components/tools/mock-tests/weak-topics-remediation"
 import { StartAttemptButton } from "@/components/tools/mock-tests/start-attempt-button"
+import { resolveSubjectTestsReturn } from "@/lib/tools/exam-prep/assessment-context"
+import { withSubjectReturn } from "@/lib/tools/exam-prep/assessment-study-context"
 
 export const metadata: Metadata = { title: "Attempt Analysis — Assessments" }
 
@@ -48,15 +50,25 @@ function formatDateTime(dateStr: string | null): string {
 
 export default async function AttemptAnalysisPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ workspaceSlug: string; attemptId: string }>
+  searchParams: Promise<{ returnTo?: string }>
 }) {
   const { workspaceSlug, attemptId } = await params
   const workspace = await getWorkspaceIdentity(workspaceSlug)
   await requireActiveToolInstallation(workspaceSlug, "core.mock-tests")
 
-  const analysis = await getAttemptAnalysis(workspace.id, attemptId, workspace.userId)
+  const analysis = await getAttemptAnalysis(
+    workspace.id,
+    attemptId,
+    workspace.userId
+  )
   if (!analysis) notFound()
+  const study = await resolveSubjectTestsReturn(
+    workspaceSlug,
+    (await searchParams).returnTo
+  )
 
   const isEvaluated = analysis.status === "EVALUATED"
 
@@ -64,31 +76,46 @@ export default async function AttemptAnalysisPage({
   const totalQuestions = analysis.questions.length
 
   return (
-    <main className="mx-auto w-full max-w-6xl px-4 pt-20 pb-12 sm:pb-16 md:px-6 xl:px-10 space-y-8 font-sans antialiased text-foreground">
+    <main className="mx-auto w-full max-w-6xl min-w-0 space-y-8 px-4 pt-20 pb-12 font-sans text-foreground antialiased sm:pb-16 md:px-6 xl:px-10">
       <SetNavbarBreadcrumbs
         segments={[
-          { label: "Workspace", href: `/workspace/${encodeURIComponent(workspaceSlug)}` },
-          { label: "Assessments", href: workspaceRoutes.mockTests.home(workspaceSlug) },
-          { label: analysis.assessmentTitle, href: workspaceRoutes.mockTests.detail(workspaceSlug, analysis.assessmentId) },
+          {
+            label: "Workspace",
+            href: `/workspace/${encodeURIComponent(workspaceSlug)}`,
+          },
+          {
+            label: "Assessments",
+            href: workspaceRoutes.mockTests.home(workspaceSlug),
+          },
+          {
+            label: analysis.assessmentTitle,
+            href: workspaceRoutes.mockTests.detail(
+              workspaceSlug,
+              analysis.assessmentId
+            ),
+          },
           { label: "Analysis" },
         ]}
-        backHref={workspaceRoutes.mockTests.detail(workspaceSlug, analysis.assessmentId)}
-        backLabel="Back to Test Paper"
+        backHref={
+          study?.returnHref ??
+          workspaceRoutes.mockTests.detail(workspaceSlug, analysis.assessmentId)
+        }
+        backLabel={study ? "Back to Subject tests" : "Back to Test Paper"}
       />
 
       {/* 1. BALANCED ATTEMPT HEADER BANNER */}
-      <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between border-b border-border pb-6">
-        <div className="space-y-1 min-w-0">
+      <div className="flex min-w-0 flex-col gap-6 border-b border-border pb-6 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <div className="w-full min-w-0 space-y-1 sm:w-auto sm:flex-1">
           {/* Kicker & Evaluation Status Row */}
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+            <span className="text-[11px] font-bold tracking-wider text-muted-foreground uppercase">
               Assessment Attempt
             </span>
             <span className="text-muted-foreground/40">•</span>
             <Badge
               variant="secondary"
               className={cn(
-                "text-[10px] font-bold px-2 py-0.5 border-0 uppercase tracking-wide",
+                "border-0 px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase",
                 isEvaluated
                   ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
                   : "bg-amber-500/15 text-amber-700 dark:text-amber-400"
@@ -99,32 +126,55 @@ export default async function AttemptAnalysisPage({
           </div>
 
           {/* Assessment Title as Primary H1 */}
-          <h1 className="font-heading text-2xl sm:text-3xl font-bold tracking-tight text-foreground truncate">
+          <h1 className="truncate font-heading text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
             {analysis.assessmentTitle}
           </h1>
 
           {/* Unified Metadata Trail */}
-          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-muted-foreground pt-0.5">
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 pt-0.5 text-xs text-muted-foreground">
             {analysis.submittedAt ? (
               <span className="inline-flex items-center gap-1 font-medium">
                 <ClockIcon className="size-3 text-muted-foreground/70" />
                 Completed {formatDateTime(analysis.submittedAt)}
               </span>
             ) : null}
-            <span className="text-muted-foreground/40 hidden sm:inline">•</span>
+            <span className="hidden text-muted-foreground/40 sm:inline">•</span>
             <span>{analysis.questions.length} Questions</span>
-            <span className="text-muted-foreground/40 hidden sm:inline">•</span>
-            <span>{analysis.durationMinutes ? `${analysis.durationMinutes}m Duration` : "Untimed"}</span>
+            <span className="hidden text-muted-foreground/40 sm:inline">•</span>
+            <span>
+              {analysis.durationMinutes
+                ? `${analysis.durationMinutes}m Duration`
+                : "Untimed"}
+            </span>
           </div>
         </div>
 
         {/* Harmonized Action Group */}
-        <div className="flex shrink-0 items-center gap-2.5 self-start sm:self-center">
+        <div className="flex max-w-full shrink-0 flex-wrap items-center gap-2.5 self-start sm:self-center">
+          {study ? (
+            <Button
+              variant="outline"
+              className="min-h-11"
+              render={<Link href={study.returnHref} />}
+            >
+              Subject tests
+            </Button>
+          ) : null}
           <Button
             variant="outline"
             size="sm"
-            className="h-9 px-3.5 text-xs font-semibold gap-1.5 border-border hover:bg-muted text-foreground"
-            render={<Link href={workspaceRoutes.mockTests.detail(workspaceSlug, analysis.assessmentId)} />}
+            className="h-9 gap-1.5 border-border px-3.5 text-xs font-semibold text-foreground hover:bg-muted"
+            render={
+              <Link
+                href={withSubjectReturn(
+                  workspaceRoutes.mockTests.detail(
+                    workspaceSlug,
+                    analysis.assessmentId
+                  ),
+                  study?.returnHref
+                )}
+              />
+            }
           >
             <FileTextIcon className="size-3.5 text-muted-foreground" />
             View Test Paper
@@ -133,8 +183,9 @@ export default async function AttemptAnalysisPage({
             workspaceSlug={workspaceSlug}
             assessmentId={analysis.assessmentId}
             label="Retake Test"
+            returnTo={study?.returnHref}
             size="sm"
-            className="h-9 px-3.5 text-xs font-bold gap-1.5 shadow-2xs"
+            className="h-9 gap-1.5 px-3.5 text-xs font-bold shadow-2xs"
           />
         </div>
       </div>
@@ -146,10 +197,13 @@ export default async function AttemptAnalysisPage({
       {analysis.sections.length > 0 ? (
         <section aria-labelledby="sections-title" className="space-y-4">
           <div className="border-b border-border pb-3">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+            <p className="text-[11px] font-bold tracking-wider text-muted-foreground uppercase">
               Section Analytics
             </p>
-            <h2 id="sections-title" className="mt-0.5 font-heading text-xl font-bold text-foreground">
+            <h2
+              id="sections-title"
+              className="mt-0.5 font-heading text-xl font-bold text-foreground"
+            >
               Sectional Score &amp; Accuracy Breakdown
             </h2>
           </div>
@@ -158,19 +212,19 @@ export default async function AttemptAnalysisPage({
             <Table>
               <TableHeader className="bg-muted/40">
                 <TableRow className="border-b border-border hover:bg-transparent">
-                  <TableHead className="font-semibold text-xs text-muted-foreground min-w-[180px]">
+                  <TableHead className="min-w-[180px] text-xs font-semibold text-muted-foreground">
                     Section Name
                   </TableHead>
-                  <TableHead className="text-right font-semibold text-xs text-muted-foreground min-w-[120px]">
+                  <TableHead className="min-w-[120px] text-right text-xs font-semibold text-muted-foreground">
                     Questions
                   </TableHead>
-                  <TableHead className="text-right font-semibold text-xs text-muted-foreground min-w-[120px]">
+                  <TableHead className="min-w-[120px] text-right text-xs font-semibold text-muted-foreground">
                     Outcome
                   </TableHead>
-                  <TableHead className="text-right font-semibold text-xs text-muted-foreground min-w-[130px]">
+                  <TableHead className="min-w-[130px] text-right text-xs font-semibold text-muted-foreground">
                     Net Score
                   </TableHead>
-                  <TableHead className="text-right font-semibold text-xs text-muted-foreground min-w-[140px]">
+                  <TableHead className="min-w-[140px] text-right text-xs font-semibold text-muted-foreground">
                     Accuracy Rate
                   </TableHead>
                 </TableRow>
@@ -179,22 +233,28 @@ export default async function AttemptAnalysisPage({
                 {analysis.sections.map((section) => (
                   <TableRow
                     key={section.section}
-                    className="border-b border-border/80 hover:bg-muted/20 transition-colors"
+                    className="border-b border-border/80 transition-colors hover:bg-muted/20"
                   >
                     <TableCell className="py-3.5">
-                      <p className="font-semibold text-sm text-foreground">
-                        {section.section === "__all__" ? "All Questions" : section.section}
+                      <p className="text-sm font-semibold text-foreground">
+                        {section.section === "__all__"
+                          ? "All Questions"
+                          : section.section}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {section.answeredCount} attempted • {section.unansweredCount} skipped
+                        {section.answeredCount} attempted •{" "}
+                        {section.unansweredCount} skipped
                       </p>
                     </TableCell>
 
-                    <TableCell className="text-right py-3.5 font-mono text-xs text-muted-foreground tabular-nums">
-                      <span className="font-bold text-foreground">{section.questionCount}</span> total
+                    <TableCell className="py-3.5 text-right font-mono text-xs text-muted-foreground tabular-nums">
+                      <span className="font-bold text-foreground">
+                        {section.questionCount}
+                      </span>{" "}
+                      total
                     </TableCell>
 
-                    <TableCell className="text-right py-3.5">
+                    <TableCell className="py-3.5 text-right">
                       <div className="flex items-center justify-end gap-1.5 font-mono text-xs">
                         <span className="font-bold text-emerald-600 dark:text-emerald-400">
                           +{section.correctCount}
@@ -206,21 +266,28 @@ export default async function AttemptAnalysisPage({
                       </div>
                     </TableCell>
 
-                    <TableCell className="text-right py-3.5 font-mono text-xs font-bold tabular-nums">
+                    <TableCell className="py-3.5 text-right font-mono text-xs font-bold tabular-nums">
                       {formatNumber(section.score)}
-                      <span className="font-normal text-muted-foreground"> / {formatNumber(section.maxScore)}</span>
+                      <span className="font-normal text-muted-foreground">
+                        {" "}
+                        / {formatNumber(section.maxScore)}
+                      </span>
                     </TableCell>
 
-                    <TableCell className="text-right py-3.5">
-                      <div className="space-y-1 inline-block text-right w-24">
-                        <span className="text-xs font-mono font-bold text-foreground block">
-                          {section.accuracy !== null ? `${formatNumber(section.accuracy)}%` : "—"}
+                    <TableCell className="py-3.5 text-right">
+                      <div className="inline-block w-24 space-y-1 text-right">
+                        <span className="block font-mono text-xs font-bold text-foreground">
+                          {section.accuracy !== null
+                            ? `${formatNumber(section.accuracy)}%`
+                            : "—"}
                         </span>
                         {section.accuracy !== null ? (
                           <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
                             <div
                               className="h-full rounded-full bg-emerald-500"
-                              style={{ width: `${Math.min(100, Math.max(0, section.accuracy))}%` }}
+                              style={{
+                                width: `${Math.min(100, Math.max(0, section.accuracy))}%`,
+                              }}
                             />
                           </div>
                         ) : null}
@@ -229,23 +296,28 @@ export default async function AttemptAnalysisPage({
                   </TableRow>
                 ))}
               </TableBody>
-              <TableFooter className="bg-muted/30 border-t border-border">
-                <TableRow className="hover:bg-transparent font-semibold text-xs">
+              <TableFooter className="border-t border-border bg-muted/30">
+                <TableRow className="text-xs font-semibold hover:bg-transparent">
                   <TableCell className="py-3">
                     Total Assessment Summary
                   </TableCell>
-                  <TableCell className="text-right py-3 font-mono text-muted-foreground">
+                  <TableCell className="py-3 text-right font-mono text-muted-foreground">
                     {totalQuestions} questions
                   </TableCell>
-                  <TableCell className="text-right py-3 font-mono">
-                    <span className="text-emerald-600 dark:text-emerald-400">+{analysis.correctCount}</span>
-                    <span className="text-muted-foreground/50 mx-1">/</span>
-                    <span className="text-rose-600 dark:text-rose-400">-{analysis.incorrectCount}</span>
+                  <TableCell className="py-3 text-right font-mono">
+                    <span className="text-emerald-600 dark:text-emerald-400">
+                      +{analysis.correctCount}
+                    </span>
+                    <span className="mx-1 text-muted-foreground/50">/</span>
+                    <span className="text-rose-600 dark:text-rose-400">
+                      -{analysis.incorrectCount}
+                    </span>
                   </TableCell>
-                  <TableCell className="text-right py-3 font-mono font-bold">
-                    {formatNumber(analysis.score)} / {formatNumber(analysis.maxScore)}
+                  <TableCell className="py-3 text-right font-mono font-bold">
+                    {formatNumber(analysis.score)} /{" "}
+                    {formatNumber(analysis.maxScore)}
                   </TableCell>
-                  <TableCell className="text-right py-3 font-mono font-bold">
+                  <TableCell className="py-3 text-right font-mono font-bold">
                     {analysis.accuracy !== null ? `${analysis.accuracy}%` : "—"}
                   </TableCell>
                 </TableRow>

@@ -1,4 +1,12 @@
 "use client"
+import {
+  SettingsDialogContent,
+  SettingsHeader,
+  SettingsNavigation,
+  SettingsBody,
+  SettingsPanel,
+  SettingsFooter,
+} from "@/components/settings/settings-layout"
 
 import * as React from "react"
 import { useActionState, useEffect, useState, type ChangeEvent } from "react"
@@ -29,12 +37,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogTitle,
-} from "@/components/ui/dialog"
+import { Dialog, DialogClose } from "@/components/ui/dialog"
 import { Field, FieldError, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import {
@@ -55,7 +58,6 @@ import {
 import type { ExamDetail } from "@/lib/tools/definitions/exam-prep/repository"
 import type { ExamDetailHeaderData } from "./exam-detail-types"
 import { ExamDatePicker } from "./exam-date-picker"
-import { cn } from "@/lib/utils"
 
 export type ExamSettingsSectionKey =
   "identity" | "preparation" | "pattern" | "reference" | "access"
@@ -210,28 +212,12 @@ export function ExamSettingsDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent
-          showCloseButton
-          className="flex h-[min(700px,calc(100dvh-2rem))] w-[calc(100vw-2rem)] max-w-4xl flex-col gap-0 overflow-hidden rounded-4xl bg-popover/60 p-0 shadow-2xl ring-1 ring-foreground/5 backdrop-blur-2xl sm:max-w-4xl dark:ring-foreground/10"
-        >
-          {/* Header */}
-          <div className="flex h-14 shrink-0 items-center justify-between border-b border-border/60 bg-muted/20 px-6">
-            <div className="flex items-center gap-3">
-              <span className="flex size-8 items-center justify-center rounded-xl bg-brand-violet-soft text-brand-violet-ink shadow-xs">
-                <GraduationCapIcon className="size-4" aria-hidden="true" />
-              </span>
-              <div className="flex items-center gap-2">
-                <DialogTitle className="font-heading text-base font-semibold text-foreground">
-                  Exam Settings
-                </DialogTitle>
-                <span className="text-muted-foreground/40">/</span>
-                <span className="max-w-[240px] truncate text-xs font-medium text-muted-foreground">
-                  {exam.title}
-                </span>
-              </div>
-            </div>
-          </div>
-
+        <SettingsDialogContent showCloseButton>
+          <SettingsHeader
+            title="Exam Settings"
+            context={exam.title}
+            icon={GraduationCapIcon}
+          />
           <form
             action={formAction}
             className="flex min-h-0 flex-1 flex-col justify-between"
@@ -246,45 +232,16 @@ export function ExamSettingsDialog({
             />
 
             {/* Body Layout: Split Sidebar + Content */}
-            <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+            <SettingsBody>
               {/* Sidebar Navigation */}
-              <aside className="flex w-full shrink-0 justify-between overflow-x-auto border-b border-border/60 bg-muted/15 p-3 md:w-56 md:flex-col md:border-r md:border-b-0 md:p-3.5">
-                <div className="flex w-full gap-1 md:flex-col">
-                  <p className="mb-1 hidden px-2.5 text-[11px] font-semibold tracking-wider text-muted-foreground/70 uppercase md:block">
-                    Sections
-                  </p>
-                  {sections.map((section) => {
-                    const Icon = section.icon
-                    const isActive = visibleSection === section.key
-                    return (
-                      <button
-                        key={section.key}
-                        type="button"
-                        onClick={() => setActiveSection(section.key)}
-                        className={cn(
-                          "flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs font-medium whitespace-nowrap transition-all outline-none",
-                          isActive
-                            ? "bg-background font-semibold text-foreground shadow-xs ring-1 ring-border/60"
-                            : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-                        )}
-                      >
-                        <Icon className="size-4 shrink-0" aria-hidden="true" />
-                        <span>{section.label}</span>
-                      </button>
-                    )
-                  })}
-                </div>
-
-                <div className="hidden border-t border-border/40 px-2 pt-3 text-[11px] text-muted-foreground md:block">
-                  <span className="rounded-md border border-border/50 bg-muted px-1.5 py-0.5 font-mono text-[10px]">
-                    Esc
-                  </span>{" "}
-                  to close
-                </div>
-              </aside>
+              <SettingsNavigation
+                groups={[{ group: "Sections", items: sections }]}
+                active={visibleSection}
+                onChange={setActiveSection}
+              />
 
               {/* Main Content Area */}
-              <main className="flex-1 overflow-y-auto p-6 md:p-8">
+              <SettingsPanel>
                 {visibleSection === "identity" && (
                   <div className="max-w-2xl space-y-6">
                     <div>
@@ -809,11 +766,11 @@ export function ExamSettingsDialog({
                     </div>
                   </div>
                 )}
-              </main>
-            </div>
+              </SettingsPanel>
+            </SettingsBody>
 
             {/* Footer */}
-            <div className="flex h-14 shrink-0 items-center justify-between border-t border-border/60 bg-muted/10 px-6">
+            <SettingsFooter>
               <span className="hidden text-[11px] text-muted-foreground sm:inline">
                 All changes sync automatically to active roadmap
               </span>
@@ -845,9 +802,9 @@ export function ExamSettingsDialog({
                   {isPending ? "Saving..." : "Save Changes"}
                 </Button>
               </div>
-            </div>
+            </SettingsFooter>
           </form>
-        </DialogContent>
+        </SettingsDialogContent>
       </Dialog>
 
       {/* Agent Access Confirmation */}

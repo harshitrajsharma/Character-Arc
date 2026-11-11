@@ -5,8 +5,6 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useTheme } from "next-themes"
 import {
-  HomeIcon,
-  BlocksIcon,
   WrenchIcon,
   MoreHorizontalIcon,
   SettingsIcon,
@@ -20,7 +18,7 @@ import {
 
 import { cn } from "@/lib/utils"
 import { useSettings } from "@/components/settings/settings-provider"
-import { mapToolIcon } from "@/components/tools/tool-catalog-card"
+import { mapToolIcon } from "@/lib/tools/presentation"
 import { workspaceRoutes } from "@/lib/routes/workspace-tools"
 import type { getAppShellData } from "@/lib/workspaces/workspace-access"
 import {
@@ -34,7 +32,12 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { signOut } from "@/lib/auth/actions"
 import { Spinner } from "@/components/ui/spinner"
-import { type NavbarUser } from "./navbar-data"
+import {
+  type NavbarUser,
+  getLearningDestinations,
+  isNavbarDestinationActive,
+  resolveNavigationWorkspace,
+} from "./navbar-data"
 
 type AppShellData = NonNullable<Awaited<ReturnType<typeof getAppShellData>>>
 type AppShellInstallation = AppShellData[number]["installations"][number]
@@ -52,89 +55,58 @@ export function MobileBottomBar({ user, memberships }: MobileBottomBarProps) {
   const [isSigningOut, startSignOut] = React.useTransition()
   const isDark = theme === "dark"
 
-  const primaryWorkspace = memberships?.[0]
+  const primaryWorkspace = resolveNavigationWorkspace(
+    pathname,
+    memberships ?? []
+  )
   const currentSlug = primaryWorkspace?.slug
-
-  const isToday = pathname === "/dashboard" || pathname === "/"
-  const isWorkspace = pathname.startsWith("/workspace")
-  const isTools = pathname.startsWith("/tools")
+  const destinations = getLearningDestinations(
+    currentSlug,
+    primaryWorkspace?.installations.map(
+      (installation) => installation.toolDefinition.key
+    ) ?? []
+  )
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border/40 bg-background/80 backdrop-blur-xl sm:hidden pb-[env(safe-area-inset-bottom)]">
-      <nav aria-label="Mobile Navigation" className="flex h-16 items-center justify-around px-2">
-        {/* Today Tab */}
-        <Link
-          href="/dashboard"
-          aria-current={isToday ? "page" : undefined}
-          className={cn(
-            "flex flex-1 flex-col items-center justify-center gap-1 py-1 text-[11px] font-medium transition-colors",
-            isToday
-              ? "font-semibold text-foreground"
-              : "text-muted-foreground hover:text-foreground"
-          )}
-        >
-          <span
-            className={cn(
-              "flex size-8 items-center justify-center rounded-full transition-all",
-              isToday ? "bg-foreground/10 text-foreground" : ""
-            )}
-          >
-            <HomeIcon className="size-4.5" aria-hidden="true" />
-          </span>
-          <span>Today</span>
-        </Link>
-
-        {currentSlug ? (
-          <Link
-            href={`/workspace/${encodeURIComponent(currentSlug)}`}
-            aria-current={isWorkspace ? "page" : undefined}
-            className={cn(
-              "flex flex-1 flex-col items-center justify-center gap-1 py-1 text-[11px] font-medium transition-colors",
-              isWorkspace
-                ? "font-semibold text-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <span
+    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border/40 bg-background/80 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden">
+      <nav
+        aria-label="Mobile Navigation"
+        className="flex h-16 items-center justify-around px-2"
+      >
+        {destinations.map((item) => {
+          const Icon = item.icon,
+            active = isNavbarDestinationActive(pathname, item)
+          return (
+            <Link
+              key={item.key}
+              href={item.href}
+              aria-current={active ? "page" : undefined}
               className={cn(
-                "flex size-8 items-center justify-center rounded-full transition-all",
-                isWorkspace ? "bg-foreground/10 text-foreground" : ""
+                "flex min-h-11 flex-1 flex-col items-center justify-center gap-1 py-1 text-[11px] font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                active
+                  ? "font-semibold text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
               )}
             >
-              <BlocksIcon className="size-4.5" aria-hidden="true" />
-            </span>
-            <span>Workspace</span>
-          </Link>
-        ) : null}
-
-        {/* Tools Tab */}
-        <Link
-          href="/tools"
-          aria-current={isTools ? "page" : undefined}
-          className={cn(
-            "flex flex-1 flex-col items-center justify-center gap-1 py-1 text-[11px] font-medium transition-colors",
-            isTools
-              ? "font-semibold text-foreground"
-              : "text-muted-foreground hover:text-foreground"
-          )}
-        >
-          <span
-            className={cn(
-              "flex size-8 items-center justify-center rounded-full transition-all",
-              isTools ? "bg-foreground/10 text-foreground" : ""
-            )}
-          >
-            <WrenchIcon className="size-4.5" aria-hidden="true" />
-          </span>
-          <span>Tools</span>
-        </Link>
+              <span
+                className={cn(
+                  "flex size-8 items-center justify-center rounded-full transition-colors",
+                  active && "bg-foreground/10 text-foreground"
+                )}
+              >
+                <Icon className="size-4.5" aria-hidden="true" />
+              </span>
+              <span>{item.label}</span>
+            </Link>
+          )
+        })}
 
         {/* More / Drawer Tab */}
         <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
           <SheetTrigger
             aria-label="Open more menu"
             className={cn(
-              "flex flex-1 flex-col items-center justify-center gap-1 py-1 text-[11px] font-medium transition-colors",
+              "flex min-h-11 flex-1 flex-col items-center justify-center gap-1 py-1 text-[11px] font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
               drawerOpen
                 ? "font-semibold text-foreground"
                 : "text-muted-foreground hover:text-foreground"
@@ -151,12 +123,17 @@ export function MobileBottomBar({ user, memberships }: MobileBottomBarProps) {
             <span>More</span>
           </SheetTrigger>
 
-          <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto rounded-t-3xl border-t border-border/50 p-6">
+          <SheetContent
+            side="bottom"
+            className="max-h-[85vh] overflow-y-auto rounded-t-3xl border-t border-border/50 p-6"
+          >
             <SheetHeader className="pb-4 text-left">
               <div className="flex items-center gap-3">
                 {user ? (
                   <Avatar size="default">
-                    {user.avatarUrl ? <AvatarImage src={user.avatarUrl} alt="" /> : null}
+                    {user.avatarUrl ? (
+                      <AvatarImage src={user.avatarUrl} alt="" />
+                    ) : null}
                     <AvatarFallback>{user.initials || "CA"}</AvatarFallback>
                   </Avatar>
                 ) : null}
@@ -186,42 +163,48 @@ export function MobileBottomBar({ user, memberships }: MobileBottomBarProps) {
                       <Link
                         href={`/workspace/${encodeURIComponent(ws.slug)}`}
                         onClick={() => setDrawerOpen(false)}
-                        className="flex items-center justify-between font-medium text-foreground hover:text-primary"
+                        className="flex min-h-11 min-w-0 items-center justify-between gap-2 rounded-lg font-medium text-foreground outline-none hover:text-primary focus-visible:ring-2 focus-visible:ring-ring"
                       >
-                        <div className="flex items-center gap-2.5">
+                        <div className="flex min-w-0 items-center gap-2.5">
                           {ws.kind === "PERSONAL" ? (
                             <UserIcon className="size-4 text-muted-foreground" />
                           ) : (
                             <BuildingIcon className="size-4 text-muted-foreground" />
                           )}
-                          <span className="text-sm font-medium">{ws.name}</span>
+                          <span className="truncate text-sm font-medium">
+                            {ws.name}
+                          </span>
                         </div>
-                        <ChevronRightIcon className="size-4 text-muted-foreground" />
+                        <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
                       </Link>
 
                       {ws.installations.length > 0 ? (
                         <div className="mt-2.5 space-y-1 border-t border-border/30 pt-2.5">
-                          {ws.installations.map((installation: AppShellInstallation) => {
-                            const toolHome = workspaceRoutes.toolHome(
-                              ws.slug,
-                              installation.toolDefinition.key
-                            )
-                            const Icon =
-                              mapToolIcon(installation.toolDefinition.icon) ||
-                              WrenchIcon
+                          {ws.installations.map(
+                            (installation: AppShellInstallation) => {
+                              const toolHome = workspaceRoutes.toolHome(
+                                ws.slug,
+                                installation.toolDefinition.key
+                              )
+                              const Icon =
+                                mapToolIcon(installation.toolDefinition.icon) ||
+                                WrenchIcon
 
-                            return (
-                              <Link
-                                key={installation.id}
-                                href={toolHome || "#"}
-                                onClick={() => setDrawerOpen(false)}
-                                className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                              >
-                                <Icon className="size-3.5" />
-                                <span>{installation.toolDefinition.name}</span>
-                              </Link>
-                            )
-                          })}
+                              return (
+                                <Link
+                                  key={installation.id}
+                                  href={toolHome || "/tools"}
+                                  onClick={() => setDrawerOpen(false)}
+                                  className="flex min-h-11 items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm text-muted-foreground transition-colors outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                                >
+                                  <Icon className="size-3.5" />
+                                  <span>
+                                    {installation.toolDefinition.name}
+                                  </span>
+                                </Link>
+                              )
+                            }
+                          )}
                         </div>
                       ) : null}
                     </div>
@@ -232,15 +215,26 @@ export function MobileBottomBar({ user, memberships }: MobileBottomBarProps) {
 
             {/* Quick Actions & Settings */}
             <div className="space-y-1 border-t border-border/40 py-3">
-        {/* Workspace Tab */}
-        {currentSlug ? (
+              <Link
+                href="/tools"
+                onClick={() => setDrawerOpen(false)}
+                className="flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm font-medium outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <WrenchIcon
+                  className="size-4 text-muted-foreground"
+                  aria-hidden="true"
+                />
+                Tool catalog
+              </Link>
+              {/* Workspace Tab */}
+              {currentSlug ? (
                 <button
                   type="button"
                   onClick={() => {
                     setDrawerOpen(false)
                     openSettings("workspace", currentSlug)
                   }}
-                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-accent text-left"
+                  className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-foreground transition-colors hover:bg-accent"
                 >
                   <SettingsIcon className="size-4 text-muted-foreground" />
                   <span>Settings</span>
@@ -250,14 +244,16 @@ export function MobileBottomBar({ user, memberships }: MobileBottomBarProps) {
               <button
                 type="button"
                 onClick={() => setTheme(isDark ? "light" : "dark")}
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-accent text-left"
+                className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-foreground transition-colors hover:bg-accent"
               >
                 {isDark ? (
                   <SunIcon className="size-4 text-muted-foreground" />
                 ) : (
                   <MoonIcon className="size-4 text-muted-foreground" />
                 )}
-                <span>{isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}</span>
+                <span>
+                  {isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
+                </span>
               </button>
 
               <button
@@ -268,7 +264,7 @@ export function MobileBottomBar({ user, memberships }: MobileBottomBarProps) {
                     await signOut()
                   })
                 }
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10 text-left"
+                className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-destructive transition-colors hover:bg-destructive/10"
               >
                 {isSigningOut ? (
                   <Spinner className="size-4" />

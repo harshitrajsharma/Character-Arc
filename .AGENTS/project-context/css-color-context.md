@@ -309,7 +309,9 @@ All modal overlays, settings dialogs, and slide-over sheets follow the unified g
 
 | Surface Layer | Tailwind Utility | Role |
 | ------------- | ---------------- | ---- |
-| **Modal / Sheet Shell** | `bg-popover/60 backdrop-blur-2xl ring-1 ring-foreground/5 dark:ring-foreground/10` | Translucent glass container with soft outer ring |
+| **Dialog Shell** | `bg-popover/60 backdrop-blur-2xl ring-1 ring-foreground/5 dark:ring-foreground/10` | Translucent glass container with soft outer ring |
+| **Sheet Shell** | `bg-popover/80 backdrop-blur-2xl` | Readable frosted side/bottom panel using semantic foreground and border tokens |
+| **Sheet Backdrop** | `bg-transparent backdrop-blur-sm` | Blur surrounding content without a black/dark scrim, per user feedback (2026-10-29) |
 | **Header Bar** | `bg-muted/20 border-b border-border/60 px-6 py-3.5` | Compact header bar containing domain icon tile and title |
 | **Inset Sections & Rows** | `bg-card` or `bg-muted/20 border border-border/60 rounded-2xl` | Inset grouped settings and detail cards |
 | **Sticky Footer** | `bg-muted/10 border-t border-border/60 px-6 py-3` | Action bar with thumb-reachable controls |
@@ -325,3 +327,28 @@ Rules:
 - `bg-surface-inset` is the neutral surface for revealed content inside a containing card, such as question previews. It aliases muted in light mode and background in dark mode, keeping it visually below bg-card in both themes. Plain bg-muted cannot provide this role because it becomes lighter than the card in dark mode.
 - Pair it with `inset-shadow-recessed` for a subtle inward top edge. This shared shadow derives its color from brand-contrast; components do not hardcode shadow colors.
 - Keep the summary on bg-card. Nested answer choices may use bg-card to sit above the recessed well; correct answers retain the existing success tokens.
+
+## Navigation glass (2026-11-11)
+
+- Navbar and sidebar explicitly use `bg-transparent backdrop-blur-xl`:
+  transparent background with a 24px backdrop blur and no neutral/black scrim.
+- Sidebar desktop, fixed and mobile drawer surfaces use this same treatment.
+  The application SidebarInset explicitly remains transparent so it does not
+  insert an opaque background beneath hover-expanded navigation. The normal
+  page canvas and selected/hover/focus item tokens still provide their roles.
+- This navigation exception does not change readable dialog/settings-sheet
+  surfaces. In dark mode the dark canvas can still show through transparent
+  glass; no extra black background or shadow is added to the navigation drawer.
+
+## Application scrollbars (2026-10-25)
+
+- Native page, sheet, editor and list scrollbars share the base rules in
+  app/globals.css: transparent tracks and rounded neutral thumbs derived from
+  muted-foreground (55% normally, 75% on hover). WebKit uses a 10px gutter with
+  a 6px visible thumb; other browsers use the standard thin scrollbar property.
+- Keep native wheel, keyboard and touch scrolling. Existing intentional
+  scrollbar-hidden utilities remain authoritative; do not globally hide bars.
+  Forced-colors mode uses system scrollbar/thumb colors.
+- The shared ScrollArea thumb follows the same neutral roles. CBT no longer
+  replaces scrollbar colors with hardcoded palettes; its local surface tokens
+  supply the appropriate light/dark neutral colors.

@@ -44,8 +44,8 @@ function validSubjectRecordInput() {
 // ─── Manifest version ──────────────────────────────────────────────────────
 
 describe("Exam Prep manifest version", () => {
-  test("is bumped to 1.11.0", () => {
-    expect(examPrepManifest.release.version).toBe("1.11.0")
+  test("is bumped to 1.12.0", () => {
+    expect(examPrepManifest.release.version).toBe("1.12.0")
   })
 })
 
@@ -329,12 +329,12 @@ describe("test-record.delete input validation", () => {
 
 // ─── Handler binding verification ──────────────────────────────────────────
 
-describe("Handler bindings at 1.11.0", () => {
-  test("all exam-prep handler binding keys use version 1.11.0", async () => {
+describe("Handler bindings at 1.12.0", () => {
+  test("all exam-prep handler binding keys use version 1.12.0", async () => {
     // We import the module to inspect the handler map. The handlers map is
     // private, so we validate it indirectly by importing the manifest and
     // checking the version, which the execute pipeline validates at runtime.
-    expect(examPrepManifest.release.version).toBe("1.11.0")
+    expect(examPrepManifest.release.version).toBe("1.12.0")
 
     // Verify all new canonical actions are declared in the manifest
     const actionKeys = examPrepManifest.actions.map((a) => a.key)

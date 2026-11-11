@@ -1,31 +1,36 @@
 import Link from "next/link"
-
 import { CharacterArcLogo } from "@/components/brand/character-arc-logo"
 import { LandingContainer } from "@/components/landing/primitives"
 
 export function LandingFooter() {
   return (
     <footer className="border-t border-border">
-      <LandingContainer className="flex flex-col items-start justify-between gap-6 py-10 sm:flex-row sm:items-center">
+      <LandingContainer className="flex flex-col items-start justify-between gap-5 py-8 sm:flex-row sm:items-center">
         <div>
-          <CharacterArcLogo className="font-heading text-sm font-semibold text-foreground" />
+          <CharacterArcLogo className="font-heading text-base font-semibold text-foreground" />
           <p className="mt-2 text-xs text-muted-foreground">
-            Character Arc — structured memory for people working with AI.
+            Exam preparation and assessments, connected.
           </p>
         </div>
         <nav
           aria-label="Footer"
-          className="flex items-center gap-5 text-sm font-medium"
+          className="flex flex-wrap items-center gap-x-6 text-sm font-medium"
         >
           <Link
+            href="#workflow"
+            className="inline-flex min-h-11 items-center rounded-sm text-muted-foreground underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            How it works
+          </Link>
+          <Link
             href="/login"
-            className="text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
+            className="inline-flex min-h-11 items-center rounded-sm text-muted-foreground underline-offset-4 outline-none hover:text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring"
           >
             Sign in
           </Link>
           <Link
             href="/signup"
-            className="underline-offset-4 transition-colors hover:text-brand-neon-ink hover:underline"
+            className="inline-flex min-h-11 items-center rounded-sm underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
           >
             Get started
           </Link>

@@ -1,155 +1,119 @@
 "use server"
 
 import { createHash, randomBytes } from "node:crypto"
+import { z } from "zod"
 import { requireVerifiedClaims } from "@/lib/auth/session"
-import { Prisma } from "@/generated/prisma/client"
 import { prisma } from "@/lib/prisma"
+import type { Prisma } from "@/generated/prisma/client"
+import { maskMcpTokenPrefix } from "./token-metadata"
 
-function hashMcpToken(token: string): string {
-  return createHash("sha256").update(token).digest("hex")
+const createInput = z.object({
+  workspaceId: z.uuid(),
+  name: z.string().trim().min(1).max(80),
+})
+const revokeInput = z.object({ workspaceId: z.uuid(), tokenId: z.uuid() })
+
+async function requireOwner(
+  workspaceId: string,
+  userId: string,
+  tx: Prisma.TransactionClient
+) {
+  const member = await tx.workspaceMember.findFirst({
+    where: { workspaceId, userId, workspace: { archivedAt: null } },
+    select: { role: true },
+  })
+  if (member?.role !== "OWNER")
+    throw new Error("Only the workspace owner can manage agent keys.")
 }
 
-function isMissingTableError(err: unknown): boolean {
-  if (
-    err instanceof Prisma.PrismaClientKnownRequestError &&
-    err.code === "P2021"
-  ) {
-    return true
-  }
-  return err instanceof Error && err.message.includes("does not exist")
-}
-
+/** The secret is returned only by this explicit owner action; only its hash and display prefix are stored. */
 export async function createMcpToken(input: {
   workspaceId: string
   name: string
 }) {
+  const parsed = createInput.safeParse(input)
+  if (!parsed.success)
+    throw new Error(
+      "Choose a key name between 1 and 80 characters and a valid workspace."
+    )
   const claims = await requireVerifiedClaims()
   const userId = claims.sub
-
-  const member = await prisma.workspaceMember.findUnique({
-    where: {
-      workspaceId_userId: {
-        workspaceId: input.workspaceId,
-        userId,
-      },
+  const rawSecret = `mcp_sec_${randomBytes(32).toString("hex")}`
+  const created = await prisma.$transaction(
+    async (tx) => {
+      await requireOwner(parsed.data.workspaceId, userId, tx)
+      const active = await tx.mcpToken.count({
+        where: { workspaceId: parsed.data.workspaceId, revokedAt: null },
+      })
+      if (active >= 50)
+        throw new Error(
+          "Revoke an unused key before creating another. A workspace supports up to 50 active keys."
+        )
+      return tx.mcpToken.create({
+        data: {
+          workspaceId: parsed.data.workspaceId,
+          createdById: userId,
+          name: parsed.data.name,
+          keyHash: createHash("sha256").update(rawSecret).digest("hex"),
+          keyPrefix: maskMcpTokenPrefix(rawSecret),
+        },
+        select: { id: true, name: true, keyPrefix: true, createdAt: true },
+      })
     },
-  })
-
-  if (!member || member.role === "VIEWER") {
-    throw new Error("Only workspace owners or editors can generate API tokens.")
-  }
-
-  const rawSecret = `mcp_sec_${randomBytes(20).toString("hex")}`
-  const keyHash = hashMcpToken(rawSecret)
-  const name = input.name.trim() || "Agent Key"
-
-  try {
-    const created = await prisma.mcpToken.create({
-      data: {
-        workspaceId: input.workspaceId,
-        createdById: userId,
-        name,
-        keyHash,
-        keyPrefix: rawSecret, // Store raw secret so the user can always view and copy it anytime
-      },
-    })
-
-    return {
-      id: created.id,
-      name: created.name,
-      keyPrefix: created.keyPrefix,
-      rawSecret,
-      token: rawSecret,
-      createdAt: created.createdAt.toISOString(),
-    }
-  } catch (err) {
-    if (isMissingTableError(err)) {
-      throw new Error("Database table 'mcp_tokens' does not exist yet. Please run 'npx prisma db push' against your database.")
-    }
-    throw err
-  }
+    { isolationLevel: "Serializable" }
+  )
+  return { ...created, rawSecret, createdAt: created.createdAt.toISOString() }
 }
 
 export async function listMcpTokens(workspaceId: string) {
+  if (!z.uuid().safeParse(workspaceId).success)
+    throw new Error("A valid workspace is required.")
   const claims = await requireVerifiedClaims()
-  const userId = claims.sub
-
-  const member = await prisma.workspaceMember.findUnique({
-    where: {
-      workspaceId_userId: {
-        workspaceId,
-        userId,
-      },
-    },
+  const member = await prisma.workspaceMember.findFirst({
+    where: { workspaceId, userId: claims.sub, workspace: { archivedAt: null } },
+    select: { role: true },
   })
-
-  if (!member) {
-    throw new Error("Workspace access required.")
-  }
-
-  try {
-    const tokens = await prisma.mcpToken.findMany({
-      where: {
-        workspaceId,
-        revokedAt: null,
-      },
-      select: {
-        id: true,
-        name: true,
-        keyPrefix: true,
-        createdAt: true,
-        lastUsedAt: true,
-      },
-      orderBy: { createdAt: "desc" },
-    })
-
-    return tokens.map((token) => ({
-      ...token,
-      token: token.keyPrefix, // Full unmasked token available for direct view & copy
-      createdAt: token.createdAt.toISOString(),
-      lastUsedAt: token.lastUsedAt ? token.lastUsedAt.toISOString() : null,
-    }))
-  } catch {
-    // If the table doesn't exist in Postgres yet, return empty list gracefully
-    return []
-  }
+  if (!member) throw new Error("Workspace access is required.")
+  const tokens = await prisma.mcpToken.findMany({
+    where: { workspaceId, revokedAt: null },
+    select: {
+      id: true,
+      name: true,
+      keyPrefix: true,
+      createdAt: true,
+      lastUsedAt: true,
+    },
+    orderBy: { createdAt: "desc" },
+    take: 100,
+  })
+  return tokens.map((token) => ({
+    ...token,
+    keyPrefix: maskMcpTokenPrefix(token.keyPrefix),
+    createdAt: token.createdAt.toISOString(),
+    lastUsedAt: token.lastUsedAt?.toISOString() ?? null,
+  }))
 }
 
 export async function revokeMcpToken(input: {
   workspaceId: string
   tokenId: string
 }) {
+  const parsed = revokeInput.safeParse(input)
+  if (!parsed.success)
+    throw new Error("A valid workspace and key are required.")
   const claims = await requireVerifiedClaims()
-  const userId = claims.sub
-
-  const member = await prisma.workspaceMember.findUnique({
-    where: {
-      workspaceId_userId: {
-        workspaceId: input.workspaceId,
-        userId,
-      },
-    },
-  })
-
-  if (!member || member.role === "VIEWER") {
-    throw new Error("Only workspace owners or editors can revoke API tokens.")
-  }
-
-  try {
-    await prisma.mcpToken.update({
+  const result = await prisma.$transaction(async (tx) => {
+    await requireOwner(parsed.data.workspaceId, claims.sub, tx)
+    return tx.mcpToken.updateMany({
       where: {
-        id: input.tokenId,
-        workspaceId: input.workspaceId,
+        id: parsed.data.tokenId,
+        workspaceId: parsed.data.workspaceId,
+        revokedAt: null,
       },
-      data: {
-        revokedAt: new Date(),
-      },
+      data: { revokedAt: new Date() },
     })
-    return { success: true }
-  } catch (err) {
-    if (isMissingTableError(err)) {
-      throw new Error("Database table 'mcp_tokens' does not exist yet. Please run 'npx prisma db push' against your database.")
-    }
-    throw err
-  }
+  })
+  if (!result.count)
+    throw new Error("The active key is no longer available in this workspace.")
+  return { success: true }
 }

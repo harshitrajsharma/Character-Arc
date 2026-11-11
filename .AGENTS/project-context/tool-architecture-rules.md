@@ -19,7 +19,7 @@ Once a manifest is created, it must be registered in the central tool registry.
 We do NOT use a traditional `seed.ts` file filled with dummy data or hardcoded inserts. Instead, we use a dynamic Synchronization Script.
 - **Location:** `lib/tools/sync-registry.ts`
 - **How it works:** The script calls `listFirstPartyToolManifests()`, iterates over every registered tool, and idempotently `upserts` its definitions, `BlockTypes`, and `BlockRelationTypes` into the Prisma database.
-- **Execution:** This script is mapped to the standard Prisma seed command in `package.json` (`"prisma": { "seed": "bun run lib/tools/sync-registry.ts" }`). It runs automatically when resetting the database (`npx prisma db push` or `npx prisma migrate reset`). It can also be imported and run dynamically from a server action if needed.
+- **Execution:** `prisma.config.ts` maps `migrations.seed` to `bun run db:sync-registry` for Prisma 7. Run it explicitly using `npx prisma db seed` or the direct package command. Prisma 7 no longer automatically seeds during migrate dev/reset; never reset a user's database to synchronize the registry. Repeated `--tool=core.exam-prep --tool=core.mock-tests` arguments support a scoped release sync and validate unknown keys before writes. Importing the module does not execute its CLI. The default unfiltered seed still synchronizes all registered definitions, without creating demo user data.
 
 ## 4. Backend Execution Logic
 Tool actions (e.g., creating an Arc, submitting an Exam) must be written as Prisma Transactions inside Next.js Server Actions or API routes.

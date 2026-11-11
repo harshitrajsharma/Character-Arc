@@ -1,49 +1,53 @@
 "use client"
 
 import { useMemo, useState, useTransition } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { toast } from "sonner"
 
 import { cloneAssessmentAction } from "@/lib/tools/mock-tests/actions/assessment-actions"
 import { workspaceRoutes } from "@/lib/routes/workspace-tools"
-import type {
-  CommunityMockTestItem,
-  MockTestListItem,
-  RecentAttemptItem,
-} from "@/lib/tools/definitions/mock-tests/repository"
 
+import { ActiveAttemptBanner } from "./dashboard/active-attempt-banner"
+import { CommunityHubView } from "./dashboard/community-hub-view"
+import { DashboardFilterToolbar } from "./dashboard/dashboard-filter-toolbar"
+import { DashboardHeader } from "./dashboard/dashboard-header"
+import { RecentAttemptsTable } from "./dashboard/recent-attempts-table"
+import { WorkspaceTestsView } from "./dashboard/workspace-tests-view"
+import type {
+  CommunitySortOption,
+  DashboardTab,
+  MockTestsDashboardProps,
+  WorkspaceSortOption,
+} from "./dashboard/types"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useAssessmentView } from "./dashboard/use-assessment-view"
 import {
-  ActiveAttemptBanner,
-  CommunityHubView,
-  DashboardFilterToolbar,
-  DashboardHeader,
-  DashboardMetricsStrip,
-  WorkspaceTestsView,
-  type CommunitySortOption,
-  type DashboardTab,
-  type MockTestsDashboardProps,
-  type ViewMode,
-  type WorkspaceSortOption,
-} from "./dashboard"
-import { ShareAssessmentDialog } from "./share-assessment-dialog"
+  AssessmentContentSkeleton,
+  AssessmentFiltersSkeleton,
+} from "./dashboard/assessment-skeleton"
 
 export function MockTestsDashboard({
   workspaceSlug,
   assessments,
   communityAssessments = [],
   recentAttempts,
+  attemptHistory,
   canWrite,
-  initialTab = "workspace",
 }: MockTestsDashboardProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
 
   // Primary Tab & View Mode
-  const [activeTab, setActiveTab] = useState<DashboardTab>(initialTab)
-  const [viewMode, setViewMode] = useState<ViewMode>("grid")
+  const searchParams = useSearchParams()
+  const tabParam = searchParams.get("tab")
+  const activeTab: DashboardTab =
+    tabParam === "community" || tabParam === "attempts" ? tabParam : "workspace"
+  const [tabPending, startTabTransition] = useTransition()
+  const [requestedTab, setRequestedTab] = useState<DashboardTab>(activeTab)
+  const displayedTab = tabPending ? requestedTab : activeTab
+  const [viewMode, setViewMode] = useAssessmentView(workspaceSlug)
 
-  // Share Dialog & Cloning state
-  const [sharingAssessment, setSharingAssessment] = useState<MockTestListItem | null>(null)
+  // Community cloning state
   const [cloningId, setCloningId] = useState<string | null>(null)
 
   // Unified Search & Paper Type Filter
@@ -52,21 +56,27 @@ export function MockTestsDashboard({
 
   // Tab-specific Filters
   const [workspaceStatus, setWorkspaceStatus] = useState<string>("ALL")
-  const [workspaceSortBy, setWorkspaceSortBy] = useState<WorkspaceSortOption>("newest")
+  const [workspaceSortBy, setWorkspaceSortBy] =
+    useState<WorkspaceSortOption>("newest")
   const [communityScope, setCommunityScope] = useState<string>("ALL")
-  const [communitySortBy, setCommunitySortBy] = useState<CommunitySortOption>("popular")
+  const [communitySortBy, setCommunitySortBy] =
+    useState<CommunitySortOption>("popular")
 
   // URL sync on tab change
   const handleTabChange = (tab: DashboardTab) => {
-    setActiveTab(tab)
+    if (tab === displayedTab) return
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href)
-      if (tab === "community") {
-        url.searchParams.set("tab", "community")
+      if (tab !== "workspace") {
+        url.searchParams.set("tab", tab)
       } else {
         url.searchParams.delete("tab")
       }
-      window.history.replaceState(null, "", url.toString())
+      if (tab !== "attempts") url.searchParams.delete("attemptPage")
+      setRequestedTab(tab)
+      startTabTransition(() =>
+        router.push(`${url.pathname}${url.search}`, { scroll: false })
+      )
     }
   }
 
@@ -74,45 +84,6 @@ export function MockTestsDashboard({
   const activeAttempt = useMemo(() => {
     return recentAttempts.find((a) => a.status === "in_progress") ?? null
   }, [recentAttempts])
-
-  // Summary Metrics: Workspace
-  const workspaceStats = useMemo(() => {
-    const total = assessments.length
-    const published = assessments.filter((a) => a.status === "published").length
-    const drafts = assessments.filter((a) => a.status === "draft").length
-    const attemptsCount = recentAttempts.length
-    const graded = recentAttempts.filter((a) => a.percentage !== null)
-    const avgAccuracy =
-      graded.length > 0
-        ? Math.round(
-            graded.reduce((acc, curr) => acc + (curr.percentage ?? 0), 0) / graded.length
-          )
-        : null
-
-    return { total, published, drafts, attemptsCount, avgAccuracy }
-  }, [assessments, recentAttempts])
-
-  // Summary Metrics: Community Hub
-  const communityStats = useMemo(() => {
-    const total = communityAssessments.length
-    const allSubjects = new Set<string>()
-    let totalAttempts = 0
-
-    for (const c of communityAssessments) {
-      totalAttempts += c.attemptsCount
-      if (c.taxonomy?.subjects) {
-        for (const s of c.taxonomy.subjects) {
-          allSubjects.add(s.toLowerCase().trim())
-        }
-      }
-    }
-
-    return {
-      total,
-      subjectsCount: allSubjects.size,
-      totalAttempts,
-    }
-  }, [communityAssessments])
 
   // Filtered Workspace Tests
   const filteredAssessments = useMemo(() => {
@@ -129,7 +100,9 @@ export function MockTestsDashboard({
     }
 
     if (selectedPaperType !== "ALL") {
-      result = result.filter((item) => item.taxonomy?.paperType === selectedPaperType)
+      result = result.filter(
+        (item) => item.taxonomy?.paperType === selectedPaperType
+      )
     }
 
     if (workspaceStatus !== "ALL") {
@@ -151,7 +124,13 @@ export function MockTestsDashboard({
       }
       return 0
     })
-  }, [assessments, searchQuery, selectedPaperType, workspaceStatus, workspaceSortBy])
+  }, [
+    assessments,
+    searchQuery,
+    selectedPaperType,
+    workspaceStatus,
+    workspaceSortBy,
+  ])
 
   // Filtered Community Assessments
   const filteredCommunity = useMemo(() => {
@@ -170,11 +149,15 @@ export function MockTestsDashboard({
     }
 
     if (selectedPaperType !== "ALL") {
-      result = result.filter((item) => item.taxonomy?.paperType === selectedPaperType)
+      result = result.filter(
+        (item) => item.taxonomy?.paperType === selectedPaperType
+      )
     }
 
     if (communityScope !== "ALL") {
-      result = result.filter((item) => item.taxonomy?.subjectScope === communityScope)
+      result = result.filter(
+        (item) => item.taxonomy?.subjectScope === communityScope
+      )
     }
 
     return [...result].sort((a, b) => {
@@ -192,7 +175,13 @@ export function MockTestsDashboard({
       }
       return 0
     })
-  }, [communityAssessments, searchQuery, selectedPaperType, communityScope, communitySortBy])
+  }, [
+    communityAssessments,
+    searchQuery,
+    selectedPaperType,
+    communityScope,
+    communitySortBy,
+  ])
 
   const hasActiveFilters =
     searchQuery.trim() !== "" ||
@@ -219,19 +208,22 @@ export function MockTestsDashboard({
           workspaceSlug,
           sourceAssessmentId: paperId,
         })
-        toast.success(`"${title}" cloned to your workspace!`, {
+        toast.success(`"${title}" copied to your workspace`, {
           action: {
             label: "Open Editor",
             onClick: () =>
               router.push(
-                workspaceRoutes.mockTests.edit(workspaceSlug, result.assessmentId)
+                workspaceRoutes.mockTests.edit(
+                  workspaceSlug,
+                  result.assessmentId
+                )
               ),
           },
         })
         router.refresh()
       } catch (err) {
         toast.error(
-          err instanceof Error ? err.message : "Failed to clone mock test."
+          err instanceof Error ? err.message : "Could not copy this paper."
         )
       } finally {
         setCloningId(null)
@@ -240,94 +232,119 @@ export function MockTestsDashboard({
   }
 
   return (
-    <div className="space-y-6 font-sans antialiased text-foreground">
+    <div className="flex min-w-0 flex-col gap-6 pb-8 font-sans text-foreground antialiased">
       {/* 1. Header & Actions */}
       <DashboardHeader workspaceSlug={workspaceSlug} canWrite={canWrite} />
 
       {/* 2. Active in-progress test banner */}
-      <ActiveAttemptBanner activeAttempt={activeAttempt} />
+      {canWrite ? <ActiveAttemptBanner activeAttempt={activeAttempt} /> : null}
 
-      {/* 3. Metrics Summary Strip */}
-      <DashboardMetricsStrip
-        activeTab={activeTab}
-        workspaceStats={workspaceStats}
-        communityStats={communityStats}
-        workspaceCount={assessments.length}
-        communityCount={communityAssessments.length}
-        onTabChange={handleTabChange}
-      />
+      <Tabs
+        value={displayedTab}
+        onValueChange={(value) => handleTabChange(value as DashboardTab)}
+        className="gap-5"
+      >
+        <TabsList
+          variant="line"
+          aria-label="Assessment views"
+          className="h-12! w-full justify-start gap-2 border-b border-border p-0"
+        >
+          <TabsTrigger
+            value="workspace"
+            className="h-12 flex-none px-2 sm:px-4"
+          >
+            My papers
+          </TabsTrigger>
+          <TabsTrigger
+            value="community"
+            className="h-12 flex-none px-2 sm:px-4"
+          >
+            Community
+          </TabsTrigger>
+          <TabsTrigger value="attempts" className="h-12 flex-none px-2 sm:px-4">
+            Attempts
+          </TabsTrigger>
+        </TabsList>
+        {/* 4. Filter Toolbar */}
+        {displayedTab !== "attempts" ? (
+          tabPending ? (
+            <AssessmentFiltersSkeleton />
+          ) : (
+            <DashboardFilterToolbar
+              activeTab={activeTab}
+              onTabChange={handleTabChange}
+              workspaceCount={assessments.length}
+              communityCount={communityAssessments.length}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              searchQuery={searchQuery}
+              onSearchQueryChange={setSearchQuery}
+              selectedPaperType={selectedPaperType}
+              onSelectPaperType={setSelectedPaperType}
+              workspaceStatus={workspaceStatus}
+              onWorkspaceStatusChange={setWorkspaceStatus}
+              workspaceSortBy={workspaceSortBy}
+              onWorkspaceSortByChange={setWorkspaceSortBy}
+              communityScope={communityScope}
+              onCommunityScopeChange={setCommunityScope}
+              communitySortBy={communitySortBy}
+              onCommunitySortByChange={setCommunitySortBy}
+              hasActiveFilters={hasActiveFilters}
+              onResetFilters={resetAllFilters}
+            />
+          )
+        ) : null}
 
-      {/* 4. Filter Toolbar */}
-      <DashboardFilterToolbar
-        activeTab={activeTab}
-        onTabChange={handleTabChange}
-        workspaceCount={assessments.length}
-        communityCount={communityAssessments.length}
-        viewMode={viewMode}
-        onViewModeChange={setViewMode}
-        searchQuery={searchQuery}
-        onSearchQueryChange={setSearchQuery}
-        selectedPaperType={selectedPaperType}
-        onSelectPaperType={setSelectedPaperType}
-        workspaceStatus={workspaceStatus}
-        onWorkspaceStatusChange={setWorkspaceStatus}
-        workspaceSortBy={workspaceSortBy}
-        onWorkspaceSortByChange={setWorkspaceSortBy}
-        communityScope={communityScope}
-        onCommunityScopeChange={setCommunityScope}
-        communitySortBy={communitySortBy}
-        onCommunitySortByChange={setCommunitySortBy}
-        hasActiveFilters={hasActiveFilters}
-        onResetFilters={resetAllFilters}
-      />
+        {/* 5. Main Content Area */}
+        <TabsContent value="workspace">
+          {tabPending ? (
+            <AssessmentContentSkeleton tab="workspace" viewMode={viewMode} />
+          ) : (
+            <WorkspaceTestsView
+              key={`${searchQuery}|${selectedPaperType}|${workspaceStatus}|${workspaceSortBy}`}
+              workspaceSlug={workspaceSlug}
+              assessments={filteredAssessments}
+              totalCount={assessments.length}
+              viewMode={viewMode}
+              canWrite={canWrite}
+              hasActiveFilters={hasActiveFilters}
+              onResetFilters={resetAllFilters}
 
-      {/* 5. Main Content Area */}
-      {activeTab === "workspace" ? (
-        <WorkspaceTestsView
-          workspaceSlug={workspaceSlug}
-          assessments={filteredAssessments}
-          totalCount={assessments.length}
-          viewMode={viewMode}
-          canWrite={canWrite}
-          hasActiveFilters={hasActiveFilters}
-          onResetFilters={resetAllFilters}
-          onShare={(item) => setSharingAssessment(item)}
-          recentAttempts={recentAttempts}
-        />
-      ) : (
-        <CommunityHubView
-          workspaceSlug={workspaceSlug}
-          communityAssessments={filteredCommunity}
-          totalCount={communityAssessments.length}
-          viewMode={viewMode}
-          cloningId={cloningId}
-          isPending={isPending}
-          hasActiveFilters={hasActiveFilters}
-          onResetFilters={resetAllFilters}
-          onClonePaper={handleClonePaper}
-        />
-      )}
-
-      {/* 6. Share Assessment Dialog */}
-      {sharingAssessment && (
-        <ShareAssessmentDialog
-          open={Boolean(sharingAssessment)}
-          onOpenChange={(open) => {
-            if (!open) setSharingAssessment(null)
-          }}
-          workspaceSlug={workspaceSlug}
-          assessment={{
-            id: sharingAssessment.id,
-            title: sharingAssessment.title,
-            visibility: sharingAssessment.visibility,
-            allowCloning: sharingAssessment.allowCloning,
-            taxonomy: sharingAssessment.taxonomy,
-          }}
-          onUpdated={() => {
-            router.refresh()
-          }}
-        />
-      )}
+              recentAttempts={recentAttempts}
+            />
+          )}
+        </TabsContent>
+        <TabsContent value="community">
+          {tabPending ? (
+            <AssessmentContentSkeleton tab="community" viewMode={viewMode} />
+          ) : (
+            <CommunityHubView
+              key={`${searchQuery}|${selectedPaperType}|${communityScope}|${communitySortBy}`}
+              canWrite={canWrite}
+              workspaceSlug={workspaceSlug}
+              communityAssessments={filteredCommunity}
+              totalCount={communityAssessments.length}
+              viewMode={viewMode}
+              cloningId={cloningId}
+              isPending={isPending}
+              hasActiveFilters={hasActiveFilters}
+              onResetFilters={resetAllFilters}
+              onClonePaper={handleClonePaper}
+            />
+          )}
+        </TabsContent>
+        <TabsContent value="attempts">
+          {tabPending ? (
+            <AssessmentContentSkeleton tab="attempts" />
+          ) : (
+            <RecentAttemptsTable
+              canWrite={canWrite}
+              workspaceSlug={workspaceSlug}
+              history={attemptHistory}
+            />
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

@@ -1,4 +1,5 @@
 import { parseToolManifest } from "@/lib/tools/contracts"
+import { agentReadPageProperties } from "@/lib/tools/agent-read-contract"
 
 // ─── Shared input property helpers ──────────────────────────────────────────
 
@@ -38,7 +39,11 @@ const assessmentPropertiesSchema = {
     /** Passing benchmark percentage (default 33%). */
     passingBenchmark: { type: ["number", "null"], minimum: 1, maximum: 100 },
     /** Distinction benchmark percentage (default 70%). */
-    distinctionBenchmark: { type: ["number", "null"], minimum: 1, maximum: 100 },
+    distinctionBenchmark: {
+      type: ["number", "null"],
+      minimum: 1,
+      maximum: 100,
+    },
     /** Section blueprint. Sections map to `AssessmentQuestion.section`. */
     blueprint: {
       type: "object",
@@ -72,12 +77,7 @@ const questionPropertiesSchema = {
   properties: {
     kind: {
       type: "string",
-      enum: [
-        "SINGLE_CHOICE",
-        "MULTIPLE_CHOICE",
-        "TRUE_FALSE",
-        "NUMERIC",
-      ],
+      enum: ["SINGLE_CHOICE", "MULTIPLE_CHOICE", "TRUE_FALSE", "NUMERIC"],
     },
     difficulty: { type: ["integer", "null"], minimum: 1, maximum: 5 },
   },
@@ -112,7 +112,13 @@ const blueprintSchema = {
       properties: {
         paperType: {
           type: "string",
-          enum: ["full_length", "multi_subject", "subject_wise", "topic_wise", "pyq"],
+          enum: [
+            "full_length",
+            "multi_subject",
+            "subject_wise",
+            "topic_wise",
+            "pyq",
+          ],
         },
         subjectScope: {
           type: "string",
@@ -144,12 +150,7 @@ const questionPayloadProperties = {
   stem: markdown(1, 50000),
   kind: {
     type: "string",
-    enum: [
-      "SINGLE_CHOICE",
-      "MULTIPLE_CHOICE",
-      "TRUE_FALSE",
-      "NUMERIC",
-    ],
+    enum: ["SINGLE_CHOICE", "MULTIPLE_CHOICE", "TRUE_FALSE", "NUMERIC"],
   },
   /** 1 (easiest) to 5 (hardest). */
   difficulty: { type: ["integer", "null"], minimum: 1, maximum: 5 },
@@ -222,14 +223,23 @@ const assessmentCreateInputSchema = {
   additionalProperties: false,
   required: ["title"],
   properties: {
-    title: { type: "string", minLength: 1, maxLength: 120 },
-    instructions: optionalMarkdown(8000),
+    title: { type: "string", minLength: 1, maxLength: 200 },
+    instructions: optionalMarkdown(20000),
     durationMinutes: { type: ["integer", "null"], minimum: 1, maximum: 1440 },
     totalMarks: { type: ["number", "null"], minimum: 0.01, maximum: 999999.99 },
-    examBlockId: { type: ["string", "null"], format: "uuid" },
+    examBlockId: {
+      type: ["string", "null"],
+      format: "uuid",
+      description:
+        "Active Exam Prep exam, subject, chapter or topic in this workspace; links the assessment directly to that study area.",
+    },
     blueprint: blueprintSchema,
     passingBenchmark: { type: ["number", "null"], minimum: 1, maximum: 100 },
-    distinctionBenchmark: { type: ["number", "null"], minimum: 1, maximum: 100 },
+    distinctionBenchmark: {
+      type: ["number", "null"],
+      minimum: 1,
+      maximum: 100,
+    },
   },
 }
 
@@ -240,14 +250,23 @@ const assessmentUpdateInputSchema = {
   properties: {
     ...assessmentIdInput,
     expectedRevision: { type: "integer", minimum: 1 },
-    title: { type: "string", minLength: 1, maxLength: 120 },
-    instructions: optionalMarkdown(8000),
+    title: { type: "string", minLength: 1, maxLength: 200 },
+    instructions: optionalMarkdown(20000),
     durationMinutes: { type: ["integer", "null"], minimum: 1, maximum: 1440 },
     totalMarks: { type: ["number", "null"], minimum: 0.01, maximum: 999999.99 },
-    examBlockId: { type: ["string", "null"], format: "uuid" },
+    examBlockId: {
+      type: ["string", "null"],
+      format: "uuid",
+      description:
+        "Study context: active Exam Prep exam, subject, chapter or topic. Omit to preserve the current context; null explicitly unlinks it.",
+    },
     blueprint: blueprintSchema,
     passingBenchmark: { type: ["number", "null"], minimum: 1, maximum: 100 },
-    distinctionBenchmark: { type: ["number", "null"], minimum: 1, maximum: 100 },
+    distinctionBenchmark: {
+      type: ["number", "null"],
+      minimum: 1,
+      maximum: 100,
+    },
   },
 }
 
@@ -345,7 +364,7 @@ export const mockTestsManifest = parseToolManifest({
     category: "practice",
   },
   release: {
-    version: "1.0.0",
+    version: "1.2.0",
     schemaVersion: 1,
   },
   routes: {
@@ -428,6 +447,47 @@ export const mockTestsManifest = parseToolManifest({
 
   // ─── Agent-callable actions ───────────────────────────────────────────────
   actions: [
+    {
+      key: "assessment.create-question",
+      name: "Create and add question",
+      description:
+        "Atomically creates a reusable bank question and adds it to an assessment section with marks and penalty. Requires the current revision and no existing attempts.",
+      execution: "deterministic",
+      requiredPermissions: ["blocks.write.owned"],
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        required: [
+          "stem",
+          "kind",
+          "assessmentId",
+          "expectedRevision",
+          "marks",
+          "negativeMarks",
+        ],
+        properties: {
+          ...questionPayloadProperties,
+          ...assessmentIdInput,
+          expectedRevision: { type: "integer", minimum: 1 },
+          section: { type: ["string", "null"], minLength: 1, maxLength: 40 },
+          marks: {
+            type: "number",
+            minimum: 0.01,
+            maximum: 999999.99,
+          },
+          negativeMarks: {
+            type: "number",
+            minimum: -999999.99,
+            maximum: 0,
+          },
+        },
+      },
+      output: {
+        rootBlockTypeKey: "mock-tests.assessment",
+        createsBlockTypeKeys: ["mock-tests.question"],
+        writesBlockTypeKeys: ["mock-tests.assessment"],
+      },
+    },
     // ── Question bank ──────────────────────────────────────────────────────
     {
       key: "question.create",
@@ -446,7 +506,8 @@ export const mockTestsManifest = parseToolManifest({
     {
       key: "question.update",
       name: "Update question",
-      description: "Replaces a question's stem, options, answer key, and targets.",
+      description:
+        "Replaces a question's stem, options, answer key, and targets.",
       execution: "deterministic",
       requiredPermissions: ["blocks.write.owned"],
       inputSchema: questionUpdateInputSchema,
@@ -481,6 +542,7 @@ export const mockTestsManifest = parseToolManifest({
       description:
         "Returns the public view of a test's questions (stem, options, kind, marks) without any answer keys.",
       execution: "deterministic",
+      readOnly: true,
       requiredPermissions: ["blocks.read.owned"],
       inputSchema: {
         type: "object",
@@ -491,7 +553,7 @@ export const mockTestsManifest = parseToolManifest({
       output: {
         rootBlockTypeKey: "mock-tests.question",
         createsBlockTypeKeys: [],
-        writesBlockTypeKeys: ["mock-tests.question"],
+        writesBlockTypeKeys: [],
       },
     },
 
@@ -523,6 +585,37 @@ export const mockTestsManifest = parseToolManifest({
         writesBlockTypeKeys: ["mock-tests.assessment"],
       },
     },
+    ...(["rename", "delete"] as const).map((operation) => ({
+      key: `assessment.${operation}`,
+      name: operation === "rename" ? "Rename assessment" : "Delete assessment",
+      description:
+        operation === "rename"
+          ? "Renames an assessment without changing its paper configuration."
+          : "Removes an assessment from active use while retaining questions and attempt history. Active attempts must be finished or abandoned first.",
+      execution: "deterministic" as const,
+      requiredPermissions: ["blocks.write.owned"],
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        required: [
+          "assessmentId",
+          "expectedRevision",
+          ...(operation === "rename" ? ["title"] : []),
+        ],
+        properties: {
+          ...assessmentIdInput,
+          expectedRevision: { type: "integer", minimum: 1 },
+          ...(operation === "rename"
+            ? { title: { type: "string", minLength: 1, maxLength: 200 } }
+            : {}),
+        },
+      },
+      output: {
+        rootBlockTypeKey: "mock-tests.assessment",
+        createsBlockTypeKeys: [],
+        writesBlockTypeKeys: ["mock-tests.assessment"],
+      },
+    })),
     {
       key: "assessment.add-questions",
       name: "Add questions to test",
@@ -689,6 +782,7 @@ export const mockTestsManifest = parseToolManifest({
       description:
         "Returns the full graded analysis of an attempt: score, section breakdown, per-question verdicts with correct answers and explanations, and weak topics.",
       execution: "deterministic",
+      readOnly: true,
       requiredPermissions: ["blocks.read.owned"],
       inputSchema: {
         type: "object",
@@ -699,7 +793,7 @@ export const mockTestsManifest = parseToolManifest({
       output: {
         rootBlockTypeKey: "mock-tests.attempt",
         createsBlockTypeKeys: [],
-        writesBlockTypeKeys: ["mock-tests.attempt"],
+        writesBlockTypeKeys: [],
       },
     },
     {
@@ -708,12 +802,83 @@ export const mockTestsManifest = parseToolManifest({
       description:
         "Returns the weakest study blocks in the workspace for the acting user, ordered by proficiency, based on past attempt evidence.",
       execution: "deterministic",
+      readOnly: true,
       requiredPermissions: ["blocks.read.owned"],
       inputSchema: weakTopicsInputSchema,
       output: {
         rootBlockTypeKey: "mock-tests.assessment",
         createsBlockTypeKeys: [],
-        writesBlockTypeKeys: ["mock-tests.assessment"],
+        writesBlockTypeKeys: [],
+      },
+    },
+    {
+      key: "assessment.list",
+      name: "List assessments",
+      description:
+        "Find agent-visible assessments and their study-context IDs with bounded cursor pagination. Does not return answer keys.",
+      execution: "deterministic",
+      readOnly: true,
+      requiredPermissions: ["blocks.read.owned"],
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        required: [],
+        properties: {
+          ...agentReadPageProperties,
+          contextBlockId: { type: "string", format: "uuid" },
+        },
+      },
+      output: {
+        rootBlockTypeKey: "mock-tests.assessment",
+        createsBlockTypeKeys: [],
+        writesBlockTypeKeys: [],
+      },
+    },
+    {
+      key: "attempt.list",
+      name: "List your assessment attempts",
+      description:
+        "Find your own attempt history or active attempts on agent-visible workspace assessments, newest first. Bounded cursor pages return final evaluated scores only and no responses, answer keys or solutions.",
+      execution: "deterministic",
+      readOnly: true,
+      requiredPermissions: ["blocks.read.owned"],
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        required: [],
+        properties: {
+          ...agentReadPageProperties,
+          assessmentId: { type: "string", format: "uuid" },
+          status: {
+            type: "string",
+            enum: ["IN_PROGRESS", "SUBMITTED", "EVALUATED", "ABANDONED"],
+          },
+        },
+      },
+      output: {
+        rootBlockTypeKey: "mock-tests.attempt",
+        createsBlockTypeKeys: [],
+        writesBlockTypeKeys: [],
+      },
+    },
+    {
+      key: "question.list",
+      name: "List reusable question summaries",
+      description:
+        "Find your authored workspace question summaries for reuse in assessments. Bounded pages omit solutions and correct answers.",
+      execution: "deterministic",
+      readOnly: true,
+      requiredPermissions: ["blocks.read.owned"],
+      inputSchema: {
+        type: "object",
+        additionalProperties: false,
+        required: [],
+        properties: agentReadPageProperties,
+      },
+      output: {
+        rootBlockTypeKey: "mock-tests.question",
+        createsBlockTypeKeys: [],
+        writesBlockTypeKeys: [],
       },
     },
   ],

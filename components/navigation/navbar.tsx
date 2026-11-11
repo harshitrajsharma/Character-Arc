@@ -7,10 +7,17 @@ import { usePathname } from "next/navigation"
 import { CharacterArcLogo } from "@/components/brand/character-arc-logo"
 
 import { NavbarAccountMenu } from "./navbar-account-menu"
-import { type NavbarDestinationKey, type NavbarUser } from "./navbar-data"
+import {
+  resolveNavigationWorkspace,
+  type NavbarDestinationKey,
+  type NavbarUser,
+} from "./navbar-data"
 import { NavbarNotifications } from "./navbar-notifications"
 import { NavbarPrimaryLinks } from "./navbar-primary-links"
-import { NavbarBreadcrumbs, resolvePathnameBreadcrumbs } from "./navbar-breadcrumbs"
+import {
+  NavbarBreadcrumbs,
+  resolvePathnameBreadcrumbs,
+} from "./navbar-breadcrumbs"
 import { useBreadcrumb } from "./breadcrumb-context"
 import { NavbarSearch } from "./navbar-search"
 import { NavClock } from "./nav-clock"
@@ -31,7 +38,10 @@ export function Navbar({ user, memberships }: NavbarProps) {
   const { breadcrumbs } = useBreadcrumb()
   const [now, setNow] = useState<Date | null>(null)
   const isAuthenticated = Boolean(user)
-  const primaryWorkspaceSlug = memberships?.[0]?.slug
+  const primaryWorkspaceSlug = resolveNavigationWorkspace(
+    pathname,
+    memberships ?? []
+  )?.slug
 
   useEffect(() => {
     const update = () => setNow(new Date())
@@ -46,8 +56,8 @@ export function Navbar({ user, memberships }: NavbarProps) {
       ? "tools"
       : pathname.startsWith("/workspace")
         ? "workspace"
-        : "today"
-    : "today"
+        : "workspace"
+    : "workspace"
 
   const [selectedOverride, setSelectedOverride] =
     useState<NavbarDestinationKey | null>(null)
@@ -60,14 +70,21 @@ export function Navbar({ user, memberships }: NavbarProps) {
 
   const progress = now ? dayProgress() : 0
   const phase = getDayPhase(progress)
-  const homeHref = user ? "/dashboard" : "/"
+  const homeHref = user
+    ? primaryWorkspaceSlug
+      ? `/workspace/${encodeURIComponent(primaryWorkspaceSlug)}`
+      : "/workspace"
+    : "/"
 
   // Check if we are on a deep page that should show breadcrumbs above md breakpoint
-  const resolvedBreadcrumbs = breadcrumbs || resolvePathnameBreadcrumbs(pathname, primaryWorkspaceSlug)
-  const isDeepPage = Boolean(resolvedBreadcrumbs && resolvedBreadcrumbs.segments.length > 0)
+  const resolvedBreadcrumbs =
+    breadcrumbs || resolvePathnameBreadcrumbs(pathname, primaryWorkspaceSlug)
+  const isDeepPage = Boolean(
+    resolvedBreadcrumbs && resolvedBreadcrumbs.segments.length > 0
+  )
 
   return (
-    <header className="fixed inset-x-0 top-0 z-30 w-full backdrop-blur-xl">
+    <header className="fixed inset-x-0 top-0 z-30 w-full bg-transparent backdrop-blur-xl">
       {user ? (
         <div
           aria-hidden="true"
@@ -84,12 +101,11 @@ export function Navbar({ user, memberships }: NavbarProps) {
         />
       ) : null}
       <div className="flex h-15 items-center gap-2 px-4 md:gap-14">
-        
         <Link
           href={homeHref}
           className="min-w-0 justify-self-start rounded-md outline-none focus-visible:ring-3 focus-visible:ring-brand-neon-line"
-          aria-label={user ? "Character Arc dashboard" : "Character Arc home"}
-          onClick={() => setSelectedOverride("today")}
+          aria-label={user ? "Character Arc workspace" : "Character Arc home"}
+          onClick={() => setSelectedOverride("workspace")}
         >
           <CharacterArcLogo />
         </Link>
@@ -100,7 +116,11 @@ export function Navbar({ user, memberships }: NavbarProps) {
               {isDeepPage ? (
                 <NavbarBreadcrumbs workspaceSlug={primaryWorkspaceSlug} />
               ) : (
-                <NavbarPrimaryLinks active={active} onSelect={setSelectedOverride} workspaceSlug={primaryWorkspaceSlug} />
+                <NavbarPrimaryLinks
+                  active={active}
+                  onSelect={setSelectedOverride}
+                  workspaceSlug={primaryWorkspaceSlug}
+                />
               )}
             </div>
           </div>
@@ -110,9 +130,16 @@ export function Navbar({ user, memberships }: NavbarProps) {
           <NavClock />
           {user ? (
             <>
-              <NavbarSearch onSelect={setSelectedOverride} memberships={memberships} />
+              <NavbarSearch
+                onSelect={setSelectedOverride}
+                memberships={memberships}
+              />
               <NavbarNotifications />
-              <NavbarAccountMenu user={user} onSelect={setSelectedOverride} workspaceSlug={primaryWorkspaceSlug} />
+              <NavbarAccountMenu
+                user={user}
+                onSelect={setSelectedOverride}
+                workspaceSlug={primaryWorkspaceSlug}
+              />
             </>
           ) : null}
 

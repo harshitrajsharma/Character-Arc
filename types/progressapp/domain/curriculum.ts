@@ -99,16 +99,25 @@ export interface SubjectWithRelations extends Subject {
   mockTests: MockTest[]
   linkedAssessments?: SubjectLinkedAssessment[]
   linkedAssessmentsIssue?: string
+  assessmentToolAvailable?: boolean
+  linkedAssessmentsHasMore?: boolean
+  canManageAssessments?: boolean
+  assessmentViewerId?: string
   testRecords?: import("./assessment").BaseTestRecord[]
 }
 
-/** Read-only mock papers matched through explicit syllabus question targets. */
+/** Canonical papers explicitly linked to the syllabus or matched by question targets. */
 export interface SubjectLinkedAssessment {
   assessmentId: string
   title: string
   status: "DRAFT" | "IN_REVIEW" | "PUBLISHED" | "ARCHIVED"
   durationMinutes: number | null
-  linkage: "exam" | "syllabus"
+  linkage: "context" | "exam" | "syllabus"
+  studyContextId?: string | null
+  revision?: number
+  questionCount?: number
+  totalMarks?: number | null
+  attemptCount?: number
   targetChapterIds: string[]
   targetsWholeSubject: boolean
   attempts: Array<{

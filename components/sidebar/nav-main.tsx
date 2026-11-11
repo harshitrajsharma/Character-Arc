@@ -21,10 +21,16 @@ export function NavMain({
   return (
     <SidebarMenu>
       {items.map((item) => (
-        <SidebarMenuItem key={item.title}>
+        <SidebarMenuItem key={item.url}>
           <SidebarMenuButton
             isActive={item.isActive}
-            render={<Link href={item.url} />}
+            tooltip={item.title}
+            render={
+              <Link
+                href={item.url}
+                aria-current={item.isActive ? "page" : undefined}
+              />
+            }
           >
             {item.icon}
             <span>{item.title}</span>

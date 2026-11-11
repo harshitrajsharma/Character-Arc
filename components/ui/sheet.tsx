@@ -28,7 +28,7 @@ function SheetOverlay({ className, ...props }: SheetPrimitive.Backdrop.Props) {
     <SheetPrimitive.Backdrop
       data-slot="sheet-overlay"
       className={cn(
-        "fixed inset-0 z-50 bg-black/40 backdrop-blur-sm transition-opacity duration-150 data-ending-style:opacity-0 data-starting-style:opacity-0 sm:top-15",
+        "fixed inset-0 z-50 bg-transparent backdrop-blur-sm transition-opacity duration-150 data-ending-style:opacity-0 data-starting-style:opacity-0 sm:top-15",
         className
       )}
       {...props}
@@ -53,7 +53,7 @@ function SheetContent({
         data-slot="sheet-content"
         data-side={side}
         className={cn(
-          "fixed z-50 flex flex-col text-sm text-popover-foreground shadow-2xl backdrop-blur-2xl transition duration-200 ease-in-out data-ending-style:opacity-0 data-starting-style:opacity-0",
+          "fixed z-50 flex flex-col bg-popover/80 text-sm text-popover-foreground shadow-2xl backdrop-blur-2xl transition duration-200 ease-in-out data-ending-style:opacity-0 data-starting-style:opacity-0",
           "data-[side=bottom]:inset-x-0 data-[side=bottom]:bottom-0 data-[side=bottom]:h-auto data-[side=bottom]:border-t",
           "data-[side=left]:inset-y-0 data-[side=left]:left-0 data-[side=left]:h-[100dvh] data-[side=left]:w-full data-[side=left]:border-r sm:data-[side=left]:top-15 sm:data-[side=left]:h-[calc(100svh-60px)] sm:data-[side=left]:max-w-sm",
           "data-[side=right]:inset-y-0 data-[side=right]:right-0 data-[side=right]:h-[100dvh] data-[side=right]:w-full data-[side=right]:border-l sm:data-[side=right]:top-15 sm:data-[side=right]:h-[calc(100svh-60px)] sm:data-[side=right]:w-[clamp(28rem,42vw,40rem)]",

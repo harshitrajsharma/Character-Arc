@@ -1,7 +1,7 @@
 /**
  * Action executors for the `core.mock-tests` tool.
  *
- * Sixteen handlers wiring the (never-wired) assessment engine in
+ * Action handlers wiring the assessment engine in
  * `prisma/schema.prisma` to the tool pipeline. Question/Attempt rows are
  * standalone; only an Assessment creates a real Block row. Write handlers
  * follow the reserve → serializable-transaction → complete/fail pattern from
@@ -12,6 +12,12 @@
  * `executeToolAction` through the future MCP server.
  */
 import crypto from "node:crypto"
+import { manageAssessment } from "./mock-tests/assessment-management"
+import { assertAssessmentStudyContext } from "./exam-prep/assessment-study-validation"
+import {
+  createAndAttachQuestion,
+  type QuestionDestination,
+} from "./mock-tests/assessment-question-authoring"
 
 import { prisma } from "@/lib/prisma"
 import { ToolActionExecutionError } from "@/lib/tools/errors"
@@ -118,7 +124,11 @@ function requireOptionalPositiveInt(
   value: number | null | undefined,
   field: string
 ): void {
-  if (value !== null && value !== undefined && (!Number.isInteger(value) || value < 1)) {
+  if (
+    value !== null &&
+    value !== undefined &&
+    (!Number.isInteger(value) || value < 1)
+  ) {
     throw new ToolActionExecutionError(
       `${field} must be a positive integer.`,
       "INVALID_INPUT"
@@ -430,10 +440,16 @@ async function bumpAssessmentRevision(
   assessmentId: string,
   actualRevision: number
 ): Promise<void> {
-  await tx.block.update({
-    where: { id: assessmentId },
-    data: { revision: BigInt(actualRevision + 1) },
+  const changed = await tx.block.updateMany({
+    where: { id: assessmentId, revision: BigInt(actualRevision) },
+    data: { revision: { increment: 1 } },
   })
+  if (changed.count !== 1) {
+    throw new ToolActionExecutionError(
+      REVISION_CONFLICT_MESSAGE,
+      "REVISION_CONFLICT"
+    )
+  }
 }
 
 /**
@@ -483,6 +499,84 @@ async function runWriteAction(args: {
 // Question bank
 // ---------------------------------------------------------------------------
 
+async function createBankQuestion(
+  tx: Prisma.TransactionClient,
+  workspaceId: string,
+  actorId: string,
+  payload: QuestionPayload
+) {
+  const questionId = crypto.randomUUID()
+  await tx.question.create({
+    data: {
+      id: questionId,
+      workspaceId,
+      authoredById: actorId,
+      kind: payload.kind as QuestionKind,
+      status: "PUBLISHED",
+      stem: payload.stem,
+      difficulty: payload.difficulty ?? null,
+      metadata: {},
+      publishedAt: new Date(),
+    },
+  })
+  await replaceQuestionContent(tx, { workspaceId, questionId, payload })
+  return { id: questionId, kind: payload.kind, stem: payload.stem }
+}
+
+export const executeMockTestsAssessmentCreateQuestion = {
+  handlerVersion: "mock-tests.assessment.create-question.v1",
+  execute: async (
+    input: ExecuteToolActionInput,
+    principal: ToolExecutionPrincipal,
+    handlerVersion: string
+  ): Promise<ToolActionResult> =>
+    runWriteAction({
+      input,
+      principal,
+      handlerVersion,
+      actionKey: "assessment.create-question",
+      actionInput: input.input as object,
+      fallback:
+        "Could not create and add the question. Your content is retained.",
+      validate: () => {
+        const payload = input.input as QuestionPayload & QuestionDestination
+        validateQuestionPayload(payload)
+        requireNonNegative(requireDecimal(payload.marks, "marks"), "marks")
+        if (!payload.marks)
+          throw new ToolActionExecutionError(
+            "Marks must be greater than zero.",
+            "INVALID_INPUT"
+          )
+        requireNonPositive(
+          requireDecimal(payload.negativeMarks, "negativeMarks"),
+          "negativeMarks"
+        )
+      },
+      execute: async (tx, reservation, actorId) => {
+        const payload = input.input as QuestionPayload & QuestionDestination
+        const data = await createAndAttachQuestion(
+          tx,
+          {
+            ...payload,
+            workspaceId: input.workspaceId,
+            installationId: input.installationId,
+          },
+          principal,
+          (transaction) =>
+            createBankQuestion(transaction, input.workspaceId, actorId, payload)
+        )
+        const result = {
+          rootBlockId: payload.assessmentId,
+          createdBlockIds: [],
+          evidenceIds: [],
+          data,
+        }
+        await completeMockTestsRun(tx, reservation.runId, result)
+        return { status: "succeeded", runId: reservation.runId, ...result }
+      },
+    }),
+}
+
 export const executeMockTestsQuestionCreate = {
   handlerVersion: "mock-tests.question.create.v1",
   execute: async (
@@ -500,33 +594,14 @@ export const executeMockTestsQuestionCreate = {
       validate: () => validateQuestionPayload(input.input as QuestionPayload),
       execute: async (tx, reservation, actorId) => {
         const actionInput = input.input as QuestionPayload
-        const questionId = crypto.randomUUID()
-        await tx.question.create({
-          data: {
-            id: questionId,
-            workspaceId: input.workspaceId,
-            authoredById: actorId,
-            kind: actionInput.kind as QuestionKind,
-            status: "PUBLISHED",
-            stem: actionInput.stem,
-            difficulty: actionInput.difficulty ?? null,
-            metadata: {},
-            publishedAt: new Date(),
-          },
-        })
-        await replaceQuestionContent(tx, {
-          workspaceId: input.workspaceId,
-          questionId,
-          payload: actionInput,
-        })
-
-        const data = {
-          question: {
-            id: questionId,
-            kind: actionInput.kind,
-            stem: actionInput.stem,
-          },
-        }
+        const question = await createBankQuestion(
+          tx,
+          input.workspaceId,
+          actorId,
+          actionInput
+        )
+        const questionId = question.id
+        const data = { question }
         await completeMockTestsRun(tx, reservation.runId, {
           rootBlockId: questionId,
           createdBlockIds: [],
@@ -676,7 +751,6 @@ export const executeMockTestsQuestionUpdate = {
     }),
 }
 
-
 export const executeMockTestsQuestionDelete = {
   handlerVersion: "mock-tests.question.delete.v1",
   execute: async (
@@ -817,7 +891,12 @@ export const executeMockTestsAssessmentGetQuestions = {
           },
         }
       })
-      const runId = await recordReadRun(input, principal, handlerVersion, result)
+      const runId = await recordReadRun(
+        input,
+        principal,
+        handlerVersion,
+        result
+      )
       return {
         status: "succeeded",
         runId,
@@ -862,8 +941,14 @@ export const executeMockTestsAssessmentCreate = {
             "INVALID_INPUT"
           )
         }
-        requireOptionalPositiveInt(actionInput.durationMinutes, "durationMinutes")
-        if (actionInput.totalMarks !== null && actionInput.totalMarks !== undefined) {
+        requireOptionalPositiveInt(
+          actionInput.durationMinutes,
+          "durationMinutes"
+        )
+        if (
+          actionInput.totalMarks !== null &&
+          actionInput.totalMarks !== undefined
+        ) {
           requireDecimal(actionInput.totalMarks, "totalMarks")
         }
       },
@@ -879,16 +964,7 @@ export const executeMockTestsAssessmentCreate = {
           distinctionBenchmark?: number | null
         }
         if (actionInput.examBlockId) {
-          const examBlock = await tx.block.findFirst({
-            where: { id: actionInput.examBlockId, workspaceId: input.workspaceId },
-            select: { id: true },
-          })
-          if (!examBlock) {
-            throw new ToolActionExecutionError(
-              "The linked exam block is not available in this workspace.",
-              "INVALID_INPUT"
-            )
-          }
+          await assertAssessmentStudyContext(tx, input.workspaceId, actionInput.examBlockId, principal.invocationSource !== "web")
         }
 
         const blockId = crypto.randomUUID()
@@ -967,6 +1043,66 @@ export const executeMockTestsAssessmentCreate = {
     }),
 }
 
+function createAssessmentManagementExecutor(operation: "rename" | "delete") {
+  const actionKey = `assessment.${operation}`
+  return {
+    handlerVersion: `mock-tests.${actionKey}.v1`,
+    execute: async (
+      input: ExecuteToolActionInput,
+      principal: ToolExecutionPrincipal,
+      handlerVersion: string
+    ): Promise<ToolActionResult> =>
+      runWriteAction({
+        input,
+        principal,
+        handlerVersion,
+        actionKey,
+        actionInput: input.input as object,
+        fallback:
+          operation === "rename"
+            ? "Failed to rename the assessment."
+            : "Failed to delete the assessment.",
+        execute: async (tx, reservation) => {
+          const payload = input.input as {
+            assessmentId: string
+            expectedRevision: number
+            title?: string
+          }
+          const assessment = await manageAssessment(
+            tx,
+            {
+              workspaceId: input.workspaceId,
+              installationId: input.installationId,
+              ...payload,
+              operation,
+            },
+            principal
+          )
+          const data = { assessment }
+          await completeMockTestsRun(tx, reservation.runId, {
+            rootBlockId: assessment.id,
+            createdBlockIds: [],
+            evidenceIds: [],
+            data,
+          })
+          return {
+            status: "succeeded",
+            runId: reservation.runId,
+            rootBlockId: assessment.id,
+            createdBlockIds: [],
+            evidenceIds: [],
+            data,
+          }
+        },
+      }),
+  }
+}
+
+export const executeMockTestsAssessmentRename =
+  createAssessmentManagementExecutor("rename")
+export const executeMockTestsAssessmentDelete =
+  createAssessmentManagementExecutor("delete")
+
 export const executeMockTestsAssessmentUpdate = {
   handlerVersion: "mock-tests.assessment.update.v1",
   execute: async (
@@ -993,8 +1129,14 @@ export const executeMockTestsAssessmentUpdate = {
             "INVALID_INPUT"
           )
         }
-        requireOptionalPositiveInt(actionInput.durationMinutes, "durationMinutes")
-        if (actionInput.totalMarks !== null && actionInput.totalMarks !== undefined) {
+        requireOptionalPositiveInt(
+          actionInput.durationMinutes,
+          "durationMinutes"
+        )
+        if (
+          actionInput.totalMarks !== null &&
+          actionInput.totalMarks !== undefined
+        ) {
           requireDecimal(actionInput.totalMarks, "totalMarks")
         }
       },
@@ -1017,23 +1159,15 @@ export const executeMockTestsAssessmentUpdate = {
           expectedRevision: actionInput.expectedRevision,
         })
         if (actionInput.examBlockId) {
-          const examBlock = await tx.block.findFirst({
-            where: { id: actionInput.examBlockId, workspaceId: input.workspaceId },
-            select: { id: true },
-          })
-          if (!examBlock) {
-            throw new ToolActionExecutionError(
-              "The linked exam block is not available in this workspace.",
-              "INVALID_INPUT"
-            )
-          }
+          await assertAssessmentStudyContext(tx, input.workspaceId, actionInput.examBlockId, principal.invocationSource !== "web")
         }
 
         const existingBlock = await tx.block.findUnique({
           where: { id: actionInput.assessmentId },
           select: { properties: true },
         })
-        const currentProps = (existingBlock?.properties as Record<string, unknown>) ?? {}
+        const currentProps =
+          (existingBlock?.properties as Record<string, unknown>) ?? {}
         const updatedProps = {
           ...currentProps,
           ...(actionInput.passingBenchmark !== undefined
@@ -1069,7 +1203,7 @@ export const executeMockTestsAssessmentUpdate = {
         await tx.assessment.update({
           where: { blockId: actionInput.assessmentId },
           data: {
-            examBlockId: actionInput.examBlockId ?? null,
+            ...(actionInput.examBlockId !== undefined ? { examBlockId: actionInput.examBlockId } : {}),
             durationMinutes: actionInput.durationMinutes ?? null,
             totalMarks: actionInput.totalMarks ?? null,
             instructions: actionInput.instructions ?? null,
@@ -1132,7 +1266,10 @@ export const executeMockTestsAssessmentClone = {
             "INVALID_INPUT"
           )
         }
-        if (actionInput.targetTitle && actionInput.targetTitle.trim().length > 120) {
+        if (
+          actionInput.targetTitle &&
+          actionInput.targetTitle.trim().length > 120
+        ) {
           throw new ToolActionExecutionError(
             "Target title must be 120 characters or fewer.",
             "INVALID_INPUT"
@@ -1231,11 +1368,10 @@ export const executeMockTestsAssessmentClone = {
             title: newTitle,
             slug: `test-${newBlockId.replace(/-/g, "")}`,
             summary: source.block.summary,
-            properties:
-              (source.block.properties as Prisma.InputJsonValue) ?? {
-                passingBenchmark: 33,
-                distinctionBenchmark: 70,
-              },
+            properties: (source.block.properties as Prisma.InputJsonValue) ?? {
+              passingBenchmark: 33,
+              distinctionBenchmark: 70,
+            },
             schemaVersion: 1,
             revision: 1,
           },
@@ -1274,7 +1410,9 @@ export const executeMockTestsAssessmentClone = {
           })
 
           const correctOptionIds = new Set(
-            originalQ.solution?.correctOptions.map((co) => co.questionOptionId) ?? []
+            originalQ.solution?.correctOptions.map(
+              (co) => co.questionOptionId
+            ) ?? []
           )
           const answerKeys = originalQ.options
             .filter((opt) => correctOptionIds.has(opt.id))
@@ -1418,7 +1556,9 @@ export const executeMockTestsAssessmentAddQuestions = {
 
         // Validate every referenced question belongs to the workspace and is
         // not archived.
-        const questionIds = actionInput.questions.map((entry) => entry.questionId)
+        const questionIds = actionInput.questions.map(
+          (entry) => entry.questionId
+        )
         const questions = await tx.question.findMany({
           where: { id: { in: questionIds }, workspaceId: input.workspaceId },
           select: { id: true, status: true },
@@ -1457,7 +1597,11 @@ export const executeMockTestsAssessmentAddQuestions = {
             })),
           })
         }
-        await bumpAssessmentRevision(tx, actionInput.assessmentId, actualRevision)
+        await bumpAssessmentRevision(
+          tx,
+          actionInput.assessmentId,
+          actualRevision
+        )
 
         const data = {
           assessment: {
@@ -1516,7 +1660,11 @@ export const executeMockTestsAssessmentRemoveQuestion = {
             questionId: actionInput.questionId,
           },
         })
-        await bumpAssessmentRevision(tx, actionInput.assessmentId, actualRevision)
+        await bumpAssessmentRevision(
+          tx,
+          actionInput.assessmentId,
+          actualRevision
+        )
 
         const data = {
           assessment: {
@@ -1608,7 +1756,11 @@ export const executeMockTestsAssessmentReorderQuestions = {
           },
           data: { position: { increment: 10000 } },
         })
-        for (let index = 0; index < actionInput.questionIds.length; index += 1) {
+        for (
+          let index = 0;
+          index < actionInput.questionIds.length;
+          index += 1
+        ) {
           await tx.assessmentQuestion.update({
             where: {
               assessmentId_questionId: {
@@ -1619,7 +1771,11 @@ export const executeMockTestsAssessmentReorderQuestions = {
             data: { position: index },
           })
         }
-        await bumpAssessmentRevision(tx, actionInput.assessmentId, actualRevision)
+        await bumpAssessmentRevision(
+          tx,
+          actionInput.assessmentId,
+          actualRevision
+        )
 
         const data = {
           assessment: {
@@ -1701,7 +1857,11 @@ export const executeMockTestsAssessmentPublish = {
           where: { blockId: actionInput.assessmentId },
           data: { status: "PUBLISHED", publishedAt: new Date() },
         })
-        await bumpAssessmentRevision(tx, actionInput.assessmentId, actualRevision)
+        await bumpAssessmentRevision(
+          tx,
+          actionInput.assessmentId,
+          actualRevision
+        )
 
         const data = {
           assessment: {
@@ -2154,7 +2314,10 @@ export const executeMockTestsAttemptSubmit = {
               answeredAt: verdict.unanswered ? null : submittedAt,
               metadata: {},
             },
-            update: { isCorrect: verdict.isCorrect, awardedMarks: verdict.awardedMarks },
+            update: {
+              isCorrect: verdict.isCorrect,
+              awardedMarks: verdict.awardedMarks,
+            },
           })
 
           evidenceQuestions.push({
@@ -2171,7 +2334,9 @@ export const executeMockTestsAttemptSubmit = {
 
         const elapsedSeconds = Math.max(
           1,
-          Math.round((submittedAt.getTime() - attempt.startedAt.getTime()) / 1000)
+          Math.round(
+            (submittedAt.getTime() - attempt.startedAt.getTime()) / 1000
+          )
         )
         const evidenceIds = await writeAttemptEvidence(tx, {
           workspaceId: input.workspaceId,
@@ -2207,7 +2372,9 @@ export const executeMockTestsAttemptSubmit = {
             incorrectCount,
             unansweredCount,
             percentage:
-              totalMaxScore > 0 ? round2((totalScore / totalMaxScore) * 100) : 0,
+              totalMaxScore > 0
+                ? round2((totalScore / totalMaxScore) * 100)
+                : 0,
             evidenceCount: evidenceIds.length,
           },
         }
@@ -2306,6 +2473,8 @@ export const executeMockTestsAttemptGetAnalysis = {
             id: actionInput.attemptId,
             workspaceId: input.workspaceId,
             userId: actorId,
+            // Answer keys are never loaded for live, abandoned or pending attempts.
+            status: "EVALUATED",
           },
           select: {
             id: true,
@@ -2440,7 +2609,7 @@ export const executeMockTestsAttemptGetAnalysis = {
         }
         questions.sort((left, right) => left.position - right.position)
 
-        const weakTopics = await getWeakTopics(input.workspaceId, actorId, 10)
+        const weakTopics = await getWeakTopics(input.workspaceId, actorId, 10, principal.invocationSource !== "web")
 
         return {
           rootBlockId: attempt.assessmentId,
@@ -2460,7 +2629,12 @@ export const executeMockTestsAttemptGetAnalysis = {
         }
       })
 
-      const runId = await recordReadRun(input, principal, handlerVersion, result)
+      const runId = await recordReadRun(
+        input,
+        principal,
+        handlerVersion,
+        result
+      )
       return {
         status: "succeeded",
         runId,
@@ -2487,12 +2661,17 @@ export const executeMockTestsAssessmentGetWeakTopics = {
     const limit = actionInput.limit ?? 20
 
     try {
-      const weakTopics = await getWeakTopics(input.workspaceId, actorId, limit)
+      const weakTopics = await getWeakTopics(input.workspaceId, actorId, limit, principal.invocationSource !== "web")
       const result = {
         rootBlockId: undefined,
         data: { weakTopics },
       }
-      const runId = await recordReadRun(input, principal, handlerVersion, result)
+      const runId = await recordReadRun(
+        input,
+        principal,
+        handlerVersion,
+        result
+      )
       return {
         status: "succeeded",
         runId,

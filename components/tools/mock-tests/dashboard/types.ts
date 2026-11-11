@@ -3,8 +3,9 @@ import type {
   MockTestListItem,
   RecentAttemptItem,
 } from "@/lib/tools/definitions/mock-tests/repository"
+import type { AttemptHistoryPage } from "@/lib/tools/mock-tests/actions/attempt-history-actions"
 
-export type DashboardTab = "workspace" | "community"
+export type DashboardTab = "workspace" | "community" | "attempts"
 export type ViewMode = "grid" | "list"
 export type PaperTypeFilter =
   | "ALL"
@@ -15,24 +16,11 @@ export type PaperTypeFilter =
   | "pyq"
 
 export type WorkspaceStatusFilter = "ALL" | "published" | "draft"
-export type WorkspaceSortOption = "newest" | "oldest" | "questions" | "best_score"
+export type WorkspaceSortOption =
+  "newest" | "oldest" | "questions" | "best_score"
 
 export type CommunityScopeFilter = "ALL" | "single_subject" | "multi_subject"
 export type CommunitySortOption = "popular" | "newest" | "score"
-
-export interface WorkspaceStats {
-  total: number
-  published: number
-  drafts: number
-  attemptsCount: number
-  avgAccuracy: number | null
-}
-
-export interface CommunityStats {
-  total: number
-  subjectsCount: number
-  totalAttempts: number
-}
 
 // ── Subcomponent Props Contracts ──
 
@@ -43,15 +31,6 @@ export interface DashboardHeaderProps {
 
 export interface ActiveAttemptBannerProps {
   activeAttempt: RecentAttemptItem | null
-}
-
-export interface DashboardMetricsStripProps {
-  activeTab: DashboardTab
-  workspaceStats: WorkspaceStats
-  communityStats: CommunityStats
-  communityCount: number
-  workspaceCount: number
-  onTabChange: (tab: DashboardTab) => void
 }
 
 export interface DashboardFilterToolbarProps {
@@ -86,8 +65,9 @@ export interface AssessmentCardProps {
   item: MockTestListItem | CommunityMockTestItem
   canWrite?: boolean
   isCloning?: boolean
-  onShare?: (item: MockTestListItem) => void
   onClone?: (paperId: string, title: string) => void
+  activeAttemptId?: string
+  layout?: "grid" | "list"
 }
 
 export interface AssessmentListViewProps {
@@ -96,8 +76,8 @@ export interface AssessmentListViewProps {
   items: (MockTestListItem | CommunityMockTestItem)[]
   canWrite?: boolean
   cloningId?: string | null
-  onShare?: (item: MockTestListItem) => void
   onClone?: (paperId: string, title: string) => void
+  activeAttempts?: Record<string, string>
 }
 
 export interface WorkspaceTestsViewProps {
@@ -108,11 +88,11 @@ export interface WorkspaceTestsViewProps {
   canWrite: boolean
   hasActiveFilters: boolean
   onResetFilters: () => void
-  onShare: (item: MockTestListItem) => void
   recentAttempts: RecentAttemptItem[]
 }
 
 export interface CommunityHubViewProps {
+  canWrite: boolean
   workspaceSlug: string
   communityAssessments: CommunityMockTestItem[]
   totalCount: number
@@ -125,8 +105,9 @@ export interface CommunityHubViewProps {
 }
 
 export interface RecentAttemptsTableProps {
+  canWrite?: boolean
   workspaceSlug: string
-  recentAttempts: RecentAttemptItem[]
+  history: AttemptHistoryPage
 }
 
 export interface EmptyStateCardProps {
@@ -139,10 +120,10 @@ export interface EmptyStateCardProps {
 }
 
 export interface MockTestsDashboardProps {
+  attemptHistory: AttemptHistoryPage
   workspaceSlug: string
   assessments: MockTestListItem[]
   communityAssessments?: CommunityMockTestItem[]
   recentAttempts: RecentAttemptItem[]
   canWrite: boolean
-  initialTab?: DashboardTab
 }

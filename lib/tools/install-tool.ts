@@ -5,16 +5,7 @@ import { z } from "zod"
 import { requireVerifiedClaims } from "@/lib/auth/session"
 import { prisma } from "@/lib/prisma"
 import { getFirstPartyToolManifest } from "@/lib/tools/registry"
-import type { Prisma } from "../../generated/prisma/client"
-import { ToolGrantEffect } from "../../generated/prisma/client"
-
-type StoredReleaseManifest = {
-  defaultGrants?: ReadonlyArray<{
-    permissionKey?: string
-    effect?: string
-    constraints?: Prisma.InputJsonValue
-  }>
-}
+import { ensureToolDefaultGrants } from "./installation-grants"
 
 const installToolInputSchema = z.object({
   workspaceId: z.string().uuid(),
@@ -133,44 +124,13 @@ export async function installTool(input: InstallToolInput) {
         },
       })
 
-      // 4. Copies permissions from release.manifest->'defaultGrants' into tool_grants
-      const manifestData: StoredReleaseManifest =
-        release.manifest && typeof release.manifest === "object"
-          ? (release.manifest as StoredReleaseManifest)
-          : {}
-      const defaultGrants = Array.isArray(manifestData?.defaultGrants)
-        ? manifestData.defaultGrants
-        : []
-
-      for (const grant of defaultGrants) {
-        if (!grant.permissionKey) continue
-
-        const effect =
-          grant.effect === "allow"
-            ? ToolGrantEffect.ALLOW
-            : ToolGrantEffect.DENY
-        const constraints = grant.constraints || {}
-
-        await tx.toolGrant.upsert({
-          where: {
-            installationId_permissionKey: {
-              installationId: installation.id,
-              permissionKey: grant.permissionKey,
-            },
-          },
-          create: {
-            workspaceId: parsed.data.workspaceId,
-            installationId: installation.id,
-            permissionKey: grant.permissionKey,
-            effect: effect,
-            constraints: constraints,
-          },
-          update: {
-            effect: effect,
-            constraints: constraints,
-          },
-        })
-      }
+      // 4. Seed trusted declared defaults without overwriting customized grants.
+      await ensureToolDefaultGrants(
+        tx,
+        parsed.data.workspaceId,
+        installation.id,
+        manifest.defaultGrants
+      )
 
       return installation
     })

@@ -1,11 +1,16 @@
+import { getBrowserTestConfig } from "./lib/browser-test-config"
+
 import { chromium } from "playwright"
 import path from "node:path"
 import { prisma } from "../lib/prisma"
 
-const BASE_URL = "http://127.0.0.1:3000"
-const USER_EMAIL = "sharmaharshitraj02@gmail.com"
-const USER_PASSWORD = "TestPassword123!"
-const WORKSPACE_SLUG = "personal-14e77ece-6df3-4d5f-bbc9-e90015c4250d"
+const {
+  baseUrl: BASE_URL,
+  email: USER_EMAIL,
+  password: USER_PASSWORD,
+  workspaceSlug: WORKSPACE_SLUG,
+} = getBrowserTestConfig()
+
 const SCREENSHOT_DIR = path.resolve(process.cwd(), "scratch/screenshots")
 
 async function run() {
@@ -29,7 +34,9 @@ async function run() {
 
   const assessmentId = assessment.blockId
   const title = assessment.block.title
-  console.log(`Found Assessment: ${assessmentId} ("${title}") - Status: ${assessment.status}`)
+  console.log(
+    `Found Assessment: ${assessmentId} ("${title}") - Status: ${assessment.status}`
+  )
 
   const browser = await chromium.launch({
     headless: true,
@@ -58,18 +65,25 @@ async function run() {
     await page.fill('input[name="email"]', USER_EMAIL)
     await page.fill('input[name="password"]', USER_PASSWORD)
     await page.click('button[type="submit"]:has-text("Sign in")')
-    await page.waitForURL((url) => !url.pathname.includes("/login"), { timeout: 40000 })
+    await page.waitForURL((url) => !url.pathname.includes("/login"), {
+      timeout: 40000,
+    })
     console.log(`Signed in! Current URL: ${page.url()}`)
     await page.waitForTimeout(1500)
 
     // 2. Visit Workspace Test Detail View
     const detailUrl = `${BASE_URL}/workspace/${WORKSPACE_SLUG}/assessments/${assessmentId}`
     console.log(`2. Navigating to Workspace Detail View: ${detailUrl}`)
-    const detailRes = await page.goto(detailUrl, { waitUntil: "domcontentloaded" })
+    const detailRes = await page.goto(detailUrl, {
+      waitUntil: "domcontentloaded",
+    })
     console.log(`Workspace Detail status: ${detailRes?.status()}`)
     await page.waitForTimeout(2000)
 
-    const workspaceShotPath = path.join(SCREENSHOT_DIR, "unified-workspace-test-profile.png")
+    const workspaceShotPath = path.join(
+      SCREENSHOT_DIR,
+      "unified-workspace-test-profile.png"
+    )
     await page.screenshot({ path: workspaceShotPath, fullPage: true })
     console.log(`[Screenshot Saved] ${workspaceShotPath}`)
 
@@ -77,11 +91,16 @@ async function run() {
     console.log("3. Testing Share Landing Page in app context...")
     const publicUrl = `${BASE_URL}/assessments/share/${assessmentId}`
     console.log(`Navigating to Share URL: ${publicUrl}`)
-    const publicRes = await page.goto(publicUrl, { waitUntil: "domcontentloaded" })
+    const publicRes = await page.goto(publicUrl, {
+      waitUntil: "domcontentloaded",
+    })
     console.log(`Share page status: ${publicRes?.status()}`)
     await page.waitForTimeout(2000)
 
-    const publicShotPath = path.join(SCREENSHOT_DIR, "unified-public-share-page.png")
+    const publicShotPath = path.join(
+      SCREENSHOT_DIR,
+      "unified-public-share-page.png"
+    )
     await page.screenshot({ path: publicShotPath, fullPage: true })
     console.log(`[Screenshot Saved] ${publicShotPath}`)
 

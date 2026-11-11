@@ -1,81 +1,79 @@
 import {
-  BotIcon,
+  BookOpenIcon,
+  FilePlus2Icon,
   ClipboardCheckIcon,
-  DownloadIcon,
+  ArrowRightIcon,
 } from "lucide-react"
+import { LandingContainer } from "@/components/landing/primitives"
 
-import {
-  LandingContainer,
-  Reveal,
-} from "@/components/landing/primitives"
-import { cn } from "@/lib/utils"
-
-const STEPS = [
+const steps = [
   {
-    number: "01",
-    title: "Install a tool",
+    title: "Start with a subject",
     description:
-      "Pick a tool like Exam Prep from the catalog and add it to your workspace. Each tool arrives with its own structure, rules, and progress model.",
-    icon: DownloadIcon,
-    tile: "bg-brand-violet-soft text-brand-violet-ink",
+      "Organize exams, chapters and topics into a syllabus you can actually work through.",
+    icon: BookOpenIcon,
+    detail: "Know where to begin",
   },
   {
-    number: "02",
-    title: "Work with any AI agent",
+    title: "Build a test in context",
     description:
-      "ChatGPT, Claude, and local agents act through strict tool contracts over MCP, so generated work lands in the right place with validated inputs.",
-    icon: BotIcon,
-    tile: "bg-brand-cyan-soft text-brand-cyan-ink",
+      "Create a draft or link an existing assessment. Add questions and open the test from its subject.",
+    icon: FilePlus2Icon,
+    detail: "Keep practice close to the syllabus",
   },
   {
-    number: "03",
-    title: "See evidence-backed outcomes",
+    title: "Review, then move forward",
     description:
-      "Every action becomes structured progress — plans, attempts, and decisions you can review instead of scrolling back through chats.",
+      "Continue unfinished attempts, revisit evaluated answers and keep your full test history.",
     icon: ClipboardCheckIcon,
-    tile: "bg-brand-amber-soft text-brand-amber-ink",
+    detail: "Have a record to learn from",
   },
-] as const
+]
 
 export function LandingHowItWorks() {
   return (
-    <section aria-labelledby="how-it-works-title">
-      <LandingContainer className="py-16 sm:py-24">
-        <Reveal>
+    <section
+      id="workflow"
+      aria-labelledby="workflow-title"
+      className="scroll-mt-24 border-y border-border"
+    >
+      <LandingContainer className="py-16 sm:py-20">
+        <div className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr] lg:gap-14">
+          <p className="text-xs font-semibold tracking-widest text-muted-foreground uppercase">
+            The connected study loop
+          </p>
           <h2
-            id="how-it-works-title"
-            className="text-center font-heading text-2xl font-semibold tracking-tight sm:text-3xl"
+            id="workflow-title"
+            className="max-w-xl font-heading text-3xl font-semibold text-balance sm:text-4xl"
           >
-            How it works
+            From your syllabus to your next attempt.
           </h2>
-        </Reveal>
-        <ol className="mt-12 grid gap-10 sm:mt-16 md:grid-cols-3 md:gap-8">
-          {STEPS.map((step) => (
-            <li key={step.number}>
-              <Reveal>
-                <div className="flex items-start justify-between gap-4">
-                  <span
-                    className={cn(
-                      "flex size-11 items-center justify-center rounded-lg border border-border/60",
-                      step.tile
-                    )}
-                  >
-                    <step.icon aria-hidden="true" className="size-5" />
-                  </span>
-                  <span
-                    aria-hidden="true"
-                    className="font-heading text-4xl font-semibold text-muted-foreground/40"
-                  >
-                    {step.number}
-                  </span>
-                </div>
-                <h3 className="mt-5 font-heading text-lg font-semibold">
-                  {step.title}
-                </h3>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                  {step.description}
-                </p>
-              </Reveal>
+        </div>
+        <ol className="mt-12 grid gap-8 md:grid-cols-3 md:gap-10">
+          {steps.map((step, index) => (
+            <li
+              key={step.title}
+              className="min-w-0 border-t border-border pt-5"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <span className="font-mono text-xs text-muted-foreground">
+                  0{index + 1}
+                </span>
+                <step.icon
+                  className="size-5 text-brand-violet-ink"
+                  aria-hidden="true"
+                />
+              </div>
+              <h3 className="mt-5 font-heading text-lg font-semibold">
+                {step.title}
+              </h3>
+              <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                {step.description}
+              </p>
+              <p className="mt-5 inline-flex items-center gap-2 text-xs font-medium">
+                <ArrowRightIcon className="size-3.5" aria-hidden="true" />
+                {step.detail}
+              </p>
             </li>
           ))}
         </ol>

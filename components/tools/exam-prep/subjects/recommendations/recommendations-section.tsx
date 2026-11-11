@@ -26,36 +26,6 @@ export interface RecommendationsSectionProps {
   onNavigate: (target: NavigationTarget) => void
 }
 
-export function RecommendationsSkeleton() {
-  return (
-    <section
-      className="space-y-3"
-      aria-label="Loading study path recommendations"
-      aria-busy="true"
-    >
-      <div className="flex items-center justify-between">
-        <div className="h-5 w-32 animate-pulse rounded bg-muted" />
-        <div className="h-8 w-28 animate-pulse rounded bg-muted" />
-      </div>
-
-      <div className="flex gap-3 overflow-x-auto pb-2 md:grid md:grid-cols-3 md:gap-3 md:pb-0">
-        {[1, 2, 3].map((i) => (
-          <div
-            key={i}
-            className="flex h-32 w-[82vw] max-w-sm shrink-0 flex-col justify-between rounded-2xl border border-border bg-card p-3 sm:w-72 md:w-auto"
-          >
-            <div className="space-y-2">
-              <div className="h-4 w-20 animate-pulse rounded bg-muted" />
-              <div className="h-4 w-3/4 animate-pulse rounded bg-muted" />
-            </div>
-            <div className="h-8 w-full animate-pulse rounded bg-muted" />
-          </div>
-        ))}
-      </div>
-    </section>
-  )
-}
-
 export function RecommendationsSection({
   subject,
   onNavigate,
@@ -156,11 +126,13 @@ export function RecommendationsSection({
         <div
           role="list"
           className={cn(
-          "flex snap-x snap-mandatory scrollbar-none gap-3 overflow-x-auto pb-2 md:grid md:gap-3 md:pb-0",
-          studyPath.nextSteps.slice(0, 3).length === 1 && "md:grid-cols-1 md:max-w-sm",
-          studyPath.nextSteps.slice(0, 3).length === 2 && "md:grid-cols-2 md:max-w-2xl",
-          studyPath.nextSteps.slice(0, 3).length >= 3 && "md:grid-cols-3"
-        )}
+            "flex snap-x snap-mandatory scrollbar-none gap-3 overflow-x-auto pb-2 md:grid md:gap-3 md:pb-0",
+            studyPath.nextSteps.slice(0, 3).length === 1 &&
+              "md:max-w-sm md:grid-cols-1",
+            studyPath.nextSteps.slice(0, 3).length === 2 &&
+              "md:max-w-2xl md:grid-cols-2",
+            studyPath.nextSteps.slice(0, 3).length >= 3 && "md:grid-cols-3"
+          )}
         >
           {studyPath.nextSteps.slice(0, 3).map((step) => (
             <div

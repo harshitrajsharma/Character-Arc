@@ -1,6 +1,6 @@
 export type McpJsonRpcRequest = {
   jsonrpc: "2.0"
-  id: string | number
+  id?: string | number
   method: string
   params?: Record<string, unknown>
 }
@@ -13,15 +13,22 @@ export type McpJsonRpcError = {
 
 export type McpJsonRpcResponse = {
   jsonrpc: "2.0"
-  id: string | number
+  id: string | number | null
   result?: unknown
   error?: McpJsonRpcError
 }
 
 export type McpTool = {
   name: string
+  title?: string
   description: string
   inputSchema: Record<string, unknown>
+  annotations?: {
+    readOnlyHint: boolean
+    destructiveHint: boolean
+    idempotentHint: boolean
+    openWorldHint: boolean
+  }
 }
 
 export type McpTextContent = {
@@ -32,6 +39,25 @@ export type McpTextContent = {
 export type McpToolCallResult = {
   content: McpTextContent[]
   isError?: boolean
+  structuredContent?: Record<string, unknown>
+}
+
+export const MCP_PROTOCOL_VERSIONS = [
+  "2025-11-25",
+  "2025-06-18",
+  "2025-03-26",
+] as const
+export const MCP_PROTOCOL_VERSION = MCP_PROTOCOL_VERSIONS[0]
+export const MCP_IDEMPOTENCY_FIELD = "_idempotencyKey"
+
+export class McpProtocolError extends Error {
+  constructor(
+    readonly code: number,
+    message: string
+  ) {
+    super(message)
+    this.name = "McpProtocolError"
+  }
 }
 
 export const MCP_ERROR_CODES = {
@@ -59,7 +85,10 @@ export function formatMcpToolName(toolKey: string, actionKey: string): string {
  */
 export function parseMcpToolName(
   mcpName: string,
-  knownManifests: Array<{ tool: { key: string }; actions: Array<{ key: string }> }>
+  knownManifests: Array<{
+    tool: { key: string }
+    actions: Array<{ key: string }>
+  }>
 ): { toolKey: string; actionKey: string } | null {
   for (const manifest of knownManifests) {
     const toolKey = manifest.tool.key

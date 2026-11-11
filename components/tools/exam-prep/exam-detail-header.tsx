@@ -1,4 +1,8 @@
 "use client"
+import {
+  parseIsoLocalDate as getExamStart,
+  parseTimestamp as getOfficialStart,
+} from "@/lib/dates/local-date"
 
 import { useMemo, useState } from "react"
 import { GraduationCapIcon, InfoIcon } from "lucide-react"
@@ -23,37 +27,6 @@ const targetDateFormatter = new Intl.DateTimeFormat("en-US", {
   month: "short",
   year: "numeric",
 })
-
-function getExamStart(examDate: string): Date | null {
-  const parts = examDate.split("-").map(Number)
-
-  if (
-    parts.length !== 3 ||
-    parts.some((part) => !Number.isInteger(part)) ||
-    parts[0] < 1 ||
-    parts[1] < 1 ||
-    parts[1] > 12 ||
-    parts[2] < 1 ||
-    parts[2] > 31
-  ) {
-    return null
-  }
-
-  const [year, month, day] = parts
-  const target = new Date(year, month - 1, day)
-
-  return target.getFullYear() === year &&
-    target.getMonth() === month - 1 &&
-    target.getDate() === day
-    ? target
-    : null
-}
-
-function getOfficialStart(officialStartAt: string | null): Date | null {
-  if (!officialStartAt) return null
-  const date = new Date(officialStartAt)
-  return Number.isNaN(date.getTime()) ? null : date
-}
 
 function formatTargetDate(target: Date) {
   return targetDateFormatter.format(target)

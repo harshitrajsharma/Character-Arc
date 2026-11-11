@@ -1,21 +1,28 @@
 "use client"
 
 import { useEffect } from "react"
+import {
+  afterWindowLoad,
+  configureServiceWorker,
+} from "@/lib/pwa/service-worker-registration"
 
 export function SwRegister() {
   useEffect(() => {
-    if (typeof window !== "undefined" && "serviceWorker" in navigator) {
-      window.addEventListener("load", () => {
-        navigator.serviceWorker
-          .register("/sw.js")
-          .then((registration) => {
-            console.log("PWA Service Worker registered with scope:", registration.scope)
-          })
-          .catch((error) => {
-            console.error("PWA Service Worker registration failed:", error)
-          })
-      })
-    }
+    if (!("serviceWorker" in navigator)) return
+    return afterWindowLoad(
+      window,
+      document.readyState,
+      () =>
+        configureServiceWorker(
+          {
+            serviceWorker: navigator.serviceWorker,
+            caches: "caches" in window ? window.caches : undefined,
+            origin: window.location.origin,
+          },
+          process.env.NODE_ENV === "production"
+        ),
+      () => console.warn("Offline support is unavailable in this browser.")
+    )
   }, [])
 
   return null

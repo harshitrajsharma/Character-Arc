@@ -1,29 +1,115 @@
 import Link from "next/link"
+import { Button } from "@/components/ui/button"
+import { UrlPagination } from "@/components/shared/url-pagination"
 import { workspaceRoutes } from "@/lib/routes/workspace-tools"
-import type { AssessmentDetail } from "@/lib/tools/definitions/mock-tests/repository"
-import { formatNumber } from "@/lib/tools/mock-tests/kind-labels"
-type Target = NonNullable<AssessmentDetail["questions"][number]["targets"]>[number]
-export function AssessmentCoverage({ assessment, workspaceSlug }: { assessment: AssessmentDetail; workspaceSlug: string }) {
- const targets = new Map<string, { target: Target; questions: Set<string>; marks: number }>()
- let unmapped = 0
- for (const question of assessment.questions) {
-  if (!question.targets?.length) unmapped++
-  for (const target of question.targets ?? []) {
-   const row = targets.get(target.blockId) ?? { target, questions: new Set<string>(), marks: 0 }
-   if (!row.questions.has(question.id)) { row.questions.add(question.id); row.marks += question.marks }
-   targets.set(target.blockId,row)
-  }
- }
- const marks = assessment.questions.reduce((sum,q)=>sum+q.marks,0)
- return <section aria-label="Topic coverage" className="overflow-hidden rounded-2xl border border-border bg-card">
-  <div className="flex flex-col gap-2 border-b border-border p-4 sm:p-6"><h2 className="font-heading text-base font-bold">Topic coverage</h2><p className="text-sm text-muted-foreground">Syllabus areas linked to this paper’s questions.</p><p className="text-xs text-muted-foreground">{assessment.questions.length} questions · {formatNumber(marks)} question marks</p>
-  {assessment.totalMarks !== null && marks !== assessment.totalMarks && <p className="text-xs text-muted-foreground">Configured total: {formatNumber(assessment.totalMarks)} marks. Current questions: {formatNumber(marks)} marks. Check the paper in the builder.</p>}</div>
-  <div className="divide-y divide-border">{[...targets].map(([id,row])=><details key={id} className="p-4 sm:px-6"><summary className="min-h-11 cursor-pointer break-words text-sm font-medium">{row.target.title} <span className="text-xs text-muted-foreground">({row.questions.size} questions)</span></summary>
-   {(row.target.paths ?? []).map(path=><div key={path.subjectId} className="py-2 text-xs text-muted-foreground">{path.examId ? <Link className="underline underline-offset-4" href={workspaceRoutes.examPrep.subject(workspaceSlug,path.examId,path.subjectId)}>{path.subjectTitle}</Link> : path.subjectTitle}{path.chapterTitle ? ` / ${path.chapterTitle}` : ""}</div>)}
-   <p className="pt-2 text-xs text-muted-foreground">{row.target.blockTypeKey.split(".").pop()} · {formatNumber(row.marks)} linked question marks</p>
-  </details>)}
-  {unmapped > 0 && <p className="p-4 text-sm text-muted-foreground sm:px-6">Topics not assigned · {unmapped} questions</p>}
-  {!assessment.questions.length && <p className="p-6 text-sm text-muted-foreground">Add questions in the builder to define coverage.</p>}</div>
-  {targets.size > 0 && <p className="border-t border-border p-4 text-xs text-muted-foreground">Questions can cover multiple areas. Counts and marks across areas may overlap.</p>}
- </section>
+import type { AssessmentOverview } from "@/lib/tools/mock-tests/assessment-overview-model"
+
+export function AssessmentCoverage({
+  assessment,
+  workspaceSlug,
+  canEdit,
+}: {
+  assessment: AssessmentOverview
+  workspaceSlug: string
+  canEdit: boolean
+}) {
+  const { coverage } = assessment
+  return (
+    <section className="min-w-0" aria-labelledby="assessment-coverage-heading">
+      <div className="flex flex-col gap-2 p-4 sm:p-6">
+        <h3
+          id="assessment-coverage-heading"
+          tabIndex={-1}
+          className="scroll-mt-24 text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          Syllabus coverage
+        </h3>
+        <p className="text-xs text-muted-foreground">
+          Areas linked to this assessment’s questions. A question can cover more
+          than one area.
+        </p>
+        {coverage.unmapped ? (
+          <p className="text-sm">
+            {coverage.unmapped} of {assessment.questionCount} questions have no
+            linked syllabus area.
+          </p>
+        ) : assessment.questionCount ? (
+          <p className="text-sm">
+            All questions have linked syllabus coverage.
+          </p>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Add questions to define coverage.
+          </p>
+        )}
+        {canEdit && coverage.unmapped ? (
+          <Button
+            variant="outline"
+            className="h-11 self-start"
+            render={
+              <Link
+                href={workspaceRoutes.mockTests.edit(
+                  workspaceSlug,
+                  assessment.id
+                )}
+              />
+            }
+          >
+            Edit coverage in builder
+          </Button>
+        ) : null}
+      </div>
+      {coverage.items.length ? (
+        <ul className="divide-y divide-border border-t border-border">
+          {coverage.items.map((target) => (
+            <li
+              key={target.id}
+              className="flex min-w-0 flex-wrap items-center justify-between gap-2 px-4 py-3 sm:px-6"
+            >
+              <div className="min-w-0">
+                <p className="text-sm font-medium break-words">
+                  {target.subject ? (
+                    <Link
+                      className="inline-flex min-h-11 items-center rounded-lg underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+                      href={workspaceRoutes.examPrep.subject(
+                        workspaceSlug,
+                        target.subject.examId,
+                        target.subject.id
+                      )}
+                    >
+                      {target.title}
+                    </Link>
+                  ) : (
+                    target.title
+                  )}
+                </p>
+                {target.context ? (
+                  <p className="mt-1 text-xs break-words text-muted-foreground">
+                    {target.context}
+                  </p>
+                ) : null}
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {target.type.split(".").pop()}
+                </p>
+              </div>
+              <span className="text-xs text-muted-foreground">
+                {target.questionCount}{" "}
+                {target.questionCount === 1 ? "question" : "questions"}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <UrlPagination
+        pagination={coverage}
+        pathname={workspaceRoutes.mockTests.detail(
+          workspaceSlug,
+          assessment.id
+        )}
+        queryKey="coveragePage"
+        unit="areas"
+        headingId="assessment-coverage-heading"
+      />
+    </section>
+  )
 }

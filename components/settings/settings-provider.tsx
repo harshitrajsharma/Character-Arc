@@ -40,9 +40,11 @@ export type SettingsData = {
     description: string | null
     kind: string
     createdAt: string
+    canManageMcpKeys?: boolean
   }
   members: WorkspaceMemberItem[]
   initialTokens: TokenItem[]
+  mcpTokensUnavailable?: boolean
   manifests: ToolManifest[]
   catalogItems: ToolCatalogItem[]
   origin: string
@@ -93,6 +95,8 @@ export function SettingsProvider({
 }) {
   const [isOpen, setIsOpen] = React.useState(false)
   const [isLoading, setIsLoading] = React.useState(false)
+  const [loadFailed, setLoadFailed] = React.useState(false)
+  const loadGeneration = React.useRef(0)
   const [activeSection, setActiveSection] =
     React.useState<SettingsSectionKey>("profile")
   const [data, setData] = React.useState<SettingsData | undefined>(undefined)
@@ -119,14 +123,17 @@ export function SettingsProvider({
 
   const loadData = React.useCallback(
     async (slug?: string) => {
+      const generation = ++loadGeneration.current
       setIsLoading(true)
+      setLoadFailed(false)
+      setData(undefined)
       try {
         const res = await getSettingsModalData(slug || currentWorkspaceSlug)
-        setData(res)
-      } catch (err) {
-        console.error("Failed to load settings modal data:", err)
+        if (generation === loadGeneration.current) setData(res)
+      } catch {
+        if (generation === loadGeneration.current) setLoadFailed(true)
       } finally {
-        setIsLoading(false)
+        if (generation === loadGeneration.current) setIsLoading(false)
       }
     },
     [currentWorkspaceSlug]
@@ -170,11 +177,12 @@ export function SettingsProvider({
 
   // Active workspace object to render immediately
   const activeWorkspace = data?.workspace ?? fallbackWorkspace
-  const activeUser = data?.user ?? initialUser ?? {
-    name: "Account",
-    email: "",
-    initials: "CA",
-  }
+  const activeUser = data?.user ??
+    initialUser ?? {
+      name: "Account",
+      email: "",
+      initials: "CA",
+    }
 
   return (
     <SettingsContext.Provider
@@ -189,6 +197,7 @@ export function SettingsProvider({
 
       {isOpen && activeWorkspace && (
         <SettingsDialog
+          key={activeWorkspace.id}
           open={isOpen}
           onOpenChange={setIsOpen}
           defaultSection={activeSection}
@@ -196,13 +205,22 @@ export function SettingsProvider({
           workspace={activeWorkspace}
           members={data?.members ?? []}
           initialTokens={data?.initialTokens ?? []}
+          mcpTokensUnavailable={
+            loadFailed || (data?.mcpTokensUnavailable ?? false)
+          }
+          settingsUnavailable={loadFailed}
+          onReload={() => loadData(activeWorkspace.slug)}
           manifests={data?.manifests ?? []}
           catalogItems={data?.catalogItems ?? []}
-          origin={data?.origin ?? (typeof window !== "undefined" ? window.location.origin : "http://localhost:3000")}
+          origin={
+            data?.origin ??
+            (typeof window !== "undefined"
+              ? window.location.origin
+              : "http://localhost:3000")
+          }
           isLoading={isLoading}
         />
       )}
     </SettingsContext.Provider>
   )
 }
-

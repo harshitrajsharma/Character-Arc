@@ -1,16 +1,17 @@
 "use client"
+import { useQueryClient } from "@tanstack/react-query"
+import { builderBankPrefix } from "@/lib/tools/mock-tests/builder-bank-cache"
 
 import {
   useCallback,
   useEffect,
+  useMemo,
+  useRef,
   useState,
   useTransition,
   type FormEvent,
 } from "react"
-import { useRouter } from "next/navigation"
-import Link from "next/link"
 import {
-  ArrowLeftIcon,
   CheckIcon,
   CircleCheckBigIcon,
   CircleDotIcon,
@@ -27,6 +28,21 @@ import { toast } from "sonner"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+} from "@/components/ui/alert-dialog"
+import { QuestionAllocationFields } from "./question-allocation-fields"
+import { useBuilderNavigation } from "./use-builder-navigation"
+import {
+  allocationError,
+  type AssessmentQuestionAuthoring,
+} from "@/lib/tools/mock-tests/question-authoring"
 import { reportSaveError } from "@/components/tools/mock-tests/save-error"
 import { Input } from "@/components/ui/input"
 import {
@@ -53,13 +69,19 @@ import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 import { createIdempotencyKey } from "@/lib/forms/idempotency-key"
 import { workspaceRoutes } from "@/lib/routes/workspace-tools"
+import { withSubjectReturn } from "@/lib/tools/exam-prep/assessment-study-context"
 import {
-  createQuestionAction,
-  updateQuestionAction,
+  saveBankQuestionFormAction,
+  createAssessmentQuestionAction,
+  getAssessmentQuestionAuthoringContext,
 } from "@/lib/tools/mock-tests/actions/question-actions"
-import type { TargetableBlock } from "@/lib/tools/definitions/mock-tests/repository"
+import {
+  toggleSyllabusTarget,
+  type LinkedSyllabusItem,
+  type SyllabusItem,
+} from "@/lib/tools/mock-tests/syllabus-picker"
 import dynamic from "next/dynamic"
-import { RichTextEditorSkeleton } from "@/components/tools/mock-tests/editor/rich-text-editor"
+import { RichTextEditorSkeleton } from "@/components/tools/mock-tests/editor/rich-text-editor-skeleton"
 
 const RichTextEditor = dynamic(
   () =>
@@ -71,7 +93,7 @@ const RichTextEditor = dynamic(
     loading: () => <RichTextEditorSkeleton minHeight="160px" />,
   }
 )
-import { RichContent } from "@/components/tools/mock-tests/editor/rich-content"
+import { QuestionOptionContent } from "./questions/question-view"
 import {
   formatOptionsToUnifiedText,
   parseUnifiedTextToOptions,
@@ -80,14 +102,8 @@ import {
   stripHtml,
   hasRichContent,
 } from "@/components/tools/mock-tests/editor/html-utils"
-import { QuestionPreview } from "./question-preview"
+import { AuthorQuestionPreview } from "./questions/author-question-preview"
 import { TopicSelectorDialog } from "./topic-selector-dialog"
-
-export type QuestionFormTarget = {
-  blockId: string
-  weight: number
-  isPrimary: boolean
-}
 
 type OptionRow = { key: string; content: string }
 
@@ -137,13 +153,18 @@ function emptyOptions(count: number): OptionRow[] {
 
 export function QuestionForm({
   workspaceSlug,
+  viewerId,
   questionId,
   fromAssessmentId,
+  subjectReturnHref,
+  assessmentContext,
   initial,
-  targetableBlocks,
 }: {
   fromAssessmentId?: string
+  subjectReturnHref?: string | null
+  assessmentContext?: AssessmentQuestionAuthoring
   workspaceSlug: string
+  viewerId: string
   questionId?: string
   initial?: {
     stem: string
@@ -154,13 +175,29 @@ export function QuestionForm({
     numericAnswer: number | null
     textAnswer: string | null
     explanation: string | null
-    targets: QuestionFormTarget[]
+    targets: LinkedSyllabusItem[]
   } | null
-  targetableBlocks: TargetableBlock[]
 }) {
-  const router = useRouter()
+  const queryClient = useQueryClient()
   const isEdit = Boolean(questionId)
   const [pending, startTransition] = useTransition()
+  const [context, setContext] = useState(assessmentContext)
+  const [destinationSection, setDestinationSection] = useState(
+    assessmentContext?.section ?? null
+  )
+  const [defaults, setDefaults] = useState(assessmentContext?.defaults ?? {})
+  const [marks, setMarks] = useState(
+    String(assessmentContext?.defaults.SINGLE_CHOICE?.marks ?? 1)
+  )
+  const [penalty, setPenalty] = useState(
+    String(assessmentContext?.defaults.SINGLE_CHOICE?.negativeMarks ?? 0)
+  )
+  const [reuseDifficulty, setReuseDifficulty] = useState(true)
+  const [saveMessage, setSaveMessage] = useState("")
+  const [saveError, setSaveError] = useState("")
+  const [uncertain, setUncertain] = useState(false)
+  const submissionLock = useRef(false)
+  const retryMode = useRef(false)
   const [idempotencyKey, setIdempotencyKey] = useState(() =>
     createIdempotencyKey()
   )
@@ -214,11 +251,11 @@ export function QuestionForm({
   )
   const [textAnswer, setTextAnswer] = useState(initial?.textAnswer ?? "")
   const [explanation, setExplanation] = useState(initial?.explanation ?? "")
-  const [targets, setTargets] = useState<QuestionFormTarget[]>(
+  const [targets, setTargets] = useState<LinkedSyllabusItem[]>(
     initial?.targets ?? []
   )
   const [showExplanation, setShowExplanation] = useState(
-    Boolean(initial?.explanation)
+    Boolean(initial?.explanation || assessmentContext)
   )
   const [uploadingEditors, setUploadingEditors] = useState<
     Record<string, boolean>
@@ -227,6 +264,32 @@ export function QuestionForm({
   const setImageUploading = (id: string, busy: boolean) =>
     setUploadingEditors((prev) => ({ ...prev, [id]: busy }))
   const [submitAttempted, setSubmitAttempted] = useState(false)
+  const fingerprint = JSON.stringify({
+    stem,
+    kind,
+    difficulty,
+    options,
+    answerKeys,
+    numericAnswer,
+    textAnswer,
+    explanation,
+    targets,
+  })
+  const [initialFingerprint] = useState(fingerprint)
+  const dirty = isEdit
+    ? fingerprint !== initialFingerprint
+    : Boolean(
+        hasRichContent(stem) ||
+        hasRichContent(explanation) ||
+        numericAnswer ||
+        answerKeys.length ||
+        targets.length ||
+        (kind !== "TRUE_FALSE" &&
+          options.some((option) => hasRichContent(option.content)))
+      )
+  const navigation = useBuilderNavigation(dirty, pending)
+  const leave = navigation.leave
+  const scoringError = context ? allocationError(marks, penalty) : null
 
   const choiceKind =
     kind === "SINGLE_CHOICE" ||
@@ -237,6 +300,15 @@ export function QuestionForm({
   const visibleStemLength = stripHtml(stem).length
 
   function handleKindChange(newKind: string) {
+    if (context) {
+      if (!scoringError)
+        setDefaults((current) => ({
+          ...current,
+          [kind]: { marks: Number(marks), negativeMarks: Number(penalty) },
+        }))
+      setMarks(String(defaults[newKind]?.marks ?? 1))
+      setPenalty(String(defaults[newKind]?.negativeMarks ?? 0))
+    }
     setSubmitAttempted(false)
     setKind(newKind)
     if (newKind === "TRUE_FALSE") {
@@ -311,16 +383,8 @@ export function QuestionForm({
     setUnifiedOptionText(formatOptionsToUnifiedText(nextOptions, answerKeys))
   }
 
-  function toggleTarget(blockId: string) {
-    setTargets((current) => {
-      if (current.some((target) => target.blockId === blockId)) {
-        return current.filter((target) => target.blockId !== blockId)
-      }
-      return [
-        ...current,
-        { blockId, weight: 100, isPrimary: current.length === 0 },
-      ]
-    })
+  function toggleTarget(item: SyllabusItem) {
+    setTargets((current) => toggleSyllabusTarget(current, item))
   }
 
   function updateTargetWeight(blockId: string, weight: number) {
@@ -387,12 +451,14 @@ export function QuestionForm({
 
   const submitQuestion = useCallback(
     async (addAnother = false) => {
+      if (submissionLock.current || pending) return
+      if (uncertain) addAnother = retryMode.current
       if (uploadingImage) {
         toast.warning("Wait for the image upload to finish before saving.")
         return
       }
       setSubmitAttempted(true)
-      const validationError = validate()
+      const validationError = scoringError ?? validate()
       if (validationError) {
         if (viewMode === "preview") setViewMode("form")
         toast.warning("Incomplete question", { description: validationError })
@@ -444,27 +510,109 @@ export function QuestionForm({
         idempotencyKey,
       }
 
-      const questionsHref = fromAssessmentId
-        ? workspaceRoutes.mockTests.edit(workspaceSlug, fromAssessmentId)
-        : workspaceRoutes.mockTests.questions(workspaceSlug)
+      const questionsHref =
+        (context?.id ?? fromAssessmentId)
+          ? workspaceRoutes.mockTests.edit(
+              workspaceSlug,
+              (context?.id ?? fromAssessmentId)!
+            )
+          : workspaceRoutes.mockTests.questions(workspaceSlug)
 
+      submissionLock.current = true
+      retryMode.current = addAnother
+      setSaveError("")
       startTransition(async () => {
         try {
           if (isEdit && questionId) {
-            await updateQuestionAction({
+            const result = await saveBankQuestionFormAction({
               workspaceSlug,
               questionId,
               ...payload,
             })
+            if (!result.ok) {
+              setUncertain(result.code === "RUN_FAILED")
+              setSaveError(result.message)
+              return
+            }
+            void queryClient.invalidateQueries({
+              queryKey: builderBankPrefix(workspaceSlug),
+            })
             toast.success("Question updated")
-            router.push(questionsHref)
+            leave(withSubjectReturn(questionsHref, subjectReturnHref))
           } else {
-            await createQuestionAction({ workspaceSlug, ...payload })
+            let addedQuestionId: string | undefined
+            if (context) {
+              const result = await createAssessmentQuestionAction({
+                workspaceSlug,
+                ...payload,
+                assessmentId: context.id,
+                expectedRevision: context.revision,
+                section: destinationSection,
+                marks: Number(marks),
+                negativeMarks: Number(penalty),
+              })
+              if (!result.ok) {
+                setUncertain(result.code === "RUN_FAILED")
+                setSaveError(result.message)
+                if (result.code === "REVISION_CONFLICT") {
+                  const fresh = await getAssessmentQuestionAuthoringContext(
+                    workspaceSlug,
+                    context.id
+                  )
+                  setContext(fresh)
+                  if (
+                    !fresh.sections.some(
+                      (section) => section.key === destinationSection
+                    )
+                  )
+                    setDestinationSection(null)
+                  setSaveError(
+                    `${result.message} The assessment summary is refreshed. Your question is retained; review the destination and retry.`
+                  )
+                }
+                return
+              }
+              addedQuestionId = result.questionId
+              setContext({
+                ...context,
+                revision: result.revision,
+                questionCount: result.questionCount,
+                totalMarks: result.totalMarks,
+              })
+              setDefaults((current) => ({
+                ...current,
+                [kind]: {
+                  marks: Number(marks),
+                  negativeMarks: Number(penalty),
+                },
+              }))
+              setSaveMessage(
+                `Question added and saved. ${result.questionCount} questions · ${result.totalMarks} marks in ${context.title}.`
+              )
+            } else {
+              const result = await saveBankQuestionFormAction({
+                workspaceSlug,
+                ...payload,
+              })
+              if (!result.ok) {
+                setUncertain(result.code === "RUN_FAILED")
+                setSaveError(result.message)
+                return
+              }
+            }
+            setUncertain(false)
+            void queryClient.invalidateQueries({
+              queryKey: builderBankPrefix(workspaceSlug),
+            })
             if (addAnother) {
-              toast.success("Question created! Ready for the next one.")
+              toast.success(
+                context
+                  ? "Question added to assessment"
+                  : "Question created! Ready for the next one."
+              )
               setStem("")
-              setDifficulty("")
-              if (kind === "SINGLE_CHOICE" || kind === "MULTIPLE_CHOICE") {
+              if (!context || !reuseDifficulty) setDifficulty("")
+              if (kind !== "TRUE_FALSE") {
                 const blankOptions = emptyOptions(4)
                 setOptions(blankOptions)
                 setUnifiedOptionText(
@@ -483,21 +631,40 @@ export function QuestionForm({
               setTextAnswer("")
               setExplanation("")
               setTargets([])
-              setShowExplanation(false)
+              if (!context) setShowExplanation(false)
               setSubmitAttempted(false)
               setIdempotencyKey(createIdempotencyKey())
+              requestAnimationFrame(() => {
+                const editor = document.querySelector<HTMLElement>(
+                  "#question-stem .ProseMirror"
+                )
+                editor?.focus()
+                editor?.scrollIntoView({ block: "center" })
+              })
             } else {
               toast.success(
                 fromAssessmentId
                   ? "Question created! Returning to test builder..."
                   : "Question created"
               )
-              router.push(questionsHref)
+              leave(
+                withSubjectReturn(
+                  addedQuestionId
+                    ? `${questionsHref}?added=${encodeURIComponent(addedQuestionId)}${destinationSection ? `&section=${encodeURIComponent(destinationSection)}` : ""}#question-${encodeURIComponent(addedQuestionId)}`
+                    : questionsHref,
+                  subjectReturnHref
+                )
+              )
             }
           }
         } catch (error) {
-          setIdempotencyKey(createIdempotencyKey())
+          setUncertain(true)
+          setSaveError(
+            "The save result could not be confirmed. Your question is retained. Retry the same save before editing to avoid creating a duplicate."
+          )
           reportSaveError(error, "Failed to save the question.")
+        } finally {
+          submissionLock.current = false
         }
       })
     },
@@ -515,9 +682,19 @@ export function QuestionForm({
       validate,
       workspaceSlug,
       fromAssessmentId,
+      subjectReturnHref,
       isEdit,
       questionId,
-      router,
+      context,
+      destinationSection,
+      marks,
+      penalty,
+      scoringError,
+      reuseDifficulty,
+      pending,
+      uncertain,
+      leave,
+      queryClient,
       viewMode,
       uploadingImage,
     ]
@@ -539,7 +716,10 @@ export function QuestionForm({
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [submitQuestion])
 
-  const questionsHref = workspaceRoutes.mockTests.questions(workspaceSlug)
+  const topicTitlesById = useMemo(
+    () => new Map(targets.map((target) => [target.blockId, target.title])),
+    [targets]
+  )
 
   const validationMessage = submitAttempted ? validate() : null
   const difficultyItems = [
@@ -550,9 +730,6 @@ export function QuestionForm({
     { value: "4", label: "Hard · Level 4" },
     { value: "5", label: "Advanced · Level 5" },
   ]
-  const previewMathClass =
-    "min-w-0 max-w-full overflow-x-auto overflow-y-hidden [overflow-wrap:anywhere] [&_.katex]:text-[1.5rem]! [&:has(.math-inline)]:py-3"
-
   return (
     <form
       onSubmit={handleSubmit}
@@ -560,28 +737,22 @@ export function QuestionForm({
       aria-busy={pending}
     >
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex min-w-0 items-start gap-3">
-          <Button
-            type="button"
-            variant="ghost"
-            className="size-11 shrink-0"
-            render={<Link href={questionsHref} />}
-            aria-label="Back to Question Bank"
-          >
-            <ArrowLeftIcon aria-hidden="true" />
-          </Button>
-          <div className="flex flex-col gap-1">
-            <p className="text-xs font-medium text-muted-foreground">
-              Question bank
-            </p>
-            <h1 className="font-heading text-2xl font-bold">
-              {isEdit ? "Edit question" : "New question"}
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Write a question, link its syllabus coverage, and check the answer
-              before saving.
-            </p>
-          </div>
+        <div className="flex min-w-0 flex-col gap-1">
+          <p className="text-xs font-medium text-muted-foreground">
+            {context ? "Assessment builder" : "Question bank"}
+          </p>
+          <h1 className="font-heading text-2xl font-bold">
+            {isEdit
+              ? "Edit question"
+              : context
+                ? "Add new question"
+                : "New question"}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            {context
+              ? context.title
+              : "Write a question, link its syllabus coverage, and check the answer before saving."}
+          </p>
         </div>
         <ToggleGroup
           aria-label="Authoring view"
@@ -617,6 +788,62 @@ export function QuestionForm({
           </ToggleGroupItem>
         </ToggleGroup>
       </header>
+      {isEdit && fromAssessmentId ? (
+        <p className="text-sm text-muted-foreground">
+          Editing shared question content also affects its other uses. Marks and
+          section are managed in the assessment.
+        </p>
+      ) : null}
+      {context ? (
+        <section
+          aria-label="Assessment destination"
+          className="flex min-w-0 flex-col gap-4 rounded-xl border border-border bg-card p-4 sm:p-6"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold">Add to this assessment</h2>
+            <p className="text-sm text-muted-foreground" role="status">
+              {context.questionCount} questions · {context.totalMarks} marks
+              saved
+            </p>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Section and scoring apply here. The new question will also be
+            available in your question bank.
+          </p>
+          <fieldset disabled={pending || uncertain}>
+            <legend className="sr-only">Assessment allocation</legend>
+            <QuestionAllocationFields
+              sections={context.sections}
+              section={destinationSection}
+              onSectionChange={setDestinationSection}
+              marks={marks}
+              negativeMarks={penalty}
+              onMarksChange={setMarks}
+              onPenaltyChange={setPenalty}
+              error={submitAttempted ? scoringError : null}
+            />
+          </fieldset>
+        </section>
+      ) : null}
+      {saveMessage ? (
+        <p role="status" className="text-sm text-success">
+          {saveMessage}
+        </p>
+      ) : null}
+      {saveError ? (
+        <Alert variant="destructive">
+          <AlertTitle>
+            {uncertain
+              ? "Confirm the previous save"
+              : isEdit
+                ? "Question was not saved"
+                : context
+                  ? "Question was not added"
+                  : "Question was not created"}
+          </AlertTitle>
+          <AlertDescription>{saveError}</AlertDescription>
+        </Alert>
+      ) : null}
       {validationMessage ? (
         <Alert variant="destructive" role="alert">
           <AlertTitle>Check your question</AlertTitle>
@@ -630,7 +857,9 @@ export function QuestionForm({
         )}
       >
         <fieldset
-          disabled={pending || uploadingImage}
+          data-question-authoring
+          disabled={pending || uploadingImage || uncertain}
+          inert={pending || uncertain}
           className={cn(
             "min-w-0 divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card",
             viewMode === "preview" && "hidden"
@@ -744,7 +973,7 @@ export function QuestionForm({
                 </FieldLabel>
                 <TopicSelectorDialog
                   workspaceSlug={workspaceSlug}
-                  targetableBlocks={targetableBlocks}
+                  viewerId={viewerId}
                   targets={targets}
                   onToggleTarget={toggleTarget}
                   onUpdateTargetWeight={updateTargetWeight}
@@ -758,32 +987,40 @@ export function QuestionForm({
                 </FieldDescription>
               </Field>
             </FieldGroup>
+            {context ? (
+              <label className="flex min-h-11 items-center gap-2 text-sm">
+                <Checkbox
+                  checked={reuseDifficulty}
+                  onCheckedChange={(value) =>
+                    setReuseDifficulty(Boolean(value))
+                  }
+                />
+                Reuse difficulty for the next question
+              </label>
+            ) : null}
             {targets.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {targets.map((target) => {
-                  const block = targetableBlocks.find(
-                    (b) => b.blockId === target.blockId
-                  )
-                  return block ? (
+                  return (
                     <Badge
                       key={target.blockId}
                       variant="outline"
                       className="h-auto max-w-full gap-1 py-1 whitespace-normal"
                     >
                       <span className="min-w-0 break-words">
-                        {block.title}
+                        {target.title}
                         {target.isPrimary ? " · Primary" : ""}
                       </span>
                       <button
                         type="button"
-                        onClick={() => toggleTarget(target.blockId)}
+                        onClick={() => toggleTarget(target)}
                         className="flex size-11 shrink-0 items-center justify-center rounded-full hover:bg-muted"
-                        aria-label={`Remove topic ${block.title}`}
+                        aria-label={`Remove topic ${target.title}`}
                       >
                         <XIcon className="size-3" />
                       </button>
                     </Badge>
-                  ) : null
+                  )
                 })}
               </div>
             ) : null}
@@ -946,16 +1183,7 @@ export function QuestionForm({
                             {option.key}
                           </span>
                           <div className="pointer-events-none min-w-0 flex-1">
-                            {hasRichContent(option.content) ? (
-                              <RichContent
-                                html={option.content}
-                                className={cn(previewMathClass, "text-sm")}
-                              />
-                            ) : (
-                              <p className="py-1 text-sm text-muted-foreground">
-                                Option {option.key} is empty
-                              </p>
-                            )}
+                            <QuestionOptionContent option={option} />
                             {correct ? (
                               <p className="mt-1 flex items-center gap-1 text-xs font-medium text-success-ink">
                                 <CheckIcon
@@ -1081,36 +1309,42 @@ export function QuestionForm({
                 : "block"
           )}
         >
-          <QuestionPreview
-            stem={stem}
-            kind={kind}
-            difficulty={difficulty}
-            options={options}
-            answerKeys={answerKeys}
-            numericAnswer={numericAnswer}
-            textAnswer={textAnswer}
-            explanation={explanation}
-            targets={targets}
-            targetableBlocks={targetableBlocks}
+          <AuthorQuestionPreview
+            question={{
+              id: questionId,
+              stem,
+              kind,
+              difficulty: difficulty ? Number(difficulty) : null,
+              options,
+              topicTitles: targets.flatMap((target) => {
+                const title = topicTitlesById.get(target.blockId)
+                return title ? [title] : []
+              }),
+            }}
+            solution={{ answerKeys, numericAnswer, textAnswer, explanation }}
           />
         </div>
       </div>
-      <footer className="sticky bottom-20 z-20 flex flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-md sm:bottom-4 sm:flex-row sm:items-center sm:justify-between">
+      <footer className="sticky bottom-20 z-20 flex flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-md sm:flex-row sm:items-center sm:justify-between md:bottom-4">
         <p className="text-xs text-muted-foreground">
           {pending
-            ? "Saving your question…"
-            : "Save to reuse this question in your mock tests."}
+            ? context
+              ? "Creating and adding your question…"
+              : "Saving your question…"
+            : context
+              ? "Creates and saves the question in this assessment."
+              : "Save to reuse this question in your mock tests."}
         </p>
         <div className="flex flex-wrap gap-2">
           {!isEdit ? (
             <Button
               type="button"
               variant="outline"
-              disabled={pending || uploadingImage}
+              disabled={pending || uploadingImage || uncertain}
               onClick={() => void submitQuestion(true)}
               className="min-h-11 flex-1 sm:flex-none"
             >
-              Save &amp; add another
+              {context ? "Create, add & next" : "Save & add another"}
             </Button>
           ) : null}
           <Button
@@ -1121,14 +1355,54 @@ export function QuestionForm({
             {pending ? (
               <Loader2Icon className="animate-spin" aria-hidden="true" />
             ) : null}
-            {isEdit
-              ? "Save changes"
-              : fromAssessmentId
-                ? "Save & return to builder"
-                : "Save & return"}
+            {uncertain
+              ? "Retry same save"
+              : isEdit
+                ? "Save changes"
+                : context
+                  ? "Create & add"
+                  : fromAssessmentId
+                    ? "Save & return to builder"
+                    : "Save & return"}
           </Button>
         </div>
       </footer>
+      <AlertDialog
+        open={navigation.pending !== null}
+        onOpenChange={(open) => {
+          if (!open && !pending) navigation.setPending(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Leave this question?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Your unsaved question content will be discarded.{" "}
+              {context
+                ? "Questions already added stay saved in the assessment."
+                : "Saved questions remain in your question bank."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              className="min-h-11"
+              onClick={() => navigation.setPending(null)}
+            >
+              Keep editing
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              className="min-h-11"
+              onClick={() => navigation.leave(navigation.pending!)}
+            >
+              Discard question
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </form>
   )
 }

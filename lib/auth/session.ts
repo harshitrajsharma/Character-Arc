@@ -5,32 +5,64 @@ import { redirect } from "next/navigation"
 
 import { createServerSupabaseClient } from "@/lib/supabase/server"
 import { ensureUserProvisioned } from "@/lib/auth/provision"
+import {
+  AuthVerificationUnavailableError,
+  isAuthServiceUnavailable,
+  reportAuthVerificationFailure,
+} from "./verification-errors"
 
-export const getVerifiedClaims = cache(async () => {
+const getVerifiedSession = cache(async () => {
   const supabase = await createServerSupabaseClient()
-  const { data, error } = await supabase.auth.getClaims()
+  let claimResult: Awaited<ReturnType<typeof supabase.auth.getClaims>>
+  try {
+    claimResult = await supabase.auth.getClaims()
+  } catch (error) {
+    reportAuthVerificationFailure("claims", error)
+    if (isAuthServiceUnavailable(error))
+      throw new AuthVerificationUnavailableError()
+    throw error
+  }
+  const { data, error } = claimResult
 
   if (error || !data?.claims?.sub) {
+    reportAuthVerificationFailure("claims", error)
+    if (isAuthServiceUnavailable(error))
+      throw new AuthVerificationUnavailableError()
     return null
   }
 
-  return data.claims
+  let userResult: Awaited<ReturnType<typeof supabase.auth.getUser>>
+  try {
+    userResult = await supabase.auth.getUser()
+  } catch (error) {
+    reportAuthVerificationFailure("user", error)
+    if (isAuthServiceUnavailable(error))
+      throw new AuthVerificationUnavailableError()
+    throw error
+  }
+  const { data: userData, error: userError } = userResult
+  if (userError || !userData.user || userData.user.id !== data.claims.sub) {
+    reportAuthVerificationFailure("user", userError)
+    if (isAuthServiceUnavailable(userError))
+      throw new AuthVerificationUnavailableError()
+    return null
+  }
+  return { claims: data.claims, user: userData.user }
 })
 
-export async function requireVerifiedClaims(next = "/dashboard") {
-  const claims = await getVerifiedClaims()
+export const getVerifiedClaims = cache(async () => {
+  const session = await getVerifiedSession()
+  return session?.claims ?? null
+})
 
-  if (!claims) {
+export async function requireVerifiedClaims(next = "/workspace") {
+  const session = await getVerifiedSession()
+
+  if (!session) {
     redirect(`/login?next=${encodeURIComponent(next)}`)
   }
 
-  const supabase = await createServerSupabaseClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (user) {
-    await ensureUserProvisioned(user)
-  }
+  await ensureUserProvisioned(session.user)
 
-  return claims
+  return session.claims
 }

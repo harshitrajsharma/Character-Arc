@@ -20,14 +20,12 @@ if (globalForPrisma.prisma && globalForPrisma.pool) {
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 30000,
   })
-  const adapter = new PrismaPg(pool)
+  // This module owns the pool; CLI $disconnect must release it as well.
+  const adapter = new PrismaPg(pool, { disposeExternalPool: true })
 
   prisma = new PrismaClient({
     adapter,
-    log:
-      process.env.NODE_ENV === "development"
-        ? ["warn", "error"]
-        : ["error"],
+    log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
   })
 
   globalForPrisma.pool = pool

@@ -1,12 +1,14 @@
 "use client"
 
-import { useMemo, useRef, useState, useTransition } from "react"
+import { useId, useMemo, useRef, useState, useTransition } from "react"
 import {
   CalendarPlusIcon,
   Trash2Icon,
   PlusIcon,
   ChevronDownIcon,
   ClipboardListIcon,
+  LinkIcon,
+  SearchIcon,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -25,13 +27,24 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuGroup,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { workspaceRoutes } from "@/lib/routes/workspace-tools"
 import { LinkedAssessmentRow } from "./linked-assessment-row"
-import { joinTestRecords, assessmentsForScope } from "./unified-test-helpers"
+import {
+  joinTestRecords,
+  assessmentsForScope,
+  filterSubjectAssessments,
+  type AssessmentListFilter,
+  type AssessmentStatusFilter,
+} from "./unified-test-helpers"
+import { Input } from "@/components/ui/input"
+import { PaginationControls } from "@/components/shared/pagination-controls"
+import { FilterSelectField } from "@/components/shared/filter-select-field"
+import { Field, FieldLabel } from "@/components/ui/field"
 import { UnifiedTestRow } from "./unified-test-row"
 import { TestRecordSummaryDialog } from "./test-record-summary-dialog"
 import type { BaseTestRecord } from "@/types/progressapp/domain/assessment"
@@ -55,6 +68,15 @@ import type { ScheduledTest } from "@/types/progressapp/domain"
 import { useSubjectProgress } from "../subject-progress-context"
 import { SubjectTestPlannerDialog } from "./subject-test-planner-dialog"
 import { TestRecordDialog } from "./test-record-dialog"
+import { SubjectAssessmentLinkDialog } from "./subject-assessment-link-dialog"
+import {
+  subjectAssessmentCreationHref,
+  subjectTestsHref,
+  type SubjectAssessmentScope,
+} from "@/lib/tools/exam-prep/assessment-study-context"
+import { setSubjectAssessmentLinkAction } from "@/lib/tools/exam-prep/actions/assessment-actions"
+import type { SubjectLinkedAssessment } from "@/types/progressapp/domain"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 type Confirmation = {
   action: "cancel" | "reopen" | "delete"
@@ -97,6 +119,21 @@ export function UnifiedTestsSection({
   const [confirmation, setConfirmation] = useState<Confirmation>()
   const actionKeys = useRef(new Map<string, string>())
   const [recordOpen, setRecordOpen] = useState(false)
+  const [linkOpen, setLinkOpen] = useState(false)
+  const [assessmentPage, setAssessmentPage] = useState(1)
+  const [assessmentFilter, setAssessmentFilter] =
+    useState<AssessmentListFilter>("all")
+  const [assessmentSearch, setAssessmentSearch] = useState("")
+  const [assessmentStatus, setAssessmentStatus] =
+    useState<AssessmentStatusFilter>("all")
+  const headingId = useId()
+  const assessmentHeading = useRef<HTMLHeadingElement>(null)
+  const [unlinking, setUnlinking] = useState<{
+    assessment: SubjectLinkedAssessment
+    scope: SubjectAssessmentScope
+  } | null>(null)
+  const [unlinkError, setUnlinkError] = useState("")
+  const unlinkKey = useRef<string | null>(null)
   const [editingRecord, setEditingRecord] = useState<BaseTestRecord>()
   const [viewingRecord, setViewingRecord] = useState<BaseTestRecord>()
   const [deletingRecord, setDeletingRecord] = useState<BaseTestRecord>()
@@ -148,6 +185,80 @@ export function UnifiedTestsSection({
     subject.linkedAssessments ?? [],
     chapterId
   )
+  const filteredAssessments = filterSubjectAssessments(
+    linkedAssessments,
+    assessmentFilter,
+    assessmentSearch,
+    assessmentStatus
+  )
+  const linkedCount = linkedAssessments.filter(
+    (paper) => paper.linkage === "context"
+  ).length
+  const scope = { examId, subjectId, ...(chapterId ? { chapterId } : {}) }
+  const returnHref = subjectTestsHref(workspaceSlug, scope)
+  const scopeTitle = chapterId
+    ? (subject.chapters.find((chapter) => chapter.id === chapterId)?.name ??
+      "this chapter")
+    : subject.name
+  const canWrite = subject.canManageAssessments !== false
+  const toolAvailable =
+    subject.assessmentToolAvailable !== false && !subject.linkedAssessmentsIssue
+  const totalAssessmentPages = Math.max(
+    1,
+    Math.ceil(filteredAssessments.length / 10)
+  )
+  const currentAssessmentPage = Math.min(assessmentPage, totalAssessmentPages)
+  const visibleAssessments = filteredAssessments.slice(
+    (currentAssessmentPage - 1) * 10,
+    currentAssessmentPage * 10
+  )
+
+  function requestUnlink(assessment: SubjectLinkedAssessment) {
+    const targetChapter = subject.chapters.find(
+      (chapter) => chapter.id === assessment.studyContextId
+    )
+    if (assessment.studyContextId !== subjectId && !targetChapter) return
+    unlinkKey.current = createIdempotencyKey()
+    setUnlinkError("")
+    setUnlinking({
+      assessment,
+      scope: {
+        examId,
+        subjectId,
+        ...(targetChapter ? { chapterId: targetChapter.id } : {}),
+      },
+    })
+  }
+  function unlinkAssessment() {
+    if (!unlinking || !unlinkKey.current) return
+    const operation = unlinking
+    const idempotencyKey = unlinkKey.current
+    startTransition(async () => {
+      try {
+        await setSubjectAssessmentLinkAction({
+          workspaceSlug,
+          ...operation.scope,
+          assessmentId: operation.assessment.assessmentId,
+          expectedRevision: operation.assessment.revision ?? 1,
+          operation: "unlink",
+          idempotencyKey,
+        })
+        setUnlinking(null)
+        unlinkKey.current = null
+        toast.success("Direct link removed", {
+          description:
+            "The assessment and attempts are retained. Syllabus matches can still appear here.",
+        })
+        startRefresh(() => router.refresh())
+      } catch (cause) {
+        setUnlinkError(
+          cause instanceof Error
+            ? cause.message
+            : "Could not remove the link. Try again."
+        )
+      }
+    })
+  }
 
   function openCreate() {
     setEditingTest(undefined)
@@ -247,41 +358,101 @@ export function UnifiedTestsSection({
 
   return (
     <section className="flex flex-col gap-3" aria-label={title}>
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="text-sm font-semibold">{title}</h2>
-        </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <Button size="sm" className="min-h-11 shrink-0 sm:min-h-9" />
-            }
+          <h2
+            id={headingId}
+            ref={assessmentHeading}
+            tabIndex={-1}
+            className="scroll-mt-20 rounded-sm text-base font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <PlusIcon /> Add test <ChevronDownIcon />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="min-w-60">
-            <DropdownMenuItem
-              className="min-h-11"
-              render={
-                <Link href={workspaceRoutes.mockTests.home(workspaceSlug)} />
-              }
-            >
-              <ClipboardListIcon /> Browse mock tests
-            </DropdownMenuItem>
-            <DropdownMenuItem className="min-h-11" onClick={openCreate}>
-              <CalendarPlusIcon /> Schedule a test
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              className="min-h-11"
-              onClick={() => {
-                setEditingRecord(undefined)
-                setRecordOpen(true)
-              }}
-            >
-              <PlusIcon /> Record external result
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+            {title}
+          </h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {linkedAssessments.length} assessments · {linkedCount} linked{" "}
+            {chapterId ? "to this chapter" : "to this subject"}
+          </p>
+        </div>
+        {canWrite ? (
+          <div className="flex shrink-0 items-center gap-2">
+            {toolAvailable ? (
+              <Button
+                size="sm"
+                className="min-h-11"
+                render={
+                  <Link
+                    href={subjectAssessmentCreationHref(workspaceSlug, scope)}
+                  />
+                }
+              >
+                <PlusIcon data-icon="inline-start" /> Create assessment
+              </Button>
+            ) : subject.assessmentToolAvailable === false ? (
+              <Button
+                variant="outline"
+                className="min-h-11"
+                render={
+                  <Link href={workspaceRoutes.tools.detail("mock-tests")} />
+                }
+              >
+                Enable assessments
+              </Button>
+            ) : (
+              <Button variant="outline" className="min-h-11" disabled>
+                Assessments unavailable
+              </Button>
+            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="min-h-11 shrink-0"
+                  />
+                }
+              >
+                More <ChevronDownIcon />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-60">
+                <DropdownMenuGroup>
+                  {toolAvailable ? (
+                    <DropdownMenuItem
+                      className="min-h-11"
+                      onClick={() => setLinkOpen(true)}
+                    >
+                      <LinkIcon /> Link existing assessment
+                    </DropdownMenuItem>
+                  ) : null}
+                  {toolAvailable ? (
+                    <DropdownMenuItem
+                      className="min-h-11"
+                      render={
+                        <Link
+                          href={workspaceRoutes.mockTests.home(workspaceSlug)}
+                        />
+                      }
+                    >
+                      <ClipboardListIcon /> All assessments
+                    </DropdownMenuItem>
+                  ) : null}
+                  <DropdownMenuItem className="min-h-11" onClick={openCreate}>
+                    <CalendarPlusIcon /> Schedule an external test
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="min-h-11"
+                    onClick={() => {
+                      setEditingRecord(undefined)
+                      setRecordOpen(true)
+                    }}
+                  >
+                    <PlusIcon /> Record external result
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        ) : null}
       </div>
       {subject.linkedAssessmentsIssue ? (
         <div
@@ -311,75 +482,257 @@ export function UnifiedTestsSection({
               : "No tests yet"}
           </p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Browse mock tests, schedule a test, or record an external result.
+            {subject.linkedAssessmentsIssue
+              ? "Retry loading assessments to see available papers. External plans and recorded results remain usable."
+              : toolAvailable
+                ? "Create an assessment for this study area, link an existing one, or record an external result."
+                : "Enable Assessments to create and take tests here. External test plans and results remain available."}
           </p>
         </div>
       ) : (
-        <div className="divide-y divide-border">
-          {linkedAssessments.flatMap((assessment) =>
-            assessment.attempts.length > 0
-              ? assessment.attempts.map((attempt) => (
-                  <LinkedAssessmentRow
-                    key={attempt.id}
-                    assessment={assessment}
-                    attempt={attempt}
-                    workspaceSlug={workspaceSlug}
+        <div className="min-w-0">
+          {linkedAssessments.length > 0 ? (
+            <div className="grid min-w-0 grid-cols-2 items-end gap-3 border-b border-border pb-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]">
+              <Field className="col-span-2 min-w-0 gap-1.5 lg:col-span-1">
+                <FieldLabel
+                  htmlFor={`${headingId}-search`}
+                  className="text-xs text-muted-foreground"
+                >
+                  Search assessments
+                </FieldLabel>
+                <div className="relative min-w-0">
+                  <SearchIcon
+                    aria-hidden="true"
+                    className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
                   />
-                ))
-              : [
-                  <LinkedAssessmentRow
-                    key={assessment.assessmentId}
-                    assessment={assessment}
-                    workspaceSlug={workspaceSlug}
-                  />,
-                ]
-          )}
-          {scheduled.map(({ plan, record }) => {
-            return (
-              <UnifiedTestRow
-                key={plan.id}
-                plan={plan}
-                chapters={subject.chapters}
-                record={record}
-                status={getScheduledTestDisplayStatus(plan, today)}
-                pending={isPending}
-                onView={record ? () => setViewingRecord(record) : undefined}
-                onRecord={() => setCompletingTest(plan)}
-                onEdit={() => openEdit(plan)}
-                onCancel={() =>
-                  setConfirmation({ action: "cancel", scheduledTest: plan })
-                }
-                onRestore={() => restore(plan)}
-                onReopen={() =>
-                  setConfirmation({ action: "reopen", scheduledTest: plan })
-                }
-                onDelete={() =>
-                  setConfirmation({ action: "delete", scheduledTest: plan })
+                  <Input
+                    id={`${headingId}-search`}
+                    placeholder="Search by title"
+                    value={assessmentSearch}
+                    className="min-h-11 pl-9"
+                    onChange={(event) => {
+                      setAssessmentSearch(event.target.value)
+                      setAssessmentPage(1)
+                    }}
+                  />
+                </div>
+              </Field>
+              <FilterSelectField
+                label="Source"
+                value={assessmentFilter}
+                items={[
+                  { value: "all", label: "All sources" },
+                  { value: "linked", label: "Linked assessments" },
+                  { value: "matched", label: "Syllabus matches" },
+                ]}
+                onChange={(value) => {
+                  setAssessmentFilter(value as AssessmentListFilter)
+                  setAssessmentPage(1)
+                }}
+              />
+              <FilterSelectField
+                label="Status"
+                value={assessmentStatus}
+                items={[
+                  { value: "all", label: "All statuses" },
+                  { value: "active", label: "In progress" },
+                  { value: "published", label: "Published" },
+                  { value: "draft", label: "Draft / in review" },
+                ]}
+                onChange={(value) => {
+                  setAssessmentStatus(value as AssessmentStatusFilter)
+                  setAssessmentPage(1)
+                }}
+              />
+            </div>
+          ) : null}
+          <div className="divide-y divide-border">
+            {visibleAssessments.map((assessment) => (
+              <LinkedAssessmentRow
+                key={assessment.assessmentId}
+                assessment={assessment}
+                workspaceSlug={workspaceSlug}
+                returnHref={returnHref}
+                canWrite={canWrite}
+                onUnlink={
+                  assessment.linkage === "context" &&
+                  (assessment.studyContextId === subjectId ||
+                    subject.chapters.some(
+                      (chapter) => chapter.id === assessment.studyContextId
+                    ))
+                    ? () => requestUnlink(assessment)
+                    : undefined
                 }
               />
-            )
-          })}
-          {standalone.map((record) => (
-            <UnifiedTestRow
-              key={record.id}
-              record={record}
-              status="completed"
-              onView={() => setViewingRecord(record)}
-              onEdit={
-                record.scheduledTestId
-                  ? undefined
-                  : () => {
-                      setEditingRecord(record)
-                      setRecordOpen(true)
-                    }
-              }
-              onDelete={
-                record.scheduledTestId ? undefined : () => requestDelete(record)
-              }
-            />
-          ))}
+            ))}
+            {filteredAssessments.length === 0 &&
+            linkedAssessments.length > 0 ? (
+              <div className="py-8 text-sm">
+                <p className="font-medium">No assessments match this view</p>
+                <p className="mt-1 text-muted-foreground">
+                  {assessmentFilter === "linked" && !linkedCount
+                    ? "Create an assessment here or use More → Link existing assessment."
+                    : "Try another filter or clear your search."}
+                </p>
+                <Button
+                  variant="ghost"
+                  className="mt-2 min-h-11"
+                  onClick={() => {
+                    setAssessmentFilter("all")
+                    setAssessmentStatus("all")
+                    setAssessmentSearch("")
+                    setAssessmentPage(1)
+                  }}
+                >
+                  Show all assessments
+                </Button>
+              </div>
+            ) : null}
+          </div>
+          {filteredAssessments.length > 0 ? (
+            <div className="flex flex-col items-center justify-between gap-3 border-t border-border py-3 sm:flex-row">
+              <p className="text-xs text-muted-foreground" aria-live="polite">
+                {(currentAssessmentPage - 1) * 10 + 1}–
+                {Math.min(
+                  currentAssessmentPage * 10,
+                  filteredAssessments.length
+                )}{" "}
+                of {filteredAssessments.length} assessments
+              </p>
+              {totalAssessmentPages > 1 ? (
+                <PaginationControls
+                  page={currentAssessmentPage}
+                  totalPages={totalAssessmentPages}
+                  label="Subject assessment pages"
+                  href={() => `#${headingId}`}
+                  onNavigate={(event, page) => {
+                    if (
+                      event.metaKey ||
+                      event.ctrlKey ||
+                      event.shiftKey ||
+                      event.altKey ||
+                      event.button !== 0
+                    )
+                      return
+                    event.preventDefault()
+                    if (page === currentAssessmentPage) return
+                    setAssessmentPage(page)
+                    requestAnimationFrame(() => {
+                      assessmentHeading.current?.focus({ preventScroll: true })
+                      assessmentHeading.current?.scrollIntoView({
+                        block: "start",
+                        behavior: "instant",
+                      })
+                    })
+                  }}
+                />
+              ) : null}
+            </div>
+          ) : null}
+          {subject.linkedAssessmentsHasMore ? (
+            <p className="py-3 text-xs text-muted-foreground">
+              Showing the latest 100 matching assessments. Older papers remain
+              available in the assessment library.
+            </p>
+          ) : null}
+          {scheduled.length + standalone.length > 0 ? (
+            <h3 className="border-t border-border pt-5 pb-2 text-sm font-semibold">
+              {chapterId
+                ? "External plans and recorded results"
+                : "Full-subject external plans and recorded results"}
+            </h3>
+          ) : null}
+          <div className="divide-y divide-border">
+            {scheduled.map(({ plan, record }) => {
+              return (
+                <UnifiedTestRow
+                  key={plan.id}
+                  plan={plan}
+                  chapters={subject.chapters}
+                  record={record}
+                  status={getScheduledTestDisplayStatus(plan, today)}
+                  pending={isPending}
+                  onView={record ? () => setViewingRecord(record) : undefined}
+                  onRecord={() => setCompletingTest(plan)}
+                  onEdit={() => openEdit(plan)}
+                  onCancel={() =>
+                    setConfirmation({ action: "cancel", scheduledTest: plan })
+                  }
+                  onRestore={() => restore(plan)}
+                  onReopen={() =>
+                    setConfirmation({ action: "reopen", scheduledTest: plan })
+                  }
+                  onDelete={() =>
+                    setConfirmation({ action: "delete", scheduledTest: plan })
+                  }
+                />
+              )
+            })}
+            {standalone.map((record) => (
+              <UnifiedTestRow
+                key={record.id}
+                record={record}
+                status="completed"
+                onView={() => setViewingRecord(record)}
+                onEdit={
+                  record.scheduledTestId
+                    ? undefined
+                    : () => {
+                        setEditingRecord(record)
+                        setRecordOpen(true)
+                      }
+                }
+                onDelete={
+                  record.scheduledTestId
+                    ? undefined
+                    : () => requestDelete(record)
+                }
+              />
+            ))}
+          </div>
         </div>
       )}
+      <SubjectAssessmentLinkDialog
+        open={linkOpen}
+        onOpenChange={setLinkOpen}
+        workspaceSlug={workspaceSlug}
+        scope={scope}
+        scopeTitle={scopeTitle}
+        viewerId={subject.assessmentViewerId ?? subject.userId}
+      />
+      <AlertDialog
+        open={Boolean(unlinking)}
+        onOpenChange={(open) => {
+          if (!open && !isPending) setUnlinking(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove this direct link?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The assessment and its attempt history are retained. It can still
+              appear here if its questions match this syllabus.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {unlinkError ? (
+            <Alert variant="destructive" role="alert">
+              <AlertDescription>{unlinkError}</AlertDescription>
+            </Alert>
+          ) : null}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isPending}
+              onClick={(event) => {
+                event.preventDefault()
+                unlinkAssessment()
+              }}
+            >
+              {isPending ? "Unlinking…" : "Unlink assessment"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <TestRecordDialog
         open={recordOpen}
         onOpenChange={setRecordOpen}
