@@ -158,25 +158,11 @@ export async function getGoalsPathsOverview(workspaceSlug: string) {
     }
   }
 
-  const blockType = await prisma.blockType.findUnique({
-    where: { key: "goals-paths.arc" },
-    select: { id: true },
-  })
-
-  if (!blockType) {
-    return {
-      workspace: workspace,
-      item,
-      arcs: [] as ArcListItem[],
-      issue: "catalog_unavailable" as const,
-    }
-  }
-
   const arcsData = await prisma.block.findMany({
     where: {
       workspaceId: workspace.id,
       originToolInstallationId: item.installationId,
-      blockTypeId: blockType.id,
+      blockType: { key: "goals-paths.arc" },
       status: "ACTIVE",
       archivedAt: null,
     },
@@ -193,6 +179,19 @@ export async function getGoalsPathsOverview(workspaceSlug: string) {
       revision: true,
       createdAt: true,
       updatedAt: true,
+      userStates: {
+        where: {
+          workspaceId: workspace.id,
+          userId: claims.sub,
+        },
+        select: {
+          blockId: true,
+          status: true,
+          progressPercent: true,
+          lastActivityAt: true,
+        },
+        take: 1,
+      },
     },
     orderBy: { updatedAt: "desc" },
     take: 50,
@@ -218,45 +217,19 @@ export async function getGoalsPathsOverview(workspaceSlug: string) {
     }
   }
 
-  const blockIds = arcRows.data.map((arc) => arc.id)
-  const statesData = blockIds.length
-    ? await prisma.userBlockState.findMany({
-        where: {
-          workspaceId: workspace.id,
-          userId: claims.sub,
-          blockId: { in: blockIds },
-        },
-        select: {
-          blockId: true,
-          status: true,
-          progressPercent: true,
-          lastActivityAt: true,
-        },
-      })
-    : []
-  const mappedStates = statesData.map((s) => ({
-    ...s,
-    block_id: s.blockId,
-    status: s.status.toLowerCase(),
-    progress_percent: s.progressPercent?.toString() || null,
-    last_activity_at: s.lastActivityAt?.toISOString() || null,
-  }))
-  const states = stateRowsSchema.safeParse(mappedStates)
-
-  if (!states.success) {
-    return {
-      workspace: workspace,
-      item,
-      arcs: [] as ArcListItem[],
-      issue: "data_unavailable" as const,
-    }
-  }
-
-  const stateByBlockId = new Map(
-    states.data.map((state) => [state.block_id, state])
-  )
   const arcs = arcRows.data
-    .map((arc) => normalizeArc(arc, stateByBlockId.get(arc.id)))
+    .map((arc, index) => {
+      const rawState = arcsData[index]?.userStates?.[0]
+      const state = rawState
+        ? {
+            block_id: rawState.blockId,
+            status: rawState.status.toLowerCase() as ArcLifecycleStatus,
+            progress_percent: rawState.progressPercent?.toString() || null,
+            last_activity_at: rawState.lastActivityAt?.toISOString() || null,
+          }
+        : undefined
+      return normalizeArc(arc, state)
+    })
     .filter((arc) => arc.lifecycleStatus !== "archived")
 
   return { workspace, item, arcs, issue: null }
@@ -288,27 +261,13 @@ export async function getArcDetail(
     }
   }
 
-  const blockType = await prisma.blockType.findUnique({
-    where: { key: "goals-paths.arc" },
-    select: { id: true },
-  })
-
-  if (!blockType) {
-    return {
-      workspace,
-      item,
-      arc: null,
-      issue: "data_unavailable",
-    }
-  }
-
   const [arcData, stateData, evidenceData] = await Promise.all([
     prisma.block.findFirst({
       where: {
         id: parsedArcId.data,
         workspaceId: workspace.id,
         originToolInstallationId: item.installationId,
-        blockTypeId: blockType.id,
+        blockType: { key: "goals-paths.arc" },
         archivedAt: null,
       },
       select: {

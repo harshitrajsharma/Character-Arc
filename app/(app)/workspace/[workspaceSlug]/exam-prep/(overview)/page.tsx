@@ -193,6 +193,7 @@ export default async function ExamPrepPage({
                             workspaceSlug,
                             exam.id
                           )}
+                          prefetch={false}
                           title={exam.title}
                           summary={exam.summary}
                           icon={GraduationCapIcon}

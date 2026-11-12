@@ -302,6 +302,7 @@ export function WorkspaceHomeView({ data }: { data: WorkspaceHomeData }) {
                                 exam.id,
                                 subject.id
                               )}
+                              prefetch={false}
                               className="flex min-h-11 min-w-0 flex-1 items-center justify-between gap-3 rounded-lg px-2 text-sm outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
                             >
                               <span className="wrap-anywhere">
@@ -317,6 +318,7 @@ export function WorkspaceHomeView({ data }: { data: WorkspaceHomeData }) {
                                 examId: exam.id,
                                 subjectId: subject.id,
                               })}
+                              prefetch={false}
                               aria-label={`Tests for ${subject.title} in ${exam.title}`}
                               className="inline-flex min-h-11 shrink-0 items-center rounded-full px-3 text-xs font-medium outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"
                             >
@@ -332,6 +334,7 @@ export function WorkspaceHomeView({ data }: { data: WorkspaceHomeData }) {
                     )}
                     <Link
                       href={workspaceRoutes.examPrep.exam(slug, exam.id)}
+                      prefetch={false}
                       className="mt-1 inline-flex min-h-11 items-center text-xs font-medium text-muted-foreground underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
                     >
                       View exam &amp; all subjects
@@ -368,6 +371,7 @@ export function WorkspaceHomeView({ data }: { data: WorkspaceHomeData }) {
                           ? workspaceRoutes.mockTests.edit(slug, paper.id)
                           : workspaceRoutes.mockTests.detail(slug, paper.id)
                       }
+                      prefetch={false}
                       className={rowLink}
                     >
                       <div className="min-w-0 flex-1">
@@ -446,6 +450,7 @@ export function WorkspaceHomeView({ data }: { data: WorkspaceHomeData }) {
                                 attempt.id
                               )
                         }
+                        prefetch={false}
                         action={
                           attempt.status === "in_progress" ? "resume" : "review"
                         }

@@ -284,24 +284,11 @@ export async function getMockTestsOverview(
     `/workspace/${encodeURIComponent(workspaceSlug)}`
   )
 
-  const blockType = await prisma.blockType.findUnique({
-    where: { key: "mock-tests.assessment" },
-    select: { id: true },
-  })
-  if (!blockType) {
-    return {
-      assessments: [],
-      communityAssessments: [],
-      recentAttempts: [],
-      issue: "catalog_unavailable",
-    }
-  }
-
   const [blocks, recentAttemptsData, communityAssessments] = await Promise.all([
     prisma.block.findMany({
       where: {
         workspaceId,
-        blockTypeId: blockType.id,
+        blockType: { key: "mock-tests.assessment" },
         originToolInstallationId: installationId,
         status: "ACTIVE",
         archivedAt: null,
@@ -1145,17 +1132,12 @@ export const getAttemptForExamRoom = cache(
 
 export const getCommunityMockTests = cache(
   async (): Promise<CommunityMockTestItem[]> => {
-    const blockType = await prisma.blockType.findUnique({
-      where: { key: "mock-tests.assessment" },
-      select: { id: true },
-    })
-    if (!blockType) return []
-
     const rows = await prisma.assessment.findMany({
       where: {
         status: "PUBLISHED",
+        blueprint: { path: ["visibility"], equals: "public" },
         block: {
-          blockTypeId: blockType.id,
+          blockType: { key: "mock-tests.assessment" },
           status: "ACTIVE",
           archivedAt: null,
         },

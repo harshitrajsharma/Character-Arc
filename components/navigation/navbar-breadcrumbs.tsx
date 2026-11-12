@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils"
 function formatToolSlug(slug: string): string {
   if (slug === "core.exam-prep" || slug === "exam-prep") return "Exam Prep"
   if (slug === "core.goals-paths" || slug === "goals-paths") return "Goals & Paths"
-  if (slug === "core.mock-tests" || slug === "mock-tests") return "Mock Tests"
+  if (slug === "core.mock-tests" || slug === "mock-tests" || slug === "assessments") return "Assessments"
   return slug
     .replace(/^core./, "")
     .split(/[-_]/)
@@ -98,13 +98,13 @@ export function resolvePathnameBreadcrumbs(
       }
     }
 
-    if (tool === "mock-tests") {
-      const mockHome = `${wsHome}/mock-tests`
+    if (tool === "mock-tests" || tool === "assessments") {
+      const assessmentHome = `${wsHome}/assessments`
       if (parts.length === 3) {
         return {
           segments: [
             { label: "Workspace", href: wsHome },
-            { label: "Mock Tests" },
+            { label: "Assessments" },
           ],
           backHref: wsHome,
         }
@@ -112,54 +112,54 @@ export function resolvePathnameBreadcrumbs(
       if (parts[3] === "authoring") {
         return {
           segments: [
-            { label: "Mock Tests", href: mockHome },
+            { label: "Assessments", href: assessmentHome },
             { label: "Authoring" },
           ],
-          backHref: mockHome,
+          backHref: assessmentHome,
         }
       }
       if (parts[3] === "questions") {
         if (parts[4] === "new") {
           return {
             segments: [
-              { label: "Questions", href: `${mockHome}/questions` },
+              { label: "Questions", href: `${assessmentHome}/questions` },
               { label: "New Question" },
             ],
-            backHref: `${mockHome}/questions`,
+            backHref: `${assessmentHome}/questions`,
           }
         }
         return {
           segments: [
-            { label: "Mock Tests", href: mockHome },
+            { label: "Assessments", href: assessmentHome },
             { label: "Question Bank" },
           ],
-          backHref: mockHome,
+          backHref: assessmentHome,
         }
       }
       if (parts[3] === "new") {
         return {
           segments: [
-            { label: "Mock Tests", href: mockHome },
+            { label: "Assessments", href: assessmentHome },
             { label: "New Test" },
           ],
-          backHref: mockHome,
+          backHref: assessmentHome,
         }
       }
       if (parts[3] === "attempts" && parts[5] === "analysis") {
         return {
           segments: [
-            { label: "Mock Tests", href: mockHome },
+            { label: "Assessments", href: assessmentHome },
             { label: "Attempt Analysis" },
           ],
-          backHref: mockHome,
+          backHref: assessmentHome,
         }
       }
       const testId = parts[3]
-      const testUrl = `${mockHome}/${encodeURIComponent(testId)}`
+      const testUrl = `${assessmentHome}/${encodeURIComponent(testId)}`
       if (parts[4] === "edit") {
         return {
           segments: [
-            { label: "Mock Tests", href: mockHome },
+            { label: "Assessments", href: assessmentHome },
             { label: "Test Paper", href: testUrl },
             { label: "Edit" },
           ],
@@ -168,10 +168,10 @@ export function resolvePathnameBreadcrumbs(
       }
       return {
         segments: [
-          { label: "Mock Tests", href: mockHome },
+          { label: "Assessments", href: assessmentHome },
           { label: "Test Paper" },
         ],
-        backHref: mockHome,
+        backHref: assessmentHome,
       }
     }
 

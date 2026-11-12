@@ -93,6 +93,7 @@ describe("executeToolActionForPrincipal", () => {
     await import("@/lib/tools/registry")
     mock.module("@/lib/tools/registry", () => ({
       getFirstPartyToolManifest: mock(() => ({
+        routes: { home: "/tools/mock-tests" },
         release: { version: "1.0.0" },
         actions: [
           {

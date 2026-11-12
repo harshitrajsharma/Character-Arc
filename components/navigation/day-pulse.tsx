@@ -1,8 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { AnimatePresence, motion } from "motion/react"
-
 import { cn } from "@/lib/utils"
 import { dayProgress, getDayPhase } from "./day-phase"
 
@@ -16,11 +14,10 @@ export function DayPulse({ className }: DayPulseProps) {
 
   useEffect(() => {
     const update = () => setNow(new Date())
-
     update()
 
-    const interval = window.setInterval(update, 1000)
-
+    // 60-second update interval aligns with minute-level progress change
+    const interval = window.setInterval(update, 60_000)
     return () => window.clearInterval(interval)
   }, [])
 
@@ -41,9 +38,10 @@ export function DayPulse({ className }: DayPulseProps) {
     >
       <div className="flex items-center gap-2">
         <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-border">
-          <motion.div
-            className="relative h-full overflow-hidden rounded-full transition-[background,box-shadow] duration-1000 ease-out"
+          <div
+            className="relative h-full overflow-hidden rounded-full transition-[width,background,box-shadow] duration-500 ease-out"
             style={{
+              width: `${progress}%`,
               background: `linear-gradient(
                 90deg,
                 ${phase.cssVar},
@@ -54,34 +52,15 @@ export function DayPulse({ className }: DayPulseProps) {
                 color-mix(in oklch, ${phase.cssVar} 45%, transparent)
               `,
             }}
-            initial={false}
-            animate={{
-              width: `${progress}%`,
-            }}
-            transition={{
-              width: {
-                duration: 0.25,
-                ease: "easeOut",
-              },
-            }}
           >
-            <motion.div
-              className="absolute inset-0 z-10 w-full"
+            <div
+              className="absolute inset-0 z-10 w-full animate-pulse"
               style={{
                 background:
-                  "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.4) 50%, transparent 100%)",
-              }}
-              animate={{
-                x: ["-100%", "100%"],
-              }}
-              transition={{
-                duration: 2,
-                repeat: Infinity,
-                ease: "linear",
-                repeatDelay: 1.5,
+                  "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.3) 50%, transparent 100%)",
               }}
             />
-          </motion.div>
+          </div>
         </div>
 
         <span className="w-8 text-right font-mono text-xs text-muted-foreground tabular-nums">
@@ -90,25 +69,13 @@ export function DayPulse({ className }: DayPulseProps) {
       </div>
 
       <div className="mt-1 h-4">
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.p
-            key={isHovered ? "hover" : now ? phase.key : "loading"}
-            className="truncate text-[11px] leading-4 text-muted-foreground"
-            initial={{ opacity: 0, y: -5 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 5 }}
-            transition={{
-              duration: 0.25,
-              ease: "easeOut",
-            }}
-          >
-            {isHovered
-              ? "Current Day progress"
-              : now
-                ? phase.message
-                : "Your day is loading."}
-          </motion.p>
-        </AnimatePresence>
+        <p className="truncate text-[11px] leading-4 text-muted-foreground transition-opacity duration-200">
+          {isHovered
+            ? "Current Day progress"
+            : now
+              ? phase.message
+              : "Your day is loading."}
+        </p>
       </div>
     </div>
   )

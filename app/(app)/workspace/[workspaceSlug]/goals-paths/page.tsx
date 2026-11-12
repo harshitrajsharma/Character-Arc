@@ -197,6 +197,7 @@ export default async function GoalsPathsPage(props: {
                             params.workspaceSlug,
                             arc.id
                           )}
+                          prefetch={false}
                           title={arc.title}
                           summary={arc.summary}
                           emptySummaryText="No summary yet. Open this arc to review its direction."

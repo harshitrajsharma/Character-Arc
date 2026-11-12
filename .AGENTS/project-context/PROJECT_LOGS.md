@@ -17,6 +17,121 @@ This document tracks all major architectural milestones, system decisions, tool 
 
 ## 📅 Log Entries
 
+### [2026-11-12] — Phase 4: Client Prefetch Tuning, Shell Re-render Elimination & Bundle Optimization
+
+#### 1. Context & Motivation
+- Viewport prefetching on high-density pages (like `WorkspaceHomeView` with 30–50 links) fired concurrent RSC requests that flooded the browser network and server connections.
+- Breadcrumbs in `navbar-breadcrumbs.tsx` directed to deprecated `/mock-tests/` routes, causing 308 redirect round-trips.
+- Breadcrumb provider and day pulse header component triggered multi-stage re-render waterfalls on every navigation.
+
+#### 2. Architecture & UI/UX Changes
+- **Next.js Package Optimization (`next.config.ts`):**
+  - Added `"motion"` and `"@tanstack/react-query"` to `experimental.optimizePackageImports` for optimal tree-shaking.
+- **Breadcrumb Route & Tool Fix (`components/navigation/navbar-breadcrumbs.tsx`):**
+  - Updated breadcrumbs to link directly to `/assessments/` instead of `/mock-tests/`, eliminating 308 redirect round-trips.
+- **CSS-Driven DayPulse (`components/navigation/day-pulse.tsx`):**
+  - Removed 1,000ms `setInterval` state loops and Framer Motion runtime from the global navigation shell. Replaced with lightweight CSS keyframe animations and 60s interval alignment.
+- **Memoized Breadcrumb Context (`components/navigation/breadcrumb-context.tsx`):**
+  - Derived current breadcrumbs synchronously without setting state during render. Wrapped provider value in `useMemo` to eliminate cascading shell re-renders.
+- **Selective `prefetch={false}` Tuning:**
+  - Added `prefetch={false}` on secondary dense list links (subject cards, individual mock tests, attempt rows, recent papers) while retaining automatic prefetching for top primary navbar links.
+
+#### 3. Verification & Testing
+- Full project verification: `npm run verify` passed with 560/560 tests passing across 73 test files (0 failures).
+- TypeScript check (`tsc --noEmit`) and ESLint runtime check exited with 0 errors, 0 warnings.
+
+---
+
+### [2026-11-12] — Phase 2 & Phase 3: Layout Parallelization & Database Query Waterfall Consolidation
+
+#### 1. Context & Motivation
+- Diagnosed deep sequential database waterfalls on route navigation to `/workspace/*`, `/exam-prep`, `/goals-paths`, and `/assessments`.
+- Root layout (`app/(app)/layout.tsx`) ran `requireVerifiedClaims()` and `getAppShellData()` sequentially, delaying the start of child route rendering and loading skeletons.
+- Route layout (`app/(app)/workspace/[workspaceSlug]/layout.tsx`) awaited `getWorkspaceIdentity()` solely as an auth gate without rendering workspace data, blocking streaming of child pages.
+- Tool repositories (`exam-prep`, `goals-paths`, `mock-tests`) each executed 3 sequential queries (`blockType.findUnique` -> `block.findMany` -> `userBlockState.findMany`), and community mock tests loaded 100 assessments with full attempt history before filtering by `visibility: public` in Node.js.
+
+#### 2. Architecture & Performance Changes
+- **Root Layout Parallelization (`app/(app)/layout.tsx`):**
+  - Parallelized root layout loading with `Promise.all([requireVerifiedClaims(), getAppShellData()])`.
+- **Unblocked Workspace Layout Streaming (`app/(app)/workspace/[workspaceSlug]/layout.tsx`):**
+  - Converted `WorkspaceLayout` to synchronous layout component, removing blocking `await getWorkspaceIdentity(workspaceSlug)` call. Child pages already call and React `cache()` workspace identity, allowing page-level `<Suspense>` / `loading.tsx` to stream immediately.
+- **Repository Waterfall Consolidation (`lib/tools/definitions/exam-prep/repository.ts` & `goals-paths/repository.ts`):**
+  - Replaced separate `prisma.blockType.findUnique` round-trip with direct Prisma relation filter `blockType: { key: "..." }`.
+  - Consolidated block and user state retrieval: included `userStates: { where: { workspaceId, userId }, select: ... }` directly within `block.findMany`, reducing 3 sequential database round-trips to a single query.
+  - Also optimized `getExamDetail` and `getArcDetail` to eliminate redundant `blockType.findUnique` round-trips.
+- **SQL-Level Community Visibility Filtering (`lib/tools/definitions/mock-tests/repository.ts`):**
+  - Pushed `visibility === "public"` filter directly to PostgreSQL/Prisma query via `blueprint: { path: ["visibility"], equals: "public" }` and relation filter `block: { blockType: { key: "mock-tests.assessment" } }`.
+  - Eliminated redundant `blockType.findUnique` lookup and prevented pulling private/draft records and all historical attempts across the network.
+- **Defensive Error Handling (`lib/workspaces/tool-installation-access.ts`):**
+  - Added optional chaining `getFirstPartyToolManifest(toolKey)?.routes?.home ?? "/tools"` in `ToolInstallationUnavailableError`.
+
+#### 3. Verification & Testing
+- `bun test ./tests/tools/`: 377 pass, 0 fail (45 files).
+- `bun test tests/auth`: 24 pass, 0 fail (4 files).
+- `npm run typecheck`: clean (0 errors).
+
+### [2026-11-12] — Phase 1: Authentication & Proxy Fast-Path Optimization
+
+#### 1. Context & Motivation
+- Diagnosed high latency during route navigation caused by blocking remote auth calls and sequential database provisioning queries.
+- Next.js RSC prefetch requests and client navigations previously triggered 3 serial remote HTTP round-trips to Supabase Auth (`/auth/v1/user`), plus 3 database queries for user provisioning on every navigation.
+- Prefetch links in viewports caused concurrent network flooding to Supabase Auth.
+
+#### 2. Architecture & Performance Changes
+- **Proxy / Middleware Fast-Path (`lib/supabase/proxy.ts`):**
+  - Added prefetch bypass: If `next-router-prefetch: 1` or `purpose: prefetch` and auth cookies exist, returns `NextResponse.next()` immediately without blocking on remote auth calls.
+  - Added local JWT decode & expiration inspection: If a valid JWT cookie exists with >60 seconds until expiry, bypasses remote `getClaims()` / `getUser()` session refresh.
+  - Preserves fail-closed redirect on expired/missing sessions and 503 error handling on auth transport outages.
+- **Deduplicated Server Component Auth (`lib/auth/session.ts`):**
+  - Eliminated redundant `supabase.auth.getClaims()` call in `getVerifiedSession`.
+  - Now calls `supabase.auth.getUser()` once and derives session claims directly, eliminating a serial remote HTTP hop (~150-300ms) on server component renders.
+- **In-Memory User Provisioning Cache (`lib/auth/provision.ts`):**
+  - Added process-level `Set<string>` of provisioned user IDs in `ensureUserProvisioned`.
+  - Already-provisioned users bypass 3 sequential Prisma database queries (`findUnique` profile, `findFirst` workspace, `upsert` member) on subsequent navigations.
+
+#### 3. Verification & Testing
+- `bun test tests/auth`: 24 passing tests (added fast-path test cases for prefetch and unexpired JWT cookies).
+- `npm run typecheck`: clean (0 errors).
+- ESLint on auth files: clean (0 errors, 0 warnings).
+
+### [2026-11-11] — Production Supabase Database Setup, Migration & Security Isolation
+
+#### 1. Context & Motivation
+- Configured and linked the newly connected production Supabase database project (`vrgnqdiwmuutbwjefjuw`).
+- Validated environment variables in `.env.local` against deployment security standards.
+- Resolved IPv6 direct-connection resolution failures (`P1001: Can't reach database server`) on local/IPv4 environments by routing Prisma migration `DIRECT_URL` through the Supabase session pooler on port 5432 (`aws-0-ap-northeast-2.pooler.supabase.com:5432/postgres?sslmode=require`).
+
+#### 2. Architecture & Data Layer Changes
+- Applied all 9 pending Prisma migrations sequentially to the production database:
+  - `20260717231853_init`
+  - `20260718001509_enable_rls`
+  - `20260718115355_add_test_record`
+  - `20260727230732_add_tool_run_payload`
+  - `20260728071102_exam_prep_typed_blocks`
+  - `20260728084637_remove_exam_subject_expected_marks`
+  - `20260729085404_exam_prep_personal_attempt_schema`
+  - `20260801090000_exam_prep_scheduled_tests`
+  - `20260823005052_add_mcp_tokens`
+- Enforced strict Application-Level Security & RLS Deny-By-Default Isolation:
+  - Ran `npm run db:secure-isolation` (`tsx scripts/check-database-isolation.ts --apply`).
+  - Confirmed 41 public tables have Row-Level Security enabled and zero policies.
+- Initialized Private Supabase Storage bucket `character-arc-question-images`:
+  - Enforced `public = false`, 5 MiB ceiling (`5242880` bytes), and restricted allowed MIME types to `['image/webp']`.
+- Synchronized all tool definitions into production database via `bun run db:sync-registry`:
+  - `core.goals-paths`
+  - `core.exam-prep`
+  - `core.mock-tests`
+
+#### 3. Verification & Testing
+- Supabase CLI Database Advisors (`supabase db advisors --db-url`): 0 security issues, 0 performance issues.
+- `prisma validate`: Schema valid.
+- `bun scripts/validate-tool-manifests.ts`: All tool manifests valid.
+- `tsc --noEmit`: 0 TypeScript errors.
+- `eslint app components lib proxy.ts next.config.ts --quiet`: 0 lint errors.
+- `bun test`: All 557 unit & integration tests passed across 73 test files (0 failures).
+
+---
+
 ### [2026-10-09] — Fix GlobeIcon Import, Missing Identifier, Dynamic Splitting & Turbopack Invalidation in Settings Dialog
 
 #### 1. Context & Motivation

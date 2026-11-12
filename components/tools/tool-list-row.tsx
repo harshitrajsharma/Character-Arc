@@ -16,6 +16,7 @@ export interface ToolListRowProps {
   progressPercent?: number | null
   timelineLabel?: React.ReactNode
   trailingAction?: ReactNode
+  prefetch?: boolean
 }
 
 export function ToolListRow({
@@ -30,6 +31,7 @@ export function ToolListRow({
   progressPercent,
   timelineLabel,
   trailingAction,
+  prefetch,
 }: ToolListRowProps) {
   const hasProgress = progressPercent !== undefined && progressPercent !== null
   const progress = hasProgress ? Math.min(100, Math.max(0, progressPercent)) : 0
@@ -41,6 +43,7 @@ export function ToolListRow({
     <article className="group relative border-b border-border last:border-b-0 focus-within:bg-accent hover:bg-accent">
       <Link
         href={href}
+        prefetch={prefetch}
         className={cn(
           "grid min-h-20 min-w-0 grid-cols-[2.75rem_minmax(0,1fr)_1.5rem] items-start gap-x-3 px-3 py-3 outline-none focus-visible:ring-3 focus-visible:ring-ring/30 sm:grid-cols-[3rem_minmax(0,1fr)_1.5rem] sm:gap-x-4 sm:px-4 lg:grid-cols-[3rem_minmax(0,1fr)_13rem_11rem_1.5rem] lg:items-center",
           trailingAction &&

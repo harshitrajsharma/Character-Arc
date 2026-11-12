@@ -111,4 +111,48 @@ describe("Next browser session proxy", () => {
       ).status
     ).toBe(307)
   })
+  test("prefetch with auth cookies bypasses remote getClaims call", async () => {
+    const request = new NextRequest("https://example.com/workspace/assessments", {
+      headers: {
+        "next-router-prefetch": "1",
+        cookie: "sb-app-auth-token=active-token",
+      },
+    })
+    const result = await refreshSupabaseSession(request)
+    expect(result.status).toBe(200)
+    expect(getClaims).not.toHaveBeenCalled()
+  })
+  test("valid unexpired JWT cookie bypasses remote getClaims call", async () => {
+    const payload = { sub: "user-1", exp: Math.floor(Date.now() / 1000) + 3600 }
+    const token =
+      "hdr." + Buffer.from(JSON.stringify(payload)).toString("base64url") + ".sig"
+    const session = JSON.stringify({ access_token: token, expires_at: payload.exp })
+    const cookieVal = "base64-" + Buffer.from(session).toString("base64url")
+
+    const request = new NextRequest("https://example.com/workspace/assessments", {
+      headers: {
+        cookie: `sb-app-auth-token=${cookieVal}`,
+      },
+    })
+    const result = await refreshSupabaseSession(request)
+    expect(result.status).toBe(200)
+    expect(result.headers.get("cache-control")).toBe("private, no-store")
+    expect(getClaims).not.toHaveBeenCalled()
+  })
+  test("expired or near-expiry JWT cookie falls back to remote getClaims call", async () => {
+    const payload = { sub: "user-1", exp: Math.floor(Date.now() / 1000) + 10 } // Only 10s left (<60s)
+    const token =
+      "hdr." + Buffer.from(JSON.stringify(payload)).toString("base64url") + ".sig"
+    const session = JSON.stringify({ access_token: token, expires_at: payload.exp })
+    const cookieVal = "base64-" + Buffer.from(session).toString("base64url")
+
+    const request = new NextRequest("https://example.com/workspace/assessments", {
+      headers: {
+        cookie: `sb-app-auth-token=${cookieVal}`,
+      },
+    })
+    const result = await refreshSupabaseSession(request)
+    expect(result.status).toBe(200)
+    expect(getClaims).toHaveBeenCalled()
+  })
 })

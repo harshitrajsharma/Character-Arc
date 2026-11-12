@@ -7,6 +7,19 @@ import { z } from "zod"
 import { requireVerifiedClaims } from "@/lib/auth/session"
 import { prisma } from "@/lib/prisma"
 
+const userStateRowSchema = z.object({
+  blockId: z.string().uuid(),
+  status: z.enum([
+    "NOT_STARTED",
+    "ACTIVE",
+    "PAUSED",
+    "COMPLETED",
+    "ARCHIVED",
+  ]),
+  progressPercent: z.any(),
+  lastActivityAt: z.date().nullable(),
+})
+
 const examRowsSchema = z.array(
   z.object({
     id: z.string().uuid(),
@@ -22,6 +35,7 @@ const examRowsSchema = z.array(
     updatedAt: z.date(),
     originToolInstallationId: z.string().uuid().nullable(),
     examDetails: z.any().optional(),
+    userStates: z.array(userStateRowSchema).optional(),
   })
 )
 
@@ -136,22 +150,10 @@ export async function getExamsOverview(
     `/workspace/${encodeURIComponent(workspaceSlug)}`
   )
 
-  const blockType = await prisma.blockType.findUnique({
-    where: { key: "exam-prep.exam" },
-    select: { id: true },
-  })
-
-  if (!blockType) {
-    return {
-      exams: [] as ExamListItem[],
-      issue: "catalog_unavailable" as const,
-    }
-  }
-
   const examsData = await prisma.block.findMany({
     where: {
       workspaceId: workspaceId,
-      blockTypeId: blockType.id,
+      blockType: { key: "exam-prep.exam" },
       originToolInstallationId: installationId,
       status: "ACTIVE",
       archivedAt: null,
@@ -182,6 +184,19 @@ export async function getExamsOverview(
           officialUrl: true,
         },
       },
+      userStates: {
+        where: {
+          workspaceId: workspaceId,
+          userId: claims.sub,
+        },
+        select: {
+          blockId: true,
+          status: true,
+          progressPercent: true,
+          lastActivityAt: true,
+        },
+        take: 1,
+      },
     },
     orderBy: { updatedAt: "desc" },
     take: 50,
@@ -196,37 +211,8 @@ export async function getExamsOverview(
     }
   }
 
-  const blockIds = examRows.data.map((exam) => exam.id)
-  const statesData = blockIds.length
-    ? await prisma.userBlockState.findMany({
-        where: {
-          workspaceId: workspaceId,
-          userId: claims.sub,
-          blockId: { in: blockIds },
-        },
-        select: {
-          blockId: true,
-          status: true,
-          progressPercent: true,
-          lastActivityAt: true,
-        },
-      })
-    : []
-  const stateRows = stateRowsSchema.safeParse(statesData)
-
-  if (!stateRows.success) {
-    console.error("stateRowsSchema parse error:", stateRows.error)
-    return {
-      exams: [] as ExamListItem[],
-      issue: "data_unavailable" as const,
-    }
-  }
-
-  const stateByBlockId = new Map(
-    stateRows.data.map((state) => [state.blockId, state])
-  )
   const exams = examRows.data
-    .map((exam) => normalizeExam(exam, stateByBlockId.get(exam.id)))
+    .map((exam) => normalizeExam(exam, exam.userStates?.[0]))
     .filter((exam) => exam.lifecycleStatus !== "archived")
 
   return { exams, issue: null }
@@ -250,24 +236,12 @@ export const getExamDetail = cache(
       `/workspace/${encodeURIComponent(workspaceSlug)}`
     )
 
-    const blockType = await prisma.blockType.findUnique({
-      where: { key: "exam-prep.exam" },
-      select: { id: true },
-    })
-
-    if (!blockType) {
-      return {
-        exam: null,
-        issue: "data_unavailable",
-      }
-    }
-
     const [examData, stateData] = await Promise.all([
       prisma.block.findFirst({
         where: {
           id: parsedExamId.data,
           workspaceId: workspaceId,
-          blockTypeId: blockType.id,
+          blockType: { key: "exam-prep.exam" },
           archivedAt: null,
         },
         select: {

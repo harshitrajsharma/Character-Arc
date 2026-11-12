@@ -16,7 +16,10 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode
 }) {
-  const claims = await requireVerifiedClaims()
+  const [claims, memberships] = await Promise.all([
+    requireVerifiedClaims(),
+    getAppShellData(),
+  ])
   const metadata =
     claims.user_metadata && typeof claims.user_metadata === "object"
       ? claims.user_metadata
@@ -31,7 +34,6 @@ export default async function AppLayout({
     .slice(0, 2)
     .toUpperCase()
 
-  const memberships = await getAppShellData()
   const userInfo = { name, email, avatarUrl, initials }
 
   return (

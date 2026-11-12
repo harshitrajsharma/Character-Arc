@@ -12,6 +12,8 @@ const nextConfig: NextConfig = {
       "recharts",
       "katex",
       "@tanstack/react-table",
+      "motion",
+      "@tanstack/react-query",
     ],
   },
   turbopack: {

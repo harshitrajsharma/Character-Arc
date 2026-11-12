@@ -63,6 +63,7 @@ export function SubjectCard({
           examId,
           subject.id
         )}
+        prefetch={false}
         {...dragActivatorProps}
         onClickCapture={(event) => {
           if (!shouldSuppressNavigation?.()) return

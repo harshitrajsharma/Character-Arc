@@ -14,6 +14,11 @@ export type BreadcrumbState = {
   backLabel?: string
 }
 
+type StoredBreadcrumbs = {
+  pathname: string
+  state: BreadcrumbState
+}
+
 type BreadcrumbContextType = {
   breadcrumbs: BreadcrumbState | null
   setBreadcrumbs: (state: BreadcrumbState | null) => void
@@ -25,18 +30,26 @@ const BreadcrumbContext = React.createContext<BreadcrumbContextType>({
 })
 
 export function BreadcrumbProvider({ children }: { children: React.ReactNode }) {
-  const [breadcrumbs, setBreadcrumbs] = React.useState<BreadcrumbState | null>(null)
+  const [stored, setStored] = React.useState<StoredBreadcrumbs | null>(null)
   const pathname = usePathname()
 
-  // Clear custom breadcrumbs when navigating to a new route unless replaced by new component
-  const [prevPathname, setPrevPathname] = React.useState(pathname)
-  if (prevPathname !== pathname) {
-    setPrevPathname(pathname)
-    setBreadcrumbs(null)
-  }
+  const setBreadcrumbs = React.useCallback(
+    (state: BreadcrumbState | null) => {
+      setStored(state ? { pathname, state } : null)
+    },
+    [pathname]
+  )
+
+  // Naturally clears custom breadcrumbs on route change without cascading effects or render-phase setState
+  const breadcrumbs = stored?.pathname === pathname ? stored.state : null
+
+  const contextValue = React.useMemo<BreadcrumbContextType>(
+    () => ({ breadcrumbs, setBreadcrumbs }),
+    [breadcrumbs, setBreadcrumbs]
+  )
 
   return (
-    <BreadcrumbContext.Provider value={{ breadcrumbs, setBreadcrumbs }}>
+    <BreadcrumbContext.Provider value={contextValue}>
       {children}
     </BreadcrumbContext.Provider>
   )
@@ -59,13 +72,14 @@ export function SetNavbarBreadcrumbs({
   backLabel?: string
 }) {
   const { setBreadcrumbs } = useBreadcrumb()
+  const serialized = JSON.stringify(segments)
 
   React.useEffect(() => {
     setBreadcrumbs({ segments, backHref, backLabel })
     return () => {
       setBreadcrumbs(null)
     }
-  }, [setBreadcrumbs, JSON.stringify(segments), backHref, backLabel])
+  }, [setBreadcrumbs, serialized, backHref, backLabel])
 
   return null
 }

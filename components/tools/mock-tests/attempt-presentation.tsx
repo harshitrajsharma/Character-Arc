@@ -86,16 +86,19 @@ export function AttemptAction({
   label,
   accessibleLabel,
   className,
+  prefetch,
 }: {
   href: string
   action: "resume" | "review"
   label?: string
   accessibleLabel: string
   className?: string
+  prefetch?: boolean
 }) {
   return (
     <Link
       href={href}
+      prefetch={prefetch}
       aria-label={accessibleLabel}
       className={cn(
         buttonVariants({

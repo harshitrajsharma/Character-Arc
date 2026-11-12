@@ -10,7 +10,7 @@ export class ToolInstallationUnavailableError extends Error {
     )
     this.name = "ToolInstallationUnavailableError"
     this.recoveryHref =
-      getFirstPartyToolManifest(toolKey)?.routes.home ?? "/tools"
+      getFirstPartyToolManifest(toolKey)?.routes?.home ?? "/tools"
   }
 }
 
