@@ -1,7 +1,8 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
-import { Book, Target } from "lucide-react"
+import { Book, Loader2, Target } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
@@ -36,6 +37,8 @@ export function SubjectCard({
   shouldSuppressNavigation,
   isDragging = false,
 }: SubjectCardProps) {
+  const [isNavigating, setIsNavigating] = useState(false)
+
   const {
     overall,
     learning,
@@ -63,8 +66,13 @@ export function SubjectCard({
           examId,
           subject.id
         )}
-        prefetch={false}
         {...dragActivatorProps}
+        onClick={(event) => {
+          if (shouldSuppressNavigation?.()) return
+          if (!event.ctrlKey && !event.metaKey && !event.shiftKey && event.button === 0) {
+            setIsNavigating(true)
+          }
+        }}
         onClickCapture={(event) => {
           if (!shouldSuppressNavigation?.()) return
 
@@ -74,7 +82,8 @@ export function SubjectCard({
         className={cn(
           "block h-full rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-hidden",
           dragActivatorProps && "cursor-pointer touch-manipulation select-none",
-          isDragging && "cursor-grabbing"
+          isDragging && "cursor-grabbing",
+          isNavigating && "cursor-wait"
         )}
         aria-label={`View subject details for ${subject.name}, overall progress ${overall} percent, status is ${category.replace("-", " ")}`}
       >
@@ -86,7 +95,8 @@ export function SubjectCard({
             "before:absolute before:inset-0 before:rounded-lg before:bg-linear-to-b before:from-white/5 before:to-black/5 before:dark:from-white/5 before:dark:to-black/20",
             "after:absolute after:inset-0 after:rounded-lg after:bg-background/5 after:opacity-0",
             "hover:after:opacity-100",
-            isDragging && "scale-[1.01] border-brand-neon-line shadow-xl"
+            isDragging && "scale-[1.01] border-brand-neon-line shadow-xl",
+            isNavigating && "border-brand-neon/60 ring-2 ring-brand-neon/40 shadow-xl cursor-wait"
           )}
         >
           <div className="relative z-10 space-y-4">
@@ -96,39 +106,42 @@ export function SubjectCard({
                 <h2 className="wrap-break-words line-clamp-2 min-h-12 text-xl leading-tight font-bold text-foreground">
                   {subject.name}
                 </h2>
-                <Badge
-                  className={cn(
-                    "shrink-0 rounded-md px-2 py-1 text-xs font-medium backdrop-blur-sm",
-                    categoryVariants[category].badge
+                <div className="flex items-center gap-2">
+                  {isNavigating && (
+                    <Badge
+                      variant="outline"
+                      className="flex items-center gap-1.5 border-brand-neon/50 bg-brand-neon/10 px-2 py-0.5 text-xs font-medium text-brand-neon animate-pulse"
+                    >
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Loading...
+                    </Badge>
                   )}
-                >
-                  {overall}%
-                </Badge>
+                  <Badge
+                    className={cn(
+                      "shrink-0 rounded-md px-2 py-1 text-xs font-medium backdrop-blur-sm",
+                      categoryVariants[category].badge
+                    )}
+                  >
+                    {overall}%
+                  </Badge>
+                </div>
               </div>
 
-              <div className="flex items-center justify-between gap-2 text-sm">
-                <div className="flex items-center gap-3 text-muted-foreground">
-                  <div className="flex items-center gap-1.5">
-                    <Book
-                      className="h-4 w-4 text-muted-foreground/75"
-                      aria-hidden="true"
-                    />
-                    <span>{totalChapters} chapters</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Target
-                      className="h-4 w-4 text-muted-foreground/75"
-                      aria-hidden="true"
-                    />
-                    <span>{totalTopics} topics</span>
-                  </div>
+              <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                <div className="flex items-center gap-1.5">
+                  <Book
+                    className="h-4 w-4 text-muted-foreground/75"
+                    aria-hidden="true"
+                  />
+                  <span>{totalChapters} chapters</span>
                 </div>
-                <Badge
-                  variant="secondary"
-                  className="shrink-0 rounded-md text-xs font-normal backdrop-blur-sm"
-                >
-                  {subject.weightage}% weightage
-                </Badge>
+                <div className="flex items-center gap-1.5">
+                  <Target
+                    className="h-4 w-4 text-muted-foreground/75"
+                    aria-hidden="true"
+                  />
+                  <span>{totalTopics} topics</span>
+                </div>
               </div>
             </div>
 

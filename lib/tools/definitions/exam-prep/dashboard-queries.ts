@@ -191,12 +191,13 @@ export function checkSubjectEligibility({
 
 // --- Query Functions ---
 
-export async function getExamDashboardData(
-  examId: string,
-  workspaceId: string,
-  installationId: string,
-  userId: string
-): Promise<SubjectWithRelations[]> {
+export const getExamDashboardData = cache(
+  async (
+    examId: string,
+    workspaceId: string,
+    installationId: string,
+    userId: string
+  ): Promise<SubjectWithRelations[]> => {
   const uuid = z.string().uuid()
   if (
     !uuid.safeParse(workspaceId).success ||
@@ -492,7 +493,7 @@ export async function getExamDashboardData(
       }),
     })
   })
-}
+})
 
 export async function getSubjectDashboardData(
   subjectId: string,
@@ -732,13 +733,14 @@ export async function getSubjectDashboardData(
   })
 }
 
-export async function getExamSubjectDashboardData(
-  workspaceId: string,
-  installationId: string,
-  examId: string,
-  subjectId: string,
-  userId: string
-): Promise<SubjectWithRelations | null> {
+export const getExamSubjectDashboardData = cache(
+  async (
+    workspaceId: string,
+    installationId: string,
+    examId: string,
+    subjectId: string,
+    userId: string
+  ): Promise<SubjectWithRelations | null> => {
   const uuid = z.string().uuid()
   if (
     !uuid.safeParse(workspaceId).success ||
@@ -1013,7 +1015,7 @@ export async function getExamSubjectDashboardData(
         }
       }),
   })
-}
+})
 
 /**
  * Lightweight subject title lookup — used by generateMetadata on the subject page.
